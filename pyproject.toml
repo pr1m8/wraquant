@@ -1,0 +1,256 @@
+[project]
+name = "wraquant"
+version = "0.1.0"
+description = "Default template for PDM package"
+authors = [
+    {name = "William Astley", email = "william.astley@algebraicwealth.com"},
+]
+dependencies = ["numpy>=2.4.2", "scipy>=1.17.1", "pandas>=3.0.1", "pyarrow>=23.0.1", "polars>=1.38.1", "duckdb>=1.4.4", "statsmodels>=0.14.6", "scikit-learn>=1.8.0", "numba>=0.64.0", "bottleneck>=1.6.0", "numexpr>=2.14.1", "joblib>=1.5.3", "sympy>=1.14.0", "symengine>=0.14.1", "mpmath>=1.3.0", "patsy>=1.0.2", "numdifftools>=0.9.42", "pydantic>=2.12.5", "pydantic-settings>=2.13.1", "orjson>=3.11.7", "msgpack>=1.1.2", "python-dateutil>=2.9.0.post0", "rich>=14.3.3", "tenacity>=9.1.4", "structlog>=25.5.0", "loguru>=0.7.3"]
+requires-python = ">=3.13"
+readme = "README.md"
+license = {text = "MIT"}
+
+[project.optional-dependencies]
+market-data = [
+    "yfinance>=1.2.0",
+    "pandas-datareader>=0.10.0",
+    "fredapi>=0.5.2",
+    "nasdaq-data-link>=1.0.4",
+    "exchange-calendars>=4.13.1",
+    "pandas-market-calendars>=5.3.1",
+]
+timeseries = [
+    "pmdarima>=2.1.1",
+    "arch>=8.0.0",
+    "linearmodels>=7.0",
+    "sktime>=0.8.0",
+    "skforecast>=0.19.1",
+    "statsforecast>=2.0.1",
+    "mlforecast>=1.0.2",
+    "neuralforecast>=3.1.5",
+    "hierarchicalforecast>=1.4.0",
+    "tslearn>=0.8.0",
+    "tsfresh>=0.21.1",
+    "ruptures>=1.1.10",
+    "stumpy>=1.14.1",
+    "pywavelets>=1.9.0",
+]
+cleaning = [
+    "pyjanitor>=0.32.20",
+    "ftfy>=6.3.1",
+    "unidecode>=1.4.0",
+    "rapidfuzz>=3.14.3",
+    "python-slugify>=8.0.4",
+    "dateparser>=1.3.0",
+    "price-parser>=0.5.0",
+    "country-converter>=1.3.2",
+]
+validation = [
+    "pandera>=0.29.0",
+    "great-expectations>=1.13.0",
+    "frictionless>=5.18.1",
+    "pydantic-extra-types>=2.11.0",
+    "email-validator>=2.3.0",
+]
+etl = [
+    "dlt>=1.22.2",
+    "petl>=1.7.17",
+    "ibis-framework>=12.0.0",
+    "fsspec>=2026.2.0",
+    "smart-open>=7.5.1",
+    "s3fs>=2026.2.0",
+    "gcsfs>=2026.2.0",
+    "adlfs>=2026.2.0",
+    "sqlalchemy>=2.0.48",
+    "sqlmodel>=0.0.37",
+    "asyncpg>=0.31.0",
+    "psycopg>=3.3.3",
+    "connectorx>=0.4.5",
+]
+warehouse = [
+    "dbt-core>=1.11.6",
+    "dbt-duckdb>=1.10.1",
+    "dbt-postgres>=1.10.0",
+]
+ingestion = [
+    "httpx>=0.28.1",
+    "aiohttp>=3.13.3",
+    "websockets>=16.0",
+    "requests>=2.32.5",
+    "beautifulsoup4>=4.14.3",
+    "lxml>=6.0.2",
+    "xmltodict>=1.0.4",
+]
+workflow = [
+    "prefect>=3.6.20",
+    "dagster>=1.12.17",
+    "apscheduler>=3.11.2",
+    "watchdog>=6.0.0",
+    "questionary>=2.1.1",
+    "rich-click>=1.9.7",
+    "python-dotenv>=1.2.2",
+    "diskcache>=5.6.3",
+]
+profiling = [
+    "pyinstrument>=5.1.2",
+    "snakeviz>=2.2.2",
+    "scalene>=2.1.4",
+    "memory-profiler>=0.61.0",
+    "line-profiler>=5.0.2",
+]
+dev = [
+    "pre-commit>=4.5.1",
+    "pre-commit-hooks>=6.0.0",
+    "ipykernel>=7.2.0",
+    "jupyterlab>=4.5.5",
+    "notebook>=7.5.4",
+    "pytest>=9.0.2",
+    "pytest-cov>=7.0.0",
+    "hypothesis>=6.151.9",
+    "ruff>=0.15.4",
+    "mypy>=1.19.1",
+    "pyright>=1.1.408",
+]
+optimization = [
+    "cvxpy>=1.8.1",
+    "cvxopt>=1.3.3",
+    "osqp>=1.1.1",
+    "scs>=3.2.11",
+    "clarabel>=0.11.1",
+    "qpsolvers>=4.8.2",
+    "pulp>=3.3.0",
+    "ortools>=9.15.6755",
+    "pyomo>=6.10.0",
+    "pymoo>=0.6.1.6",
+]
+regimes = [
+    "hmmlearn>=0.3.3",
+    "pomegranate>=1.1.2",
+    "pykalman>=0.11.2",
+    "filterpy>=1.4.5",
+    "statsmodels>=0.14.6",
+    "dynamax>=1.0.1",
+    "tensorflow-probability>=0.25.0",
+    "pymc>=5.28.0",
+    "pyro-ppl>=1.9.1",
+    "ruptures>=1.1.10",
+    "river>=0.19.0",
+    "pybats>=0.0.5",
+    "darts>=0.20.0",
+    "bayesian-filters>=1.4.5",
+]
+pde = [
+    "devito>=4.8.21",
+    "py-pde>=0.51.0",
+    "FiPy>=4.0.2",
+    "sfepy>=2025.4",
+    "findiff>=0.13.1",
+    "pyamg>=5.3.0",
+    "scikit-fem>=12.0.1",
+    "meshio>=5.3.5",
+    "pygmsh>=7.1.17",
+    "gmsh>=4.15.1",
+    "diffeqpy>=2.5.5",
+]
+backtesting = [
+    "vectorbt>=0.28.2",
+    "zipline-reloaded>=3.0.4",
+    "backtrader>=1.9.78.123",
+    "backtesting>=0.6.5",
+    "bt>=1.1.3",
+    "empyrical-reloaded>=0.5.12",
+    "pyfolio-reloaded>=0.9.7",
+    "alphalens-reloaded>=0.4.3",
+    "quantstats>=0.0.81",
+    "quantstats-reloaded>=0.1.0",
+    "ffn>=1.1.3",
+]
+risk = [
+    "pyportfolioopt>=1.6.0",
+    "riskfolio-lib>=7.2.1",
+    "skfolio>=0.15.5",
+    "copulas>=0.14.0",
+    "copulae>=0.7.9",
+    "pyvinecopulib>=0.7.5",
+    "pyextremes>=2.2.4",
+]
+pricing = [
+    "QuantLib>=1.41",
+    "rateslib>=2.6.0",
+    "financepy>=1.0.1",
+    "mibian>=0.1.3",
+    "py-vollib-gen>=1.0.1",
+    "py-vollib-vectorized>=0.1.1",
+    "QuantLib-Risks; python_version < \"3.13\"",
+]
+stochastic = [
+    "sdepy>=1.2.0",
+    "sdeint>=0.3.0",
+    "stochastic>=0.4.0",
+    "torchsde>=0.2.6",
+]
+lp-extra = [
+    "highspy>=1.13.1",
+    "mip>=1.17.1",
+    "swiglpk>=5.0.13",
+]
+conic-extra = [
+    "ecos>=2.0.14",
+]
+nlp-extra = [
+    "casadi>=3.7.2",
+    "nlopt>=2.10.0",
+]
+causal = [
+    "dowhy>=0.14",
+    "econml>=0.12.0",
+    "DoubleML>=0.11.2",
+]
+quant-math = [
+    "jax>=0.9.1",
+    "jaxlib>=0.9.1",
+    "jaxopt>=0.8.5",
+    "optax>=0.2.7",
+    "chex>=0.1.91",
+    "equinox>=0.13.4",
+    "diffrax>=0.7.2",
+    "lineax>=0.1.0",
+    "optimistix>=0.1.0",
+    "jaxtyping>=0.3.9",
+    "einops>=0.8.2",
+]
+bayes = [
+    "pymc>=5.28.0",
+    "arviz>=1.0.0",
+    "bambi>=0.16.0",
+    "numpyro>=0.20.0",
+    "blackjax>=1.2.5",
+    "emcee>=3.1.6",
+    "dynesty>=3.0.0",
+    "cmdstanpy>=1.3.0",
+    "pyro-ppl>=1.9.1",
+]
+viz = [
+    "matplotlib>=3.10.8",
+    "seaborn>=0.13.2",
+    "plotly>=6.6.0",
+    "kaleido>=1.2.0",
+    "bokeh>=3.8.2",
+    "altair>=6.0.0",
+    "holoviews>=1.22.1",
+    "hvplot>=0.12.2",
+    "datashader>=0.18.2",
+    "pyvista>=0.47.1",
+]
+scale = [
+    "dask>=2026.1.2",
+    "dask-ml>=2025.1.0",
+    "ray>=2.54.0",
+]
+[build-system]
+requires = ["pdm-backend"]
+build-backend = "pdm.backend"
+
+
+[tool.pdm]
+distribution = true
