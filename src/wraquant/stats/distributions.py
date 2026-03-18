@@ -337,3 +337,123 @@ def kolmogorov_smirnov(
         "dist": dist,
         "params": params,
     }
+
+
+# ---------------------------------------------------------------------------
+# Anderson-Darling and best-fit distribution
+# ---------------------------------------------------------------------------
+
+
+def anderson_darling(
+    data: pd.Series | np.ndarray,
+    dist: str = "norm",
+) -> dict:
+    """Perform the Anderson-Darling goodness-of-fit test.
+
+    The Anderson-Darling test is more sensitive to deviations in the
+    tails than the Kolmogorov-Smirnov test, making it more appropriate
+    for financial data where tail behaviour matters most (e.g., VaR
+    and CVaR estimation).
+
+    Parameters:
+        data: Data array or series.
+        dist: Distribution to test against.  Supported values depend on
+            ``scipy.stats.anderson`` and include ``"norm"``, ``"expon"``,
+            ``"logistic"``, ``"gumbel"``, ``"gumbel_l"``, ``"gumbel_r"``.
+
+    Returns:
+        Dictionary with:
+        - ``statistic``: Anderson-Darling test statistic.
+        - ``critical_values``: array of critical values for each
+          significance level.
+        - ``significance_levels``: corresponding significance levels (%).
+
+    Example:
+        >>> import numpy as np
+        >>> data = np.random.default_rng(42).normal(0, 1, 1000)
+        >>> anderson_darling(data)  # doctest: +SKIP
+    """
+    clean = np.asarray(data, dtype=float)
+    clean = clean[~np.isnan(clean)]
+    result = sp_stats.anderson(clean, dist=dist)
+
+    return {
+        "statistic": float(result.statistic),
+        "critical_values": result.critical_values,
+        "significance_levels": result.significance_level,
+    }
+
+
+def best_fit_distribution(
+    data: pd.Series | np.ndarray,
+    candidates: list[str] | None = None,
+) -> pd.DataFrame:
+    """Rank candidate distributions by goodness of fit.
+
+    Fits multiple parametric distributions to the data and ranks them
+    by AIC and KS/AD statistics.  Use this to choose the best model
+    for return distributions when the assumption of normality fails
+    (which it usually does in finance).
+
+    Parameters:
+        data: Data array or series.
+        candidates: List of ``scipy.stats`` distribution names to test.
+            Defaults to ``["norm", "t", "skewnorm", "gennorm", "nct",
+            "johnsonsu"]`` -- a set well-suited for financial returns.
+
+    Returns:
+        DataFrame with columns: ``distribution``, ``params``,
+        ``ks_statistic``, ``ad_statistic``, ``aic``, sorted by AIC
+        (ascending).
+
+    Example:
+        >>> import numpy as np
+        >>> data = np.random.default_rng(42).standard_t(df=5, size=1000)
+        >>> best_fit_distribution(data)  # doctest: +SKIP
+    """
+    if candidates is None:
+        candidates = ["norm", "t", "skewnorm", "gennorm", "nct", "johnsonsu"]
+
+    clean = np.asarray(data, dtype=float)
+    clean = clean[~np.isnan(clean)]
+    n = len(clean)
+
+    rows: list[dict] = []
+    for name in candidates:
+        try:
+            dist_obj = getattr(sp_stats, name)
+            params = dist_obj.fit(clean)
+
+            # KS test
+            ks_stat, _ = sp_stats.kstest(clean, name, args=params)
+
+            # Anderson-Darling (only for 'norm'; otherwise use KS)
+            try:
+                ad_result = sp_stats.anderson(clean, dist=name)
+                ad_stat = float(ad_result.statistic)
+            except ValueError:
+                # anderson() only supports a limited set of distributions
+                ad_stat = float("nan")
+
+            # AIC = 2k - 2ln(L)
+            k = len(params)
+            log_likelihood = float(np.sum(dist_obj.logpdf(clean, *params)))
+            aic = 2 * k - 2 * log_likelihood
+
+            rows.append(
+                {
+                    "distribution": name,
+                    "params": params,
+                    "ks_statistic": float(ks_stat),
+                    "ad_statistic": ad_stat,
+                    "aic": float(aic),
+                }
+            )
+        except Exception:  # noqa: BLE001
+            # Skip distributions that fail to fit
+            continue
+
+    df = pd.DataFrame(rows)
+    if not df.empty:
+        df = df.sort_values("aic").reset_index(drop=True)
+    return df

@@ -789,3 +789,133 @@ class TestVarianceRiskPremium:
         rv = np.array([0.10, 0.15])
         result = variance_risk_premium(iv, rv)
         np.testing.assert_allclose(result["vrp_ratio"], [2.0, 2.0])
+
+
+# ---------------------------------------------------------------------------
+# APARCH
+# ---------------------------------------------------------------------------
+
+
+@requires_arch
+class TestAparchFit:
+    def test_basic_fit(self, returns_series: pd.Series) -> None:
+        from wraquant.vol.models import aparch_fit
+
+        result = aparch_fit(returns_series, p=1, o=1, q=1)
+        assert "params" in result
+        assert "conditional_volatility" in result
+        assert "APARCH" in result["model_name"]
+
+    def test_positive_vol(self, returns_series: pd.Series) -> None:
+        from wraquant.vol.models import aparch_fit
+
+        result = aparch_fit(returns_series, p=1, o=1, q=1)
+        assert (result["conditional_volatility"] > 0).all()
+
+    def test_power_param_in_results(self, returns_series: pd.Series) -> None:
+        from wraquant.vol.models import aparch_fit
+
+        result = aparch_fit(returns_series, p=1, o=1, q=1)
+        # APARCH has a 'delta' power parameter in its fitted params
+        param_keys = " ".join(result["params"].keys())
+        assert "delta" in param_keys or "gamma" in param_keys
+
+    def test_aic_bic_finite(self, returns_series: pd.Series) -> None:
+        from wraquant.vol.models import aparch_fit
+
+        result = aparch_fit(returns_series, p=1, o=1, q=1)
+        assert np.isfinite(result["aic"])
+        assert np.isfinite(result["bic"])
+
+
+# ---------------------------------------------------------------------------
+# GARCH Rolling Forecast
+# ---------------------------------------------------------------------------
+
+
+@requires_arch
+class TestGarchRollingForecast:
+    def test_output_length_fixed_window(
+        self, returns_series: pd.Series
+    ) -> None:
+        from wraquant.vol.models import garch_rolling_forecast
+
+        window = 500
+        result = garch_rolling_forecast(
+            returns_series, window=window, refit_every=50
+        )
+        expected_len = len(returns_series) - window
+        assert len(result["forecasts"]) == expected_len
+        assert len(result["actuals"]) == expected_len
+
+    def test_positive_forecasts(self, returns_series: pd.Series) -> None:
+        from wraquant.vol.models import garch_rolling_forecast
+
+        result = garch_rolling_forecast(
+            returns_series, window=500, refit_every=50
+        )
+        assert (result["forecasts"] > 0).all()
+
+    def test_expanding_window(self, returns_series: pd.Series) -> None:
+        from wraquant.vol.models import garch_rolling_forecast
+
+        # window=None means expanding window from min_obs=100
+        result = garch_rolling_forecast(
+            returns_series, window=None, refit_every=100
+        )
+        expected_len = len(returns_series) - 100
+        assert len(result["forecasts"]) == expected_len
+
+    def test_dates_present(self, returns_series: pd.Series) -> None:
+        from wraquant.vol.models import garch_rolling_forecast
+
+        result = garch_rolling_forecast(
+            returns_series, window=500, refit_every=50
+        )
+        assert len(result["dates"]) == len(result["forecasts"])
+
+
+# ---------------------------------------------------------------------------
+# GARCH Model Selection
+# ---------------------------------------------------------------------------
+
+
+@requires_arch
+class TestGarchModelSelection:
+    def test_returns_dataframe(self, returns_series: pd.Series) -> None:
+        from wraquant.vol.models import garch_model_selection
+
+        df = garch_model_selection(returns_series)
+        assert isinstance(df, pd.DataFrame)
+
+    def test_correct_columns(self, returns_series: pd.Series) -> None:
+        from wraquant.vol.models import garch_model_selection
+
+        df = garch_model_selection(returns_series)
+        for col in [
+            "model",
+            "vol_model",
+            "distribution",
+            "aic",
+            "bic",
+            "log_likelihood",
+            "persistence",
+        ]:
+            assert col in df.columns, f"Missing column: {col}"
+
+    def test_best_model_identified(
+        self, returns_series: pd.Series
+    ) -> None:
+        from wraquant.vol.models import garch_model_selection
+
+        df = garch_model_selection(returns_series)
+        # DataFrame is sorted by AIC ascending, so first row is best
+        assert len(df) > 0
+        assert df["aic"].iloc[0] == df["aic"].min()
+
+    def test_multiple_models(self, returns_series: pd.Series) -> None:
+        from wraquant.vol.models import garch_model_selection
+
+        df = garch_model_selection(returns_series)
+        # Should have at least 6 rows: 3 vol specs x 2+ distributions
+        assert len(df) >= 6

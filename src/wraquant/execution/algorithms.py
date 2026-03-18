@@ -1,8 +1,48 @@
-"""Execution algorithm schedules.
+"""Execution algorithm schedules and transaction cost analysis.
 
-Provides scheduling functions for common execution algorithms:
-TWAP, VWAP, participation-of-volume (POV), and benchmark analytics
-such as implementation shortfall and arrival price cost.
+Execution algorithms control *how* a large order is sliced into smaller
+child orders and distributed across time to minimise market impact and
+execution cost. This module provides scheduling logic for the three
+most common algorithms and tools for measuring execution quality.
+
+Algorithms:
+    - ``twap_schedule``: Time-Weighted Average Price. Splits the order
+      evenly across intervals. The simplest algorithm; minimises timing
+      risk but ignores volume patterns. Use for low-urgency orders in
+      liquid markets.
+
+    - ``vwap_schedule``: Volume-Weighted Average Price. Allocates
+      proportionally to expected volume. Tracks the market's VWAP,
+      which is the most common benchmark for institutional execution.
+      Use when you want to trade "at the market's pace."
+
+    - ``participation_rate_schedule``: Participation-of-Volume (POV).
+      Targets a fixed fraction of market volume in each interval. Use
+      when you want to limit market impact to a known participation
+      rate (e.g., "never trade more than 10% of volume").
+
+Execution quality analytics:
+    - ``implementation_shortfall``: decomposes total execution cost
+      into delay cost (waiting), trading impact (price movement during
+      execution), and opportunity cost (unexecuted portion). The most
+      comprehensive cost metric.
+
+    - ``arrival_price_benchmark``: measures execution cost relative to
+      the price when the order arrived. Simpler than IS but widely
+      used for benchmarking.
+
+How to choose:
+    - **Low urgency, liquid market**: TWAP or VWAP.
+    - **Volume-sensitive market**: VWAP (tracks volume profile).
+    - **Need to limit participation**: POV.
+    - **High urgency**: aggressive POV with high target rate.
+    - **Measuring execution quality**: implementation shortfall for
+      attribution, arrival price for quick benchmarking.
+
+References:
+    - Almgren & Chriss (2001), "Optimal Execution of Portfolio
+      Transactions"
+    - Perold (1988), "The Implementation Shortfall"
 """
 
 from __future__ import annotations

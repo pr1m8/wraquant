@@ -212,3 +212,94 @@ class TestRebalanceThreshold:
         current = pd.Series([0.7, 0.3])
         target = pd.Series([0.5, 0.5])
         assert rebalance_threshold(current, target, threshold=0.10) is True
+
+
+# ------------------------------------------------------------------
+# risk_parity_position
+# ------------------------------------------------------------------
+
+from wraquant.backtest.position import risk_parity_position, regime_conditional_sizing
+
+
+class TestRiskParityPosition:
+    def test_weights_sum_to_one(self) -> None:
+        cov = np.array([[0.04, 0.01], [0.01, 0.09]])
+        w = risk_parity_position(cov)
+        assert abs(w.sum() - 1.0) < 1e-4
+
+    def test_lower_vol_gets_more_weight(self) -> None:
+        cov = np.diag([0.01, 0.04, 0.09])
+        w = risk_parity_position(cov)
+        assert w[0] > w[1] > w[2]
+
+    def test_with_target_vol(self) -> None:
+        cov = np.array([[0.04, 0.01], [0.01, 0.09]])
+        w = risk_parity_position(cov, target_vol=0.10)
+        # With target_vol, weights may not sum to 1 (scaled by leverage)
+        assert isinstance(w, np.ndarray)
+        assert len(w) == 2
+        # Weights should be different from the unscaled version
+        w_unscaled = risk_parity_position(cov)
+        assert not np.allclose(w, w_unscaled, atol=1e-6)
+
+    def test_three_assets(self) -> None:
+        cov = np.array([
+            [0.04, 0.005, 0.002],
+            [0.005, 0.09, 0.01],
+            [0.002, 0.01, 0.01],
+        ])
+        w = risk_parity_position(cov)
+        assert abs(w.sum() - 1.0) < 1e-4
+        assert len(w) == 3
+
+
+# ------------------------------------------------------------------
+# regime_conditional_sizing
+# ------------------------------------------------------------------
+
+class TestRegimeConditionalSizing:
+    def test_scaling_down(self) -> None:
+        base = np.array([0.5, 0.3, 0.2])
+        probs = {"normal": 0.2, "high_vol": 0.8}
+        mults = {"normal": 1.0, "high_vol": 0.5}
+        adj = regime_conditional_sizing(base, probs, mults)
+        # Effective mult = 0.2*1.0 + 0.8*0.5 = 0.6
+        np.testing.assert_allclose(adj, base * 0.6, atol=1e-10)
+
+    def test_scaling_up(self) -> None:
+        base = np.array([0.5, 0.5])
+        probs = {"low_vol": 1.0}
+        mults = {"low_vol": 1.5}
+        adj = regime_conditional_sizing(base, probs, mults)
+        np.testing.assert_allclose(adj, base * 1.5, atol=1e-10)
+
+    def test_neutral_regime(self) -> None:
+        base = np.array([0.4, 0.3, 0.3])
+        probs = {"normal": 1.0}
+        mults = {"normal": 1.0}
+        adj = regime_conditional_sizing(base, probs, mults)
+        np.testing.assert_allclose(adj, base, atol=1e-10)
+
+    def test_missing_multiplier_defaults_to_one(self) -> None:
+        base = np.array([0.5, 0.5])
+        probs = {"unknown_regime": 1.0}
+        mults = {"normal": 0.5}  # no "unknown_regime" key
+        adj = regime_conditional_sizing(base, probs, mults)
+        # Default multiplier = 1.0
+        np.testing.assert_allclose(adj, base, atol=1e-10)
+
+    def test_mixed_regimes(self) -> None:
+        base = np.array([0.6, 0.4])
+        probs = {"bull": 0.6, "bear": 0.4}
+        mults = {"bull": 1.2, "bear": 0.5}
+        # Effective mult = 0.6*1.2 + 0.4*0.5 = 0.72 + 0.20 = 0.92
+        adj = regime_conditional_sizing(base, probs, mults)
+        np.testing.assert_allclose(adj, base * 0.92, atol=1e-10)
+
+    def test_pandas_series_input(self) -> None:
+        base = pd.Series([0.5, 0.3, 0.2])
+        probs = {"normal": 1.0}
+        mults = {"normal": 0.8}
+        adj = regime_conditional_sizing(base, probs, mults)
+        expected = np.array([0.4, 0.24, 0.16])
+        np.testing.assert_allclose(adj, expected, atol=1e-10)

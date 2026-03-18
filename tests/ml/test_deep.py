@@ -195,3 +195,156 @@ class TestAutoencoderFeatures:
         df = pd.DataFrame(np.random.randn(100, 10))
         result = autoencoder_features(df, latent_dim=3, hidden_dim=16, n_epochs=3)
         assert result["latent_features"].shape == (100, 3)
+
+
+# ---------------------------------------------------------------------------
+# Multivariate LSTM
+# ---------------------------------------------------------------------------
+
+
+class TestMultivariateLSTMForecast:
+    def test_output_keys(self) -> None:
+        import pandas as pd
+
+        from wraquant.ml.deep import multivariate_lstm_forecast
+
+        np.random.seed(42)
+        df = pd.DataFrame(
+            {
+                "feat_a": np.cumsum(np.random.randn(300) * 0.01),
+                "feat_b": np.cumsum(np.random.randn(300) * 0.01),
+                "feat_c": np.abs(np.random.randn(300)) * 0.02,
+            }
+        )
+        target = pd.Series(np.cumsum(np.random.randn(300) * 0.01))
+        result = multivariate_lstm_forecast(
+            df, target, seq_length=10, hidden_dim=16, n_layers=1, n_epochs=3
+        )
+        assert "predictions" in result
+        assert "actuals" in result
+        assert "train_losses" in result
+        assert "train_mse" in result
+        assert "test_mse" in result
+        assert "model" in result
+
+    def test_prediction_shape(self) -> None:
+        import pandas as pd
+
+        from wraquant.ml.deep import multivariate_lstm_forecast
+
+        np.random.seed(42)
+        n_samples = 300
+        n_features = 4
+        df = pd.DataFrame(np.random.randn(n_samples, n_features))
+        target = np.cumsum(np.random.randn(n_samples) * 0.01)
+        result = multivariate_lstm_forecast(
+            df,
+            target,
+            seq_length=10,
+            hidden_dim=16,
+            n_layers=1,
+            n_epochs=3,
+            train_ratio=0.8,
+        )
+        assert result["predictions"].shape == result["actuals"].shape
+        assert len(result["predictions"]) > 0
+
+    def test_model_is_torch_module(self) -> None:
+        import pandas as pd
+
+        from wraquant.ml.deep import multivariate_lstm_forecast
+
+        np.random.seed(7)
+        df = pd.DataFrame(np.random.randn(200, 3))
+        target = np.random.randn(200)
+        result = multivariate_lstm_forecast(
+            df, target, seq_length=5, hidden_dim=8, n_layers=1, n_epochs=2
+        )
+        assert isinstance(result["model"], torch.nn.Module)
+
+    def test_metrics_are_finite(self) -> None:
+        import pandas as pd
+
+        from wraquant.ml.deep import multivariate_lstm_forecast
+
+        np.random.seed(42)
+        df = pd.DataFrame(np.random.randn(200, 3))
+        target = np.random.randn(200)
+        result = multivariate_lstm_forecast(
+            df, target, seq_length=5, hidden_dim=8, n_layers=1, n_epochs=3
+        )
+        assert np.isfinite(result["train_mse"])
+        assert np.isfinite(result["test_mse"])
+
+
+# ---------------------------------------------------------------------------
+# Temporal Fusion Transformer
+# ---------------------------------------------------------------------------
+
+
+class TestTemporalFusionTransformer:
+    def test_output_keys(self) -> None:
+        import pandas as pd
+
+        from wraquant.ml.deep import temporal_fusion_transformer
+
+        np.random.seed(42)
+        df = pd.DataFrame(
+            {
+                "momentum": np.random.randn(300),
+                "volume": np.abs(np.random.randn(300)),
+                "spread": np.random.randn(300) * 0.1,
+            }
+        )
+        target = pd.Series(np.cumsum(np.random.randn(300) * 0.01))
+        result = temporal_fusion_transformer(
+            df, target, seq_length=10, hidden_dim=16, n_heads=2, n_epochs=3
+        )
+        assert "predictions" in result
+        assert "actuals" in result
+        assert "train_losses" in result
+        assert "feature_importance" in result
+        assert "feature_names" in result
+        assert "model" in result
+
+    def test_feature_importance_shape(self) -> None:
+        import pandas as pd
+
+        from wraquant.ml.deep import temporal_fusion_transformer
+
+        np.random.seed(42)
+        n_features = 4
+        df = pd.DataFrame(np.random.randn(300, n_features))
+        target = np.random.randn(300)
+        result = temporal_fusion_transformer(
+            df, target, seq_length=10, hidden_dim=16, n_heads=2, n_epochs=3
+        )
+        assert len(result["feature_importance"]) == n_features
+        assert len(result["feature_names"]) == n_features
+
+    def test_prediction_shape(self) -> None:
+        import pandas as pd
+
+        from wraquant.ml.deep import temporal_fusion_transformer
+
+        np.random.seed(42)
+        df = pd.DataFrame(np.random.randn(300, 3))
+        target = np.random.randn(300)
+        result = temporal_fusion_transformer(
+            df, target, seq_length=10, hidden_dim=16, n_heads=2, n_epochs=3
+        )
+        assert result["predictions"].shape == result["actuals"].shape
+        assert len(result["predictions"]) > 0
+
+    def test_model_is_torch_module(self) -> None:
+        import pandas as pd
+
+        from wraquant.ml.deep import temporal_fusion_transformer
+
+        np.random.seed(42)
+        df = pd.DataFrame(np.random.randn(200, 3))
+        target = np.random.randn(200)
+        result = temporal_fusion_transformer(
+            df, target, seq_length=5, hidden_dim=8, n_heads=2, n_epochs=2
+        )
+        assert isinstance(result["model"], torch.nn.Module)

@@ -275,3 +275,144 @@ def rebalance_threshold(
     """
     diff = np.abs(np.asarray(current_weights, dtype=float) - np.asarray(target_weights, dtype=float))
     return bool(np.max(diff) > threshold + 1e-12)
+
+
+def risk_parity_position(
+    cov_matrix: pd.DataFrame | NDArray[np.floating],
+    target_vol: float | None = None,
+) -> NDArray[np.floating]:
+    """Position sizing using risk parity (equal risk contribution).
+
+    Computes portfolio weights such that each asset contributes equally
+    to total portfolio risk, then optionally scales the weights so that
+    the portfolio's annualised volatility matches ``target_vol``.
+
+    This is a convenience wrapper around
+    ``PositionSizer.equal_risk_contribution`` that adds volatility
+    targeting and returns a clean weight vector.
+
+    Mathematical formulation:
+        For each asset *i*, the risk contribution is:
+            RC_i = w_i * (Cov @ w)_i
+
+        We solve for *w* such that RC_i = RC_j for all i, j, subject to
+        sum(w) = 1.
+
+        If ``target_vol`` is provided, the weights are scaled by
+        ``target_vol / portfolio_vol``.
+
+    How to interpret:
+        - Weights will be higher for lower-volatility assets and lower
+          for higher-volatility assets.
+        - In a diagonal covariance matrix, risk parity reduces to
+          inverse volatility weighting.
+        - With non-zero correlations, the optimiser also accounts for
+          diversification benefit.
+
+    When to use:
+        Use risk parity when you want a balanced portfolio where no
+        single asset dominates the risk budget.  Particularly popular
+        for multi-asset and all-weather portfolios.
+
+    Parameters:
+        cov_matrix: Covariance matrix of asset returns (n x n).
+            Can be a pandas DataFrame or numpy array.
+        target_vol: Target annualised portfolio volatility (e.g.,
+            0.10 for 10 %).  If ``None``, weights sum to 1 without
+            vol scaling.
+
+    Returns:
+        Weight array.  Sums to 1 if ``target_vol`` is ``None``;
+        otherwise scaled to achieve the target volatility.
+
+    Example:
+        >>> import numpy as np
+        >>> cov = np.array([[0.04, 0.01], [0.01, 0.09]])
+        >>> w = risk_parity_position(cov)
+        >>> abs(w.sum() - 1.0) < 1e-6
+        True
+        >>> w[0] > w[1]  # lower-vol asset gets more weight
+        True
+
+    See Also:
+        PositionSizer.equal_risk_contribution: Core ERC optimiser.
+        PositionSizer.risk_parity_weights: Simpler inverse-vol heuristic.
+        regime_conditional_sizing: Adjust weights based on market regime.
+    """
+    weights = PositionSizer.equal_risk_contribution(cov_matrix)
+
+    if target_vol is not None:
+        cov = np.asarray(cov_matrix, dtype=float)
+        port_var = float(weights @ cov @ weights)
+        port_vol_ann = np.sqrt(port_var * 252)
+        if port_vol_ann > 0:
+            scale = target_vol / port_vol_ann
+            weights = weights * scale
+
+    return weights
+
+
+def regime_conditional_sizing(
+    base_weights: NDArray[np.floating] | pd.Series,
+    regime_probabilities: dict[str, float],
+    risk_multipliers: dict[str, float],
+) -> NDArray[np.floating]:
+    """Adjust position sizes based on current regime probabilities.
+
+    Scales base portfolio weights by a regime-dependent risk multiplier.
+    The effective multiplier is a probability-weighted average of the
+    per-regime multipliers, ensuring smooth transitions between regimes.
+
+    Mathematical formulation:
+        effective_multiplier = sum(P(regime_i) * multiplier_i)
+        adjusted_weights = base_weights * effective_multiplier
+
+    How to interpret:
+        - If the current regime is "high_vol" with probability 0.8 and
+          the risk multiplier for "high_vol" is 0.5, the weights will
+          be scaled down significantly.
+        - If the regime is "normal" (multiplier = 1.0), weights remain
+          unchanged.
+        - Multipliers > 1.0 increase exposure (e.g., during low-vol
+          regimes).
+
+    When to use:
+        Use regime-conditional sizing when your strategy should adjust
+        leverage or exposure based on market conditions.  Pair with
+        regime detection (HMM, rolling volatility, etc.) to
+        automatically reduce risk during turbulent markets.
+
+    Parameters:
+        base_weights: Base portfolio weights (array or Series).
+        regime_probabilities: Mapping of regime name to probability
+            (e.g., ``{"normal": 0.3, "high_vol": 0.7}``).
+            Probabilities should sum to 1 but are not strictly
+            enforced.
+        risk_multipliers: Mapping of regime name to risk multiplier
+            (e.g., ``{"normal": 1.0, "high_vol": 0.5, "low_vol": 1.5}``).
+            Regimes in ``regime_probabilities`` that are missing from
+            ``risk_multipliers`` default to a multiplier of 1.0.
+
+    Returns:
+        Adjusted weight array.  May not sum to 1 (the multiplier acts
+        as a leverage/de-leverage factor).
+
+    Example:
+        >>> import numpy as np
+        >>> base = np.array([0.5, 0.3, 0.2])
+        >>> probs = {"normal": 0.3, "high_vol": 0.7}
+        >>> mults = {"normal": 1.0, "high_vol": 0.5}
+        >>> adj = regime_conditional_sizing(base, probs, mults)
+        >>> adj.sum() < base.sum()  # scaled down due to high_vol
+        True
+
+    See Also:
+        risk_parity_position: Risk-parity-based weight computation.
+        PositionSizer.volatility_targeting: Vol-targeting scalar.
+    """
+    effective_mult = sum(
+        prob * risk_multipliers.get(regime, 1.0)
+        for regime, prob in regime_probabilities.items()
+    )
+    arr = np.asarray(base_weights, dtype=float)
+    return arr * effective_mult

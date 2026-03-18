@@ -191,3 +191,128 @@ class TestTradeAnalysis:
         # win_rate=0.6, avg_win=100, avg_loss=-50
         expected_expectancy = 0.6 * 100 + 0.4 * (-50)
         assert ta["expectancy"] == pytest.approx(expected_expectancy, abs=1e-10)
+
+
+# ------------------------------------------------------------------
+# comprehensive_tearsheet
+# ------------------------------------------------------------------
+
+
+from wraquant.backtest.tearsheet import comprehensive_tearsheet, strategy_comparison
+
+
+class TestComprehensiveTearsheet:
+    def test_returns_expected_top_level_keys(self) -> None:
+        ts = comprehensive_tearsheet(_daily_returns())
+        expected_keys = {
+            "summary",
+            "extended_metrics",
+            "monthly_returns",
+            "yearly_returns",
+            "drawdown_analysis",
+            "rolling_metrics",
+        }
+        assert expected_keys.issubset(ts.keys())
+
+    def test_summary_has_core_metrics(self) -> None:
+        ts = comprehensive_tearsheet(_daily_returns())
+        summary = ts["summary"]
+        assert "sharpe_ratio" in summary
+        assert "max_drawdown" in summary
+        assert "total_return" in summary
+
+    def test_extended_metrics_present(self) -> None:
+        ts = comprehensive_tearsheet(_daily_returns())
+        ext = ts["extended_metrics"]
+        for key in [
+            "omega_ratio",
+            "burke_ratio",
+            "ulcer_performance_index",
+            "kappa_2",
+            "tail_ratio",
+            "rachev_ratio",
+            "gain_to_pain_ratio",
+            "recovery_factor",
+            "system_quality_number",
+        ]:
+            assert key in ext, f"Missing extended metric: {key}"
+
+    def test_monthly_returns_is_dataframe(self) -> None:
+        ts = comprehensive_tearsheet(_daily_returns())
+        assert isinstance(ts["monthly_returns"], pd.DataFrame)
+
+    def test_yearly_returns_populated(self) -> None:
+        ts = comprehensive_tearsheet(_daily_returns())
+        assert len(ts["yearly_returns"]) > 0
+
+    def test_drawdown_analysis_is_dataframe(self) -> None:
+        ts = comprehensive_tearsheet(_daily_returns())
+        assert isinstance(ts["drawdown_analysis"], pd.DataFrame)
+
+    def test_rolling_metrics_is_dataframe(self) -> None:
+        ts = comprehensive_tearsheet(_daily_returns())
+        assert isinstance(ts["rolling_metrics"], pd.DataFrame)
+
+    def test_with_trades(self) -> None:
+        ts = comprehensive_tearsheet(_daily_returns(), trades_df=_make_trades())
+        assert "trade_analysis" in ts
+        assert "win_rate" in ts["trade_analysis"]
+        assert "best_5_trades" in ts["trade_analysis"]
+        assert "worst_5_trades" in ts["trade_analysis"]
+
+    def test_with_regime_states(self) -> None:
+        rets = _daily_returns()
+        regimes = pd.Series(
+            np.where(np.arange(len(rets)) % 3 == 0, "bull", "bear"),
+            index=rets.index,
+        )
+        ts = comprehensive_tearsheet(rets, regime_states=regimes)
+        assert "regime_performance" in ts
+        assert "bull" in ts["regime_performance"]
+        assert "bear" in ts["regime_performance"]
+        # Each regime should have core stats
+        for regime_data in ts["regime_performance"].values():
+            assert "annualized_return" in regime_data
+            assert "sharpe" in regime_data
+
+    def test_with_benchmark(self) -> None:
+        ts = comprehensive_tearsheet(
+            _daily_returns(), benchmark=_benchmark_returns()
+        )
+        assert "beta" in ts["summary"]
+        assert "alpha" in ts["summary"]
+
+
+# ------------------------------------------------------------------
+# strategy_comparison
+# ------------------------------------------------------------------
+
+class TestStrategyComparison:
+    def test_returns_dataframe(self) -> None:
+        strats = {
+            "strat_a": _daily_returns(seed=42),
+            "strat_b": _daily_returns(seed=99),
+        }
+        comp = strategy_comparison(strats)
+        assert isinstance(comp, pd.DataFrame)
+
+    def test_columns_match_strategy_names(self) -> None:
+        strats = {
+            "momentum": _daily_returns(seed=1),
+            "mean_rev": _daily_returns(seed=2),
+        }
+        comp = strategy_comparison(strats)
+        assert "momentum" in comp.columns
+        assert "mean_rev" in comp.columns
+
+    def test_has_extended_metrics(self) -> None:
+        strats = {"s1": _daily_returns(seed=10)}
+        comp = strategy_comparison(strats)
+        assert "omega_ratio" in comp.index
+        assert "tail_ratio" in comp.index
+        assert "system_quality_number" in comp.index
+
+    def test_shape_matches_strategies(self) -> None:
+        strats = {f"s{i}": _daily_returns(seed=i) for i in range(5)}
+        comp = strategy_comparison(strats)
+        assert comp.shape[1] == 5

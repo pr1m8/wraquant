@@ -1,8 +1,56 @@
 """Copula models for dependency structure in multi-asset returns.
 
-Provides Gaussian, Student-t, Clayton, Gumbel, and Frank copula fitting,
-simulation, tail dependence estimation, and rank correlation computation.
-All implementations use pure numpy/scipy.
+Copulas separate the *marginal* distributions of individual assets from
+their *dependence* structure. This is critical in finance because linear
+correlation (Pearson) understates co-movement in the tails -- precisely
+where risk matters most. Copulas capture non-linear, asymmetric, and
+tail-specific dependence that correlation matrices cannot.
+
+This module provides five copula families:
+
+1. **Gaussian copula** (``fit_gaussian_copula``) -- the simplest elliptical
+   copula. Captures linear dependence but has *zero* tail dependence: extreme
+   co-movements are asymptotically independent. Useful as a baseline but
+   dangerous for tail-risk applications.
+
+2. **Student-t copula** (``fit_t_copula``) -- symmetric tail dependence
+   controlled by degrees of freedom. Lower df => heavier tails and
+   stronger tail dependence. The standard choice for equity portfolios
+   where joint crashes are common.
+
+3. **Clayton copula** (``fit_clayton_copula``) -- Archimedean copula with
+   *lower* tail dependence and no upper tail dependence. Use when you
+   expect assets to crash together but rally independently (typical for
+   equities and credit).
+
+4. **Gumbel copula** (``fit_gumbel_copula``) -- Archimedean copula with
+   *upper* tail dependence and no lower tail dependence. Use for assets
+   that rally together but crash independently (rare but possible for
+   certain commodity pairs).
+
+5. **Frank copula** (``fit_frank_copula``) -- Archimedean copula with
+   *symmetric* dependence and *no* tail dependence. Useful as a
+   benchmark or when tail dependence is genuinely absent.
+
+Utilities:
+    - ``copula_simulate``: Monte Carlo simulation from any fitted copula.
+    - ``tail_dependence``: empirical estimation of lower and upper tail
+      dependence coefficients.
+    - ``rank_correlation``: Kendall's tau and Spearman's rho matrices.
+
+How to choose:
+    - Start with ``tail_dependence`` to check if the data has
+      asymmetric tail dependence.
+    - If lower > upper: use Clayton.
+    - If upper > lower: use Gumbel.
+    - If roughly symmetric tails: use Student-t with estimated df.
+    - If no significant tail dependence: use Gaussian or Frank.
+
+References:
+    - Nelsen (2006), "An Introduction to Copulas"
+    - McNeil, Frey & Embrechts (2005), Ch. 5, "Copulas and Dependence"
+    - Embrechts, Lindskog & McNeil (2003), "Modelling Dependence with
+      Copulas and Applications to Risk Management"
 """
 
 from __future__ import annotations

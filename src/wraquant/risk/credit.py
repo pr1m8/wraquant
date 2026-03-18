@@ -1,7 +1,52 @@
 """Credit risk models and default probability estimation.
 
-Includes structural models (Merton), reduced-form models, credit scoring
-(Altman Z-Score), and pricing helpers for credit-sensitive instruments.
+Credit risk is the risk that a borrower fails to meet its obligations.
+This module provides tools spanning three major approaches:
+
+1. **Structural models** -- model the firm's equity as a contingent
+   claim on its assets. Default occurs when asset value falls below
+   the debt barrier.
+
+   - ``merton_model``: the foundational structural model (Merton 1974).
+     Treats equity as a European call option on total firm assets.
+     Iteratively solves for implied asset value and volatility, then
+     computes distance-to-default and default probability.
+
+2. **Credit scoring** -- statistical models that predict default from
+   accounting ratios or market data.
+
+   - ``altman_z_score``: the original 1968 Altman Z-Score for publicly
+     traded manufacturing firms. Combines five accounting ratios into
+     a single score that classifies firms as "safe" (Z > 2.99),
+     "grey zone" (1.81-2.99), or "distress" (Z < 1.81).
+
+3. **Reduced-form / intensity models** -- model default as a random
+   event driven by a hazard rate (default intensity).
+
+   - ``default_probability``: cumulative default probability from a
+     rating transition matrix raised to the power of the horizon.
+   - ``credit_spread``: implied spread from PD and recovery rate.
+   - ``cds_spread``: fair CDS premium from a constant hazard rate,
+     integrating protection and premium legs.
+   - ``loss_given_default``: LGD = exposure * (1 - recovery rate).
+   - ``expected_loss``: EL = PD * LGD * EAD -- the central formula
+     of regulatory capital calculation (Basel II IRB).
+
+How to choose:
+    - For public equities with observable stock prices: ``merton_model``
+      gives market-implied default probabilities that update daily.
+    - For quick screening of financial health: ``altman_z_score`` using
+      balance sheet data.
+    - For pricing CDS or credit-linked instruments: ``cds_spread``
+      with calibrated hazard rates.
+    - For portfolio credit risk (e.g., a loan book): ``default_probability``
+      from rating agency transition matrices + ``expected_loss``.
+
+References:
+    - Merton (1974), "On the Pricing of Corporate Debt"
+    - Altman (1968), "Financial Ratios, Discriminant Analysis and the
+      Prediction of Corporate Bankruptcy"
+    - Lando (2004), "Credit Risk Modeling: Theory and Applications"
 """
 
 from __future__ import annotations

@@ -27,6 +27,8 @@ from wraquant.stats.descriptive import (
     summary_stats,
 )
 from wraquant.stats.distributions import (
+    anderson_darling,
+    best_fit_distribution,
     fit_distribution,
     fit_stable_distribution,
     hurst_exponent,
@@ -35,6 +37,16 @@ from wraquant.stats.distributions import (
     qqplot_data,
     tail_index,
     tail_ratio,
+)
+from wraquant.stats.robust import (
+    huber_mean,
+    mad,
+    outlier_detection,
+    robust_covariance,
+    robust_zscore,
+    trimmed_mean,
+    trimmed_std,
+    winsorize,
 )
 from wraquant.stats.factor import (
     factor_attribution,
@@ -90,6 +102,17 @@ __all__ = [
     "qqplot_data",
     "jarque_bera",
     "kolmogorov_smirnov",
+    "anderson_darling",
+    "best_fit_distribution",
+    # robust
+    "mad",
+    "winsorize",
+    "trimmed_mean",
+    "trimmed_std",
+    "robust_zscore",
+    "robust_covariance",
+    "huber_mean",
+    "outlier_detection",
     # cointegration
     "engle_granger",
     "half_life",

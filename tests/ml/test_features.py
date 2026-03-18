@@ -7,9 +7,12 @@ import pandas as pd
 import pytest
 
 from wraquant.ml.features import (
+    cross_asset_features,
+    interaction_features,
     label_fixed_horizon,
     label_triple_barrier,
     microstructure_features,
+    regime_features,
     return_features,
     rolling_features,
     technical_features,
@@ -186,3 +189,144 @@ class TestLabelTripleBarrier:
         valid = labels.dropna()
         assert len(valid) > 0
         assert set(valid.unique()).issubset({-1, 0, 1})
+
+
+# ---------------------------------------------------------------------------
+# interaction_features
+# ---------------------------------------------------------------------------
+
+
+class TestInteractionFeatures:
+    def test_output_columns(self) -> None:
+        df = pd.DataFrame(
+            {"a": [1.0, 2.0, 3.0], "b": [4.0, 5.0, 6.0], "c": [7.0, 8.0, 9.0]}
+        )
+        result = interaction_features(df, columns=["a", "b"])
+        assert "a_x_b" in result.columns
+        assert "a_div_b" in result.columns
+        assert result.shape[0] == 3
+
+    def test_all_columns_default(self) -> None:
+        df = pd.DataFrame(
+            {"x": [1.0, 2.0], "y": [3.0, 4.0], "z": [5.0, 6.0]}
+        )
+        result = interaction_features(df)
+        # 3 choose 2 = 3 pairs, 2 features each (product + ratio) = 6
+        assert result.shape[1] == 6
+
+    def test_product_values(self) -> None:
+        df = pd.DataFrame({"a": [2.0, 3.0], "b": [4.0, 5.0]})
+        result = interaction_features(df)
+        np.testing.assert_array_equal(result["a_x_b"].values, [8.0, 15.0])
+
+    def test_ratio_values(self) -> None:
+        df = pd.DataFrame({"a": [10.0, 20.0], "b": [2.0, 5.0]})
+        result = interaction_features(df)
+        np.testing.assert_array_equal(result["a_div_b"].values, [5.0, 4.0])
+
+    def test_division_by_zero_gives_nan(self) -> None:
+        df = pd.DataFrame({"a": [1.0, 2.0], "b": [0.0, 3.0]})
+        result = interaction_features(df)
+        assert np.isnan(result["a_div_b"].iloc[0])
+        assert result["a_div_b"].iloc[1] == pytest.approx(2.0 / 3.0)
+
+
+# ---------------------------------------------------------------------------
+# cross_asset_features
+# ---------------------------------------------------------------------------
+
+
+class TestCrossAssetFeatures:
+    def test_output_columns(self) -> None:
+        np.random.seed(0)
+        asset = pd.Series(np.random.randn(200) * 0.01, name="asset")
+        bench = pd.Series(np.random.randn(200) * 0.01, name="bench")
+        result = cross_asset_features(asset, bench, windows=[10, 21])
+        assert "rolling_corr_w10" in result.columns
+        assert "rolling_corr_w21" in result.columns
+        assert "rolling_beta_w10" in result.columns
+        assert "rolling_beta_w21" in result.columns
+        assert "relative_strength_w10" in result.columns
+        assert "relative_strength_w21" in result.columns
+
+    def test_output_length(self) -> None:
+        np.random.seed(0)
+        n = 100
+        asset = pd.Series(np.random.randn(n) * 0.01)
+        bench = pd.Series(np.random.randn(n) * 0.01)
+        result = cross_asset_features(asset, bench, windows=[10])
+        assert len(result) == n
+
+    def test_corr_in_range(self) -> None:
+        np.random.seed(42)
+        asset = pd.Series(np.random.randn(200) * 0.01)
+        bench = pd.Series(np.random.randn(200) * 0.01)
+        result = cross_asset_features(asset, bench, windows=[20])
+        valid_corr = result["rolling_corr_w20"].dropna()
+        assert (valid_corr.abs() <= 1.0 + 1e-10).all()
+
+
+# ---------------------------------------------------------------------------
+# regime_features
+# ---------------------------------------------------------------------------
+
+
+class TestRegimeFeatures:
+    def test_output_columns(self) -> None:
+        np.random.seed(42)
+        probs = pd.DataFrame(
+            {
+                "bull": np.random.dirichlet([5, 2], size=100)[:, 0],
+                "bear": np.random.dirichlet([5, 2], size=100)[:, 1],
+            }
+        )
+        result = regime_features(probs)
+        assert "current_regime" in result.columns
+        assert "regime_duration" in result.columns
+        assert "regime_change" in result.columns
+        assert "transition_prob_w5" in result.columns
+        assert "transition_prob_w10" in result.columns
+        assert "transition_prob_w21" in result.columns
+        assert "prob_bull" in result.columns
+        assert "prob_bear" in result.columns
+
+    def test_regime_duration_increases(self) -> None:
+        # All same regime -> duration should be 1, 2, 3, ...
+        probs = pd.DataFrame(
+            {"a": [0.9, 0.9, 0.9, 0.9, 0.9], "b": [0.1, 0.1, 0.1, 0.1, 0.1]}
+        )
+        result = regime_features(probs)
+        np.testing.assert_array_equal(
+            result["regime_duration"].values, [1, 2, 3, 4, 5]
+        )
+
+    def test_regime_change_on_switch(self) -> None:
+        probs = pd.DataFrame(
+            {"a": [0.9, 0.9, 0.1, 0.1], "b": [0.1, 0.1, 0.9, 0.9]}
+        )
+        result = regime_features(probs)
+        # Change at index 2
+        assert result["regime_change"].iloc[0] == 0
+        assert result["regime_change"].iloc[1] == 0
+        assert result["regime_change"].iloc[2] == 1
+        assert result["regime_change"].iloc[3] == 0
+
+    def test_with_explicit_labels(self) -> None:
+        probs = pd.DataFrame({"a": [0.5, 0.5, 0.5], "b": [0.5, 0.5, 0.5]})
+        labels = pd.Series([0, 1, 1])
+        result = regime_features(probs, regime_labels=labels)
+        assert result["current_regime"].iloc[0] == 0
+        assert result["current_regime"].iloc[1] == 1
+        assert result["regime_change"].iloc[1] == 1
+
+    def test_output_length(self) -> None:
+        np.random.seed(0)
+        n = 50
+        probs = pd.DataFrame(
+            {
+                "state0": np.random.dirichlet([3, 3], size=n)[:, 0],
+                "state1": np.random.dirichlet([3, 3], size=n)[:, 1],
+            }
+        )
+        result = regime_features(probs)
+        assert len(result) == n

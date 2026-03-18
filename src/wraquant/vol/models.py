@@ -26,7 +26,10 @@ __all__ = [
     "egarch_fit",
     "gjr_garch_fit",
     "figarch_fit",
+    "aparch_fit",
     "garch_forecast",
+    "garch_rolling_forecast",
+    "garch_model_selection",
     "dcc_fit",
     "realized_garch",
     "harch_fit",
@@ -2130,3 +2133,416 @@ def variance_risk_premium(
         "pct_positive": pct_pos,
         "vol_spread": iv - rv,
     }
+
+
+# ---------------------------------------------------------------------------
+# APARCH
+# ---------------------------------------------------------------------------
+
+
+@requires_extra("timeseries")
+def aparch_fit(
+    returns: pd.Series | np.ndarray,
+    p: int = 1,
+    o: int = 1,
+    q: int = 1,
+    mean: str = "Constant",
+    dist: str = "normal",
+    **kwargs: Any,
+) -> dict[str, Any]:
+    """Fit an APARCH(p, o, q) model (Asymmetric Power ARCH).
+
+    The APARCH model of Ding, Granger, and Engle (1993) generalises the
+    standard GARCH by raising the conditional standard deviation to a
+    freely estimated power *delta* and introducing a leverage (rotation)
+    parameter *gamma* for each asymmetric term:
+
+    .. math::
+
+        \\sigma_t^\\delta = \\omega
+            + \\sum_{i=1}^{q} \\alpha_i
+              \\left( |\\epsilon_{t-i}| - \\gamma_i \\epsilon_{t-i} \\right)^\\delta
+            + \\sum_{j=1}^{p} \\beta_j \\sigma_{t-j}^\\delta
+
+    The power parameter *delta* is estimated from the data rather than
+    being fixed at 2 (GARCH) or 1 (TARCH). This gives the model extra
+    flexibility to capture the shape of the conditional distribution of
+    volatility. When delta = 2 the model collapses to GJR-GARCH; when
+    delta = 1 it collapses to TARCH.
+
+    Parameters:
+        returns: Return series (not prices). Should be percentage returns
+            or log returns.
+        p: Order of GARCH (lagged powered standard deviation) terms.
+        o: Order of asymmetric (leverage) terms. Default 1.
+        q: Order of ARCH (lagged powered absolute residual) terms.
+        mean: Mean model specification. Options:
+
+            - ``"Constant"``: constant mean (most common)
+            - ``"Zero"``: zero mean (for demeaned returns)
+            - ``"ARX"``: autoregressive with exogenous variables
+        dist: Error distribution. Options:
+
+            - ``"normal"``: Gaussian
+            - ``"t"``: Student's t (fat tails)
+            - ``"skewt"``: Hansen's skewed t
+            - ``"ged"``: Generalized Error Distribution
+        **kwargs: Additional keyword arguments passed to
+            ``arch.arch_model()``.
+
+    Returns:
+        Dictionary containing:
+
+        - **model_name** (*str*) -- ``"APARCH(p,o,q)"``.
+        - **params** (*dict*) -- Fitted parameters including ``omega``,
+          ``alpha[i]``, ``gamma[i]`` (leverage), ``beta[j]``, and the
+          estimated power parameter ``delta`` (often labelled ``delta``
+          or embedded in the volatility process params).
+        - **conditional_volatility** (*pd.Series*) -- Conditional
+          standard deviation series.
+        - **standardized_residuals** (*np.ndarray*) -- Model residuals
+          divided by conditional std dev.
+        - **aic** / **bic** / **log_likelihood** (*float*) -- Fit quality
+          metrics.
+        - **persistence** (*float*) -- Volatility persistence.
+        - **half_life** (*float*) -- Half-life of volatility shocks.
+        - **unconditional_variance** (*float*) -- Long-run variance.
+        - **ljung_box** (*dict*) -- Ljung-Box test on squared
+          standardized residuals.
+        - **model** -- Fitted ``arch`` result object.
+
+    Example:
+        >>> import numpy as np
+        >>> from wraquant.vol.models import aparch_fit
+        >>> rng = np.random.default_rng(42)
+        >>> returns = rng.normal(0, 1, 1000)
+        >>> result = aparch_fit(returns, p=1, o=1, q=1)
+        >>> result['conditional_volatility'].iloc[-1] > 0
+        True
+
+    Notes:
+        The key advantage of APARCH is the estimated power parameter
+        *delta*. Empirical studies (Ding et al. 1993, Laurent 2004) find
+        that *delta* is often close to 1 for daily equity returns rather
+        than 2, implying the conditional standard deviation (not variance)
+        follows a more parsimonious dynamic.
+
+        APARCH nests at least seven other ARCH-class models as special
+        cases, making it useful for model selection via the estimated
+        *delta*.
+
+        Reference: Ding, Z., Granger, C.W.J., and Engle, R.F. (1993).
+        "A Long Memory Property of Stock Market Returns and a New
+        Model." *Journal of Empirical Finance*, 1, 83--106.
+
+    See Also:
+        garch_fit: Standard GARCH (delta fixed at 2, no leverage).
+        gjr_garch_fit: GJR-GARCH (delta fixed at 2, with leverage).
+        egarch_fit: Log-variance based asymmetric model.
+    """
+    from arch import arch_model
+
+    ret = _to_returns_array(returns)
+    scale = 100.0
+
+    am = arch_model(
+        ret * scale,
+        vol="APARCH",
+        p=p,
+        o=o,
+        q=q,
+        dist=dist,
+        mean=mean,
+        **kwargs,
+    )
+    fit = am.fit(disp="off")
+
+    return _build_garch_result(
+        fit, model_name=f"APARCH({p},{o},{q})", scale=scale
+    )
+
+
+# ---------------------------------------------------------------------------
+# GARCH Rolling Forecast
+# ---------------------------------------------------------------------------
+
+
+@requires_extra("timeseries")
+def garch_rolling_forecast(
+    returns: pd.Series | np.ndarray,
+    window: int | None = None,
+    horizon: int = 1,
+    vol: str = "GARCH",
+    p: int = 1,
+    q: int = 1,
+    dist: str = "normal",
+    refit_every: int = 1,
+    **kwargs: Any,
+) -> dict[str, Any]:
+    """Rolling or expanding window 1-step-ahead GARCH volatility forecast.
+
+    At each step the model is fit on past data (fixed window or expanding)
+    and a *horizon*-step-ahead forecast is produced. The resulting series
+    of out-of-sample forecasts can be compared against realised volatility
+    for back-testing purposes.
+
+    .. math::
+
+        \\hat{\\sigma}_{t+1|t}^2 = \\omega + \\alpha \\epsilon_t^2
+                                    + \\beta \\sigma_t^2
+
+    The forecast is produced at each date *t* using only data up to *t*,
+    providing a genuinely out-of-sample volatility estimate.
+
+    Parameters:
+        returns: Return series. If a ``pd.Series`` with a
+            ``DatetimeIndex``, dates are preserved in the output.
+        window: Rolling window size (number of observations). If ``None``
+            an expanding window is used, starting from the first 100
+            observations. A fixed window is common in practice (e.g.,
+            500 or 1000 days).
+        horizon: Forecast horizon (steps ahead). Default 1 for 1-step.
+        vol: Volatility model type. Any valid ``arch`` vol spec:
+            ``"GARCH"``, ``"EGARCH"``, ``"GJR-GARCH"``, ``"APARCH"``,
+            etc. Default ``"GARCH"``.
+        p: GARCH order.
+        q: ARCH order.
+        dist: Error distribution (``"normal"``, ``"t"``, ``"skewt"``).
+        refit_every: Refit the model every *n* steps. Setting this > 1
+            greatly speeds up the rolling forecast by re-using the
+            previous fit for intermediate steps. Default 1 (refit every
+            step).
+        **kwargs: Additional keyword arguments passed to
+            ``arch.arch_model()``.
+
+    Returns:
+        Dictionary containing:
+
+        - **forecasts** (*pd.Series*) -- Series of forecasted conditional
+          volatility (standard deviation), indexed by the date at which
+          the forecast was made.
+        - **actuals** (*pd.Series*) -- Absolute returns as a proxy for
+          realised volatility, aligned with forecasts.
+        - **dates** (*pd.Index | np.ndarray*) -- Forecast dates or
+          integer positions.
+
+    Example:
+        >>> import numpy as np, pandas as pd
+        >>> from wraquant.vol.models import garch_rolling_forecast
+        >>> rng = np.random.default_rng(42)
+        >>> ret = pd.Series(rng.normal(0, 0.01, 300))
+        >>> result = garch_rolling_forecast(ret, window=200, refit_every=10)
+        >>> len(result['forecasts']) > 0
+        True
+        >>> (result['forecasts'] > 0).all()
+        True
+
+    Notes:
+        Setting ``refit_every > 1`` avoids refitting the model at every
+        single step. Between refits the most recent parameter estimates
+        are used and the conditional variance is simply rolled forward
+        using the GARCH recursion. This is standard practice in the
+        literature (Hansen & Lunde 2005) and can reduce computation by
+        an order of magnitude.
+
+        When ``vol="EGARCH"`` the arch library fits the model on log
+        variance, so internal rescaling differs. The output is always
+        in the same units as the input returns.
+
+        Reference: Hansen, P.R. and Lunde, A. (2005). "A Forecast
+        Comparison of Volatility Models: Does Anything Beat a
+        GARCH(1,1)?" *Journal of Applied Econometrics*, 20, 873--889.
+
+    See Also:
+        garch_forecast: Single multi-step forecast from a fitted model.
+        garch_model_selection: Compare GARCH variants systematically.
+    """
+    from arch import arch_model
+
+    ret = _to_returns_array(returns)
+    scale = 100.0
+    n = len(ret)
+
+    min_obs = 100
+    if window is not None and window < min_obs:
+        msg = f"window must be >= {min_obs}, got {window}."
+        raise ValueError(msg)
+    if window is not None and window >= n:
+        msg = f"window ({window}) must be < len(returns) ({n})."
+        raise ValueError(msg)
+
+    start = window if window is not None else min_obs
+    forecast_vals: list[float] = []
+    actual_vals: list[float] = []
+    date_indices: list[Any] = []
+
+    has_index = isinstance(returns, pd.Series) and hasattr(returns, "index")
+
+    last_fit = None
+    for t in range(start, n):
+        # Determine training slice
+        if window is not None:
+            train = ret[t - window : t] * scale
+        else:
+            train = ret[:t] * scale
+
+        # Refit or reuse
+        if last_fit is None or (t - start) % refit_every == 0:
+            am = arch_model(
+                train,
+                vol=vol,
+                p=p,
+                q=q,
+                dist=dist,
+                mean="Constant",
+                **kwargs,
+            )
+            last_fit = am.fit(disp="off")
+
+        # Forecast
+        fc = last_fit.forecast(horizon=horizon)
+        fv = fc.variance.iloc[-1].values[-1] / (scale**2)
+        forecast_vals.append(float(np.sqrt(max(fv, 0.0))))
+        actual_vals.append(float(abs(ret[t])))
+
+        if has_index:
+            date_indices.append(returns.index[t])  # type: ignore[union-attr]
+        else:
+            date_indices.append(t)
+
+    if has_index:
+        idx = pd.DatetimeIndex(date_indices) if isinstance(
+            date_indices[0], pd.Timestamp
+        ) else pd.Index(date_indices)
+    else:
+        idx = pd.Index(date_indices)
+
+    return {
+        "forecasts": pd.Series(forecast_vals, index=idx, name="forecast_vol"),
+        "actuals": pd.Series(actual_vals, index=idx, name="actual_abs_return"),
+        "dates": idx,
+    }
+
+
+# ---------------------------------------------------------------------------
+# GARCH Model Selection
+# ---------------------------------------------------------------------------
+
+
+@requires_extra("timeseries")
+def garch_model_selection(
+    returns: pd.Series | np.ndarray,
+    p: int = 1,
+    q: int = 1,
+    distributions: list[str] | None = None,
+    mean: str = "Constant",
+    **kwargs: Any,
+) -> pd.DataFrame:
+    """Compare GARCH, EGARCH, and GJR-GARCH across error distributions.
+
+    Fits every combination of volatility specification and error
+    distribution, then ranks the models by AIC (and reports BIC,
+    log-likelihood, and persistence for each).
+
+    This is the standard model-selection exercise recommended by
+    Hansen & Lunde (2005) to determine which GARCH variant and error
+    distribution best describes a given return series.
+
+    Parameters:
+        returns: Return series (not prices).
+        p: GARCH order (applied to all models).
+        q: ARCH order (applied to all models).
+        distributions: List of error distributions to try. Defaults to
+            ``["normal", "t", "skewt"]``.
+        mean: Mean model specification applied to all fits.
+        **kwargs: Additional keyword arguments passed to
+            ``arch.arch_model()``.
+
+    Returns:
+        A ``pd.DataFrame`` sorted by AIC (ascending) with columns:
+
+        - **model** (*str*) -- Model name (e.g. ``"EGARCH-t"``).
+        - **vol_model** (*str*) -- Volatility specification.
+        - **distribution** (*str*) -- Error distribution.
+        - **aic** (*float*) -- Akaike Information Criterion.
+        - **bic** (*float*) -- Bayesian Information Criterion.
+        - **log_likelihood** (*float*) -- Maximised log-likelihood.
+        - **persistence** (*float*) -- Volatility persistence.
+        - **num_params** (*int*) -- Number of estimated parameters.
+
+    Example:
+        >>> import numpy as np
+        >>> from wraquant.vol.models import garch_model_selection
+        >>> rng = np.random.default_rng(42)
+        >>> returns = rng.normal(0, 1, 1000)
+        >>> df = garch_model_selection(returns)
+        >>> 'aic' in df.columns and 'bic' in df.columns
+        True
+        >>> len(df) >= 6  # 3 models x 2+ distributions
+        True
+
+    Notes:
+        Models that fail to converge are silently excluded from the
+        results table. AIC penalises complexity less than BIC, so the
+        best AIC and best BIC model may differ -- both are reported.
+
+        Reference: Hansen, P.R. and Lunde, A. (2005). "A Forecast
+        Comparison of Volatility Models: Does Anything Beat a
+        GARCH(1,1)?" *Journal of Applied Econometrics*, 20, 873--889.
+
+    See Also:
+        garch_fit: Fit a specific GARCH model.
+        egarch_fit: Fit EGARCH.
+        gjr_garch_fit: Fit GJR-GARCH.
+    """
+    from arch import arch_model
+
+    if distributions is None:
+        distributions = ["normal", "t", "skewt"]
+
+    ret = _to_returns_array(returns)
+    scale = 100.0
+
+    vol_specs = [
+        ("GARCH", "GARCH", {"p": p, "q": q}),
+        ("EGARCH", "EGARCH", {"p": p, "q": q}),
+        ("GJR-GARCH", "GARCH", {"p": p, "o": 1, "q": q}),
+    ]
+
+    rows: list[dict[str, Any]] = []
+    for vol_label, vol_type, vol_kwargs in vol_specs:
+        for dist in distributions:
+            try:
+                am = arch_model(
+                    ret * scale,
+                    vol=vol_type,
+                    dist=dist,
+                    mean=mean,
+                    **{**vol_kwargs, **kwargs},
+                )
+                fit = am.fit(disp="off")
+                result = _build_garch_result(
+                    fit,
+                    model_name=f"{vol_label}-{dist}",
+                    scale=scale,
+                )
+                rows.append(
+                    {
+                        "model": f"{vol_label}-{dist}",
+                        "vol_model": vol_label,
+                        "distribution": dist,
+                        "aic": result["aic"],
+                        "bic": result["bic"],
+                        "log_likelihood": result["log_likelihood"],
+                        "persistence": result["persistence"],
+                        "num_params": len(result["params"]),
+                    }
+                )
+            except Exception:  # noqa: BLE001
+                # Skip models that fail to converge
+                continue
+
+    df = pd.DataFrame(rows)
+    if len(df) > 0:
+        df = df.sort_values("aic").reset_index(drop=True)
+    return df

@@ -16,9 +16,27 @@ from wraquant.ts.advanced import (
 )
 from wraquant.ts.changepoint import cusum, detect_changepoints
 from wraquant.ts.decomposition import seasonal_decompose, stl_decompose, trend_filter
-from wraquant.ts.forecasting import auto_arima, exponential_smoothing
+from wraquant.ts.forecasting import (
+    arima_diagnostics,
+    arima_model_selection,
+    auto_arima,
+    auto_forecast,
+    ensemble_forecast,
+    exponential_smoothing,
+    forecast_evaluation,
+    holt_winters_forecast,
+    rolling_forecast,
+    ses_forecast,
+    theta_forecast,
+)
 from wraquant.ts.seasonality import detect_seasonality, fourier_features
 from wraquant.ts.stationarity import detrend, difference, fractional_difference
+from wraquant.ts.stochastic import (
+    jump_diffusion_forecast,
+    ornstein_uhlenbeck_forecast,
+    regime_switching_forecast,
+    var_forecast,
+)
 
 __all__ = [
     # decomposition
@@ -38,6 +56,20 @@ __all__ = [
     # forecasting
     "exponential_smoothing",
     "auto_arima",
+    "arima_diagnostics",
+    "arima_model_selection",
+    "auto_forecast",
+    "theta_forecast",
+    "ses_forecast",
+    "holt_winters_forecast",
+    "ensemble_forecast",
+    "forecast_evaluation",
+    "rolling_forecast",
+    # stochastic process forecasting
+    "ornstein_uhlenbeck_forecast",
+    "jump_diffusion_forecast",
+    "regime_switching_forecast",
+    "var_forecast",
     # advanced integrations
     "tsfresh_features",
     "stumpy_matrix_profile",

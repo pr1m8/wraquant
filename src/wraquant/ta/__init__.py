@@ -1,32 +1,140 @@
 """Technical analysis indicators for wraquant.
 
-This package provides a comprehensive set of technical analysis indicators
-organized into the following sub-modules:
+This package provides over 200 technical analysis indicators organised
+into 19 sub-modules. Every indicator accepts ``pd.Series`` (or OHLCV
+components) and returns either a ``pd.Series`` or a
+``dict[str, pd.Series]`` for multi-output indicators.
 
-- **overlap** — Moving averages and overlay studies (SMA, EMA, Bollinger
-  Bands, Ichimoku, etc.)
-- **momentum** — Oscillators measuring speed/magnitude of price moves
-  (RSI, MACD, Stochastic, etc.)
-- **volatility** — Measures of price dispersion (ATR, Bollinger Width,
-  Historical Volatility, etc.)
-- **volume** — Volume-based indicators (OBV, CMF, MFI, etc.)
-- **trend** — Trend direction and strength indicators (ADX, Aroon, PSAR,
-  etc.)
-- **patterns** — Candlestick pattern recognition (Doji, Engulfing,
-  Morning Star, etc.)
-- **candles** — Candlestick structural analytics (body size, shadow
-  ratios, inside/outside bars, pin bars, etc.)
-- **price_action** — Price action analysis (swing points, trend bars,
-  gaps, range expansion, reversals, etc.)
-- **smoothing** — Advanced smoothing and filtering (ALMA, JMA,
-  Butterworth, Super Smoother, windowed MAs, etc.)
-- **exotic** — Lesser-known / exotic indicators (Choppiness Index,
-  Random Walk Index, PFE, Ergodic, KAIRI, etc.)
-- **signals** — Signal generation utilities (crossover, crossunder,
-  normalize, etc.)
+Sub-modules
+-----------
+The sub-modules are designed to cover the full taxonomy of technical
+analysis, from classical chart overlays to exotic oscillators:
 
-All indicator functions accept ``pd.Series`` inputs and return either a
-``pd.Series`` or a ``dict[str, pd.Series]`` for multi-output indicators.
+**Price overlays** (drawn on the price chart):
+
+- **overlap** -- Moving averages and band studies. Start here for trend
+  identification. SMA/EMA for trend direction, Bollinger Bands and
+  Keltner Channel for volatility envelopes, Ichimoku for multi-timeframe
+  support/resistance, Supertrend for trend-following signals.
+
+- **trend** -- Trend direction and strength. ADX measures trend *strength*
+  (not direction); values >25 indicate a strong trend. Aroon identifies
+  trend starts. PSAR provides trailing stops. Heikin Ashi smooths price
+  bars. ZigZag filters noise for swing analysis.
+
+**Oscillators** (plotted in separate panels):
+
+- **momentum** -- Speed and magnitude of price moves. RSI (14-period) is
+  the most popular; >70 = overbought, <30 = oversold. MACD captures trend
+  momentum via EMA crossovers. Stochastic compares close to range. Use
+  TSI or CMO for smoother momentum signals. Squeeze Histogram detects
+  volatility contraction breakouts.
+
+- **volume** -- Volume-confirmed signals. OBV (On-Balance Volume) trends
+  with the dominant side. CMF (Chaikin Money Flow) measures buying vs
+  selling pressure. MFI is "volume-weighted RSI." Force Index combines
+  price change and volume.
+
+- **performance** -- Relative performance and drawdown analytics. Alpha,
+  tracking error, and up/down capture ratios for benchmark comparison.
+  Rolling max drawdown and pain index for risk monitoring.
+
+**Volatility measurement** (separate panel or overlay):
+
+- **volatility** -- ATR (Average True Range) is the standard volatility
+  measure for position sizing. Bollinger Width and Keltner Width measure
+  squeeze/expansion. Garman-Klass, Parkinson, Rogers-Satchell, and
+  Yang-Zhang use OHLC data for more efficient volatility estimation.
+  Ulcer Index measures downside volatility.
+
+**Pattern recognition**:
+
+- **patterns** -- 38 candlestick patterns (Doji, Engulfing, Morning
+  Star, Evening Star, Hammer, Three White Soldiers, etc.). Each returns
+  a boolean Series marking pattern occurrences. Use for confirmation, not
+  as standalone signals.
+
+- **candles** -- Structural candlestick analytics: body size, shadow
+  ratios, body-to-range ratio, inside/outside bars, pin bars. Useful as
+  features for ML models.
+
+- **price_action** -- Higher highs/lows for trend structure. Swing
+  highs/lows for support/resistance. Gap analysis, range expansion,
+  narrow range (NR4/NR7), key reversals.
+
+**Signal generation**:
+
+- **signals** -- Utility functions for combining indicators: crossover,
+  crossunder, above/below, rising/falling, highest/lowest, normalize.
+  These are building blocks for strategy logic.
+
+**Market breadth** (for indices / baskets):
+
+- **breadth** -- Advance/Decline line and ratio, McClellan Oscillator
+  and Summation Index, Arms Index (TRIN), new highs/lows, percent above
+  MA. Use these to confirm or diverge from index-level trends.
+
+**Statistical overlays**:
+
+- **statistics** -- Z-score, percentile rank, skewness, kurtosis,
+  entropy, Hurst exponent, rolling beta and R-squared. These bridge
+  technical and quantitative analysis.
+
+**Cycle analysis**:
+
+- **cycles** -- Hilbert Transform dominant period and trend mode, sine
+  wave indicators, bandpass and roofing filters, Even Better Sinewave.
+  Use when you suspect periodic structure (e.g., inventory or seasonal
+  cycles).
+
+**Fibonacci analysis**:
+
+- **fibonacci** -- Retracements, extensions, fans, time zones, pivot
+  points, and auto-Fibonacci (automatically finds swing points).
+
+**Advanced smoothing**:
+
+- **smoothing** -- ALMA (Arnaud Legoux), JMA (Jurik), Butterworth,
+  Super Smoother, Gaussian, windowed MAs (Hann, Hamming). Use when
+  standard MAs are too laggy or noisy.
+
+**Custom / advanced indicators**:
+
+- **custom** -- Squeeze Momentum, Anchored VWAP, Ehlers Fisher
+  Transform, Adaptive RSI, Linear Regression Channel, Market Structure,
+  Volume-Weighted MACD. Power tools for experienced analysts.
+
+**Exotic / lesser-known indicators**:
+
+- **exotic** -- Choppiness Index (ranging vs trending), Random Walk
+  Index, Polarized Fractal Efficiency, Ergodic Oscillator, Elder
+  Thermometer, KAIRI, Connors TPS. Niche but valuable for specific
+  strategies.
+
+**Support and resistance**:
+
+- **support_resistance** -- Algorithmic detection of support/resistance
+  levels, fractal levels, price clustering, round numbers, supply/demand
+  zones, and trendline detection.
+
+How to choose indicators
+-------------------------
+1. **Identify the market condition** first: trending or ranging?
+   Use ADX > 25 to confirm trend, Choppiness Index > 61.8 for range.
+
+2. **For trending markets**: use trend-following indicators (EMA
+   crossovers, MACD, Supertrend, PSAR). Avoid mean-reversion
+   oscillators (RSI, Stochastic) as standalone signals.
+
+3. **For ranging markets**: use oscillators (RSI, Stochastic, CCI)
+   at overbought/oversold levels. Bollinger Bands for mean-reversion
+   entries.
+
+4. **Always confirm** with volume (OBV, CMF) or breadth (A/D line).
+
+5. **For ML feature engineering**: prefer continuous indicators
+   (candle ratios, Z-scores, ATR-normalized values) over boolean
+   pattern detectors. See ``wraquant.ml.features.technical_features``.
 """
 
 from __future__ import annotations

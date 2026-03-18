@@ -374,9 +374,9 @@ class TestRegimeStatisticsHMM:
         stats = regime_statistics(returns, true_states)
 
         expected_cols = {
-            "mean", "std", "sharpe", "min", "max",
-            "skewness", "kurtosis", "n_observations",
-            "pct_time", "avg_duration",
+            "mean", "std", "sharpe", "sortino_ratio", "min", "max",
+            "skewness", "kurtosis", "max_drawdown", "VaR_95", "CVaR_95",
+            "n_observations", "pct_time", "avg_duration",
         }
         assert expected_cols == set(stats.columns)
 
@@ -698,3 +698,317 @@ class TestRollingRegimeProbability:
         if len(valid) > 0:
             row_sums = valid.sum(axis=1)
             np.testing.assert_allclose(row_sums, 1.0, atol=1e-4)
+
+
+# ---------------------------------------------------------------------------
+# Helpers for new tests
+# ---------------------------------------------------------------------------
+
+
+def _make_multivariate_regime_data(
+    n_low: int = 300,
+    n_high: int = 200,
+    seed: int = 42,
+) -> pd.DataFrame:
+    """Generate synthetic 2-regime multi-asset return data."""
+    rng = np.random.default_rng(seed)
+    cov_low = np.array([[0.0001, 0.00002], [0.00002, 0.00015]])
+    cov_high = np.array([[0.0009, 0.0006], [0.0006, 0.0008]])
+    low = rng.multivariate_normal([0.001, 0.0008], cov_low, n_low)
+    high = rng.multivariate_normal([-0.001, -0.0005], cov_high, n_high)
+    return pd.DataFrame(
+        np.vstack([low, high]),
+        columns=["SPY", "QQQ"],
+    )
+
+
+# ---------------------------------------------------------------------------
+# Tests: fit_ms_autoregression
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.skipif(not _has_statsmodels, reason="statsmodels not installed")
+class TestFitMsAutoregression:
+    def test_basic_fit(self) -> None:
+        from wraquant.regimes.hmm import fit_ms_autoregression
+
+        returns, _ = _make_two_regime_series()
+        result = fit_ms_autoregression(returns, k_regimes=2, order=1)
+
+        expected_keys = {
+            "smoothed_probs", "filtered_probs", "states",
+            "transition_matrix", "expected_durations", "regime_params",
+            "aic", "bic", "summary", "model_result",
+        }
+        assert expected_keys.issubset(result.keys())
+
+    def test_smoothed_probs_shape(self) -> None:
+        from wraquant.regimes.hmm import fit_ms_autoregression
+
+        returns, _ = _make_two_regime_series()
+        order = 1
+        result = fit_ms_autoregression(returns, k_regimes=2, order=order)
+
+        # MarkovAutoregression drops `order` initial observations
+        T_eff = len(returns) - order
+        assert result["smoothed_probs"].shape == (T_eff, 2)
+
+    def test_transition_matrix_rows_sum_to_one(self) -> None:
+        from wraquant.regimes.hmm import fit_ms_autoregression
+
+        returns, _ = _make_two_regime_series()
+        result = fit_ms_autoregression(returns, k_regimes=2, order=1)
+
+        row_sums = result["transition_matrix"].sum(axis=-1).flatten()
+        np.testing.assert_allclose(row_sums, 1.0, atol=5e-3)
+
+    def test_switching_variance(self) -> None:
+        from wraquant.regimes.hmm import fit_ms_autoregression
+
+        returns, _ = _make_two_regime_series()
+        result = fit_ms_autoregression(
+            returns, k_regimes=2, order=1, switching_variance=True
+        )
+
+        assert "sigma2_0" in result["regime_params"]
+        assert "sigma2_1" in result["regime_params"]
+        s0 = result["regime_params"]["sigma2_0"]
+        s1 = result["regime_params"]["sigma2_1"]
+        assert s0 != pytest.approx(s1, rel=0.5)
+
+    def test_expected_durations_positive(self) -> None:
+        from wraquant.regimes.hmm import fit_ms_autoregression
+
+        returns, _ = _make_two_regime_series()
+        result = fit_ms_autoregression(returns, k_regimes=2, order=1)
+
+        assert np.all(result["expected_durations"] > 0)
+
+    def test_aic_bic_finite(self) -> None:
+        from wraquant.regimes.hmm import fit_ms_autoregression
+
+        returns, _ = _make_two_regime_series()
+        result = fit_ms_autoregression(returns, k_regimes=2, order=1)
+
+        assert np.isfinite(result["aic"])
+        assert np.isfinite(result["bic"])
+
+
+# ---------------------------------------------------------------------------
+# Tests: select_n_states
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.skipif(not _has_hmmlearn, reason="hmmlearn not installed")
+class TestSelectNStates:
+    def test_returns_optimal_between_2_and_max(self) -> None:
+        from wraquant.regimes.hmm import select_n_states
+
+        returns, _ = _make_two_regime_series()
+        result = select_n_states(returns, max_states=5, n_init=3)
+
+        assert 2 <= result["optimal_n_states"] <= 5
+
+    def test_scores_dict_has_all_keys(self) -> None:
+        from wraquant.regimes.hmm import select_n_states
+
+        returns, _ = _make_two_regime_series()
+        result = select_n_states(returns, max_states=5, n_init=3)
+
+        for n in range(2, 6):
+            assert n in result["scores"]
+
+    def test_best_model_is_dict(self) -> None:
+        from wraquant.regimes.hmm import select_n_states
+
+        returns, _ = _make_two_regime_series()
+        result = select_n_states(returns, max_states=4, n_init=3)
+
+        assert isinstance(result["best_model"], dict)
+        assert "states" in result["best_model"]
+        assert "transition_matrix" in result["best_model"]
+
+    def test_optimal_matches_best_bic(self) -> None:
+        from wraquant.regimes.hmm import select_n_states
+
+        returns, _ = _make_two_regime_series()
+        result = select_n_states(returns, max_states=4, n_init=3)
+
+        optimal = result["optimal_n_states"]
+        best_bic = result["scores"][optimal]
+        for n, bic_val in result["scores"].items():
+            assert bic_val >= best_bic - 1e-6
+
+
+# ---------------------------------------------------------------------------
+# Tests: fit_multivariate_hmm
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.skipif(not _has_hmmlearn, reason="hmmlearn not installed")
+class TestFitMultivariateHMM:
+    def test_correct_shapes(self) -> None:
+        from wraquant.regimes.hmm import fit_multivariate_hmm
+
+        df = _make_multivariate_regime_data()
+        result = fit_multivariate_hmm(df, n_states=2, n_init=5)
+
+        T, d = df.shape
+        assert result["states"].shape == (T,)
+        assert result["state_probs"].shape == (T, 2)
+        assert result["means"].shape == (2, d)
+        assert result["covariances"].shape == (2, d, d)
+        assert result["transition_matrix"].shape == (2, 2)
+
+    def test_per_regime_correlations_exist(self) -> None:
+        from wraquant.regimes.hmm import fit_multivariate_hmm
+
+        df = _make_multivariate_regime_data()
+        result = fit_multivariate_hmm(df, n_states=2, n_init=5)
+
+        assert 0 in result["per_regime_correlations"]
+        assert 1 in result["per_regime_correlations"]
+
+        corr_0 = result["per_regime_correlations"][0]
+        corr_1 = result["per_regime_correlations"][1]
+        assert corr_0.shape == (2, 2)
+        assert corr_1.shape == (2, 2)
+
+        # Diagonal should be 1
+        np.testing.assert_allclose(np.diag(corr_0), 1.0, atol=1e-6)
+        np.testing.assert_allclose(np.diag(corr_1), 1.0, atol=1e-6)
+
+    def test_transition_matrix_rows_sum_to_one(self) -> None:
+        from wraquant.regimes.hmm import fit_multivariate_hmm
+
+        df = _make_multivariate_regime_data()
+        result = fit_multivariate_hmm(df, n_states=2, n_init=5)
+
+        row_sums = result["transition_matrix"].sum(axis=1)
+        np.testing.assert_allclose(row_sums, 1.0, atol=1e-6)
+
+    def test_preserves_columns(self) -> None:
+        from wraquant.regimes.hmm import fit_multivariate_hmm
+
+        df = _make_multivariate_regime_data()
+        result = fit_multivariate_hmm(df, n_states=2, n_init=5)
+
+        assert result["columns"] == ["SPY", "QQQ"]
+
+    def test_aic_bic_finite(self) -> None:
+        from wraquant.regimes.hmm import fit_multivariate_hmm
+
+        df = _make_multivariate_regime_data()
+        result = fit_multivariate_hmm(df, n_states=2, n_init=5)
+
+        assert np.isfinite(result["aic"])
+        assert np.isfinite(result["bic"])
+
+
+# ---------------------------------------------------------------------------
+# Tests: regime_conditional_moments
+# ---------------------------------------------------------------------------
+
+
+class TestRegimeConditionalMoments:
+    def test_mean_cov_shapes_match_n_assets(self) -> None:
+        from wraquant.regimes.hmm import regime_conditional_moments
+
+        df = _make_multivariate_regime_data()
+        T, d = df.shape
+        # Use ground-truth states
+        states = np.concatenate([
+            np.zeros(300, dtype=int),
+            np.ones(200, dtype=int),
+        ])
+
+        moments = regime_conditional_moments(df, states)
+
+        assert 0 in moments
+        assert 1 in moments
+        for k in [0, 1]:
+            assert moments[k]["mean"].shape == (d,)
+            assert moments[k]["cov"].shape == (d, d)
+            assert moments[k]["corr"].shape == (d, d)
+
+    def test_correlation_diagonal_is_one(self) -> None:
+        from wraquant.regimes.hmm import regime_conditional_moments
+
+        df = _make_multivariate_regime_data()
+        states = np.concatenate([
+            np.zeros(300, dtype=int),
+            np.ones(200, dtype=int),
+        ])
+
+        moments = regime_conditional_moments(df, states)
+
+        for k in [0, 1]:
+            np.testing.assert_allclose(
+                np.diag(moments[k]["corr"]), 1.0, atol=1e-6
+            )
+
+    def test_length_mismatch_raises(self) -> None:
+        from wraquant.regimes.hmm import regime_conditional_moments
+
+        df = _make_multivariate_regime_data()
+        with pytest.raises(ValueError, match="same length"):
+            regime_conditional_moments(df, np.zeros(10, dtype=int))
+
+    def test_type_error_on_non_dataframe(self) -> None:
+        from wraquant.regimes.hmm import regime_conditional_moments
+
+        with pytest.raises(TypeError):
+            regime_conditional_moments(
+                np.ones((10, 2)), np.zeros(10, dtype=int)
+            )
+
+
+# ---------------------------------------------------------------------------
+# Tests: enhanced regime_statistics (new columns)
+# ---------------------------------------------------------------------------
+
+
+class TestRegimeStatisticsEnhanced:
+    def test_new_columns_present(self) -> None:
+        from wraquant.regimes.hmm import regime_statistics
+
+        returns, true_states = _make_two_regime_series()
+        stats = regime_statistics(returns, true_states)
+
+        for col in ["max_drawdown", "sortino_ratio", "VaR_95", "CVaR_95"]:
+            assert col in stats.columns, f"Missing column: {col}"
+
+    def test_max_drawdown_is_non_positive(self) -> None:
+        from wraquant.regimes.hmm import regime_statistics
+
+        returns, true_states = _make_two_regime_series()
+        stats = regime_statistics(returns, true_states)
+
+        assert all(stats["max_drawdown"] <= 0)
+
+    def test_var_95_is_negative_for_high_vol(self) -> None:
+        from wraquant.regimes.hmm import regime_statistics
+
+        returns, true_states = _make_two_regime_series()
+        stats = regime_statistics(returns, true_states)
+
+        # High-vol regime (1) should have a more negative VaR
+        assert stats.loc[1, "VaR_95"] < stats.loc[0, "VaR_95"]
+
+    def test_cvar_95_at_most_var_95(self) -> None:
+        """CVaR (expected shortfall) should be <= VaR."""
+        from wraquant.regimes.hmm import regime_statistics
+
+        returns, true_states = _make_two_regime_series()
+        stats = regime_statistics(returns, true_states)
+
+        for regime in stats.index:
+            assert stats.loc[regime, "CVaR_95"] <= stats.loc[regime, "VaR_95"] + 1e-12
+
+    def test_sortino_ratio_finite(self) -> None:
+        from wraquant.regimes.hmm import regime_statistics
+
+        returns, true_states = _make_two_regime_series()
+        stats = regime_statistics(returns, true_states)
+
+        assert all(np.isfinite(stats["sortino_ratio"]))

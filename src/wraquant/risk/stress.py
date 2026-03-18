@@ -1,8 +1,41 @@
 """Comprehensive stress testing for portfolio risk analysis.
 
-Provides scenario-based, historical, volatility, and spot stress tests,
-reverse stress testing, sensitivity ladders, joint stress tests, and
-marginal stress contribution analysis.
+Stress testing answers "what if?" questions that historical VaR and CVaR
+cannot address. While VaR extrapolates from the empirical distribution,
+stress tests evaluate specific adverse scenarios -- including scenarios
+that have never occurred in the sample.
+
+This module provides seven complementary stress testing approaches:
+
+1. **Scenario-based** (``stress_test_returns``) -- apply user-defined
+   additive shocks (e.g., "what if every day's return is 10% worse?").
+2. **Historical replay** (``historical_stress_test``) -- measure
+   portfolio performance during known crises (GFC, COVID, dot-com).
+3. **Volatility scaling** (``vol_stress_test``) -- scale return
+   dispersion by multipliers (1.5x, 2x, 3x) while preserving the mean.
+4. **Spot stress** (``spot_stress_test``) -- shift price levels by
+   percentage amounts (-30% to +10%).
+5. **Sensitivity ladder** (``sensitivity_ladder``) -- P&L sensitivity
+   to a single factor across a range of shock levels.
+6. **Reverse stress test** (``reverse_stress_test``) -- find the
+   scenarios that produce a target loss (regulatory requirement).
+7. **Joint stress test** (``joint_stress_test``) -- simultaneous
+   volatility, spot, and correlation shocks.
+8. **Marginal contribution** (``marginal_stress_contribution``) --
+   identify the asset contributing most to stress loss.
+
+How to interpret stress test results:
+    Stress tests produce point estimates, not probability distributions.
+    The output tells you "if X happens, the P&L impact is Y."  They are
+    valuable for:
+    - Setting position limits and stop-losses.
+    - Capital adequacy assessment (CCAR, DFAST).
+    - Identifying concentrated risk exposures.
+    - Communicating tail risk to stakeholders.
+
+References:
+    - Berkowitz (2000), "A Coherent Framework for Stress-Testing"
+    - McNeil, Frey & Embrechts (2005), "Quantitative Risk Management"
 """
 
 from __future__ import annotations
@@ -20,23 +53,54 @@ def stress_test_returns(
 ) -> dict[str, Any]:
     """Apply user-defined additive shock scenarios to a return series.
 
-    Each scenario name maps to an additive shift applied uniformly to all
-    returns.  The function computes the stressed mean, stressed VaR (5th
-    percentile), and stressed CVaR for every scenario.
+    Each scenario name maps to an additive shift applied uniformly to
+    all returns. The function computes the stressed mean, stressed VaR
+    (5th percentile), and stressed CVaR for every scenario. This is
+    the simplest stress test and is useful for quick what-if analysis.
+
+    When to use:
+        Use when you want to evaluate the impact of a uniform adverse
+        shift in returns. For example, "what if every daily return is
+        10bp worse due to a funding cost shock?" For more realistic
+        scenario analysis, use ``historical_stress_test`` (replays real
+        crises) or ``joint_stress_test`` (simultaneous multi-factor
+        shocks).
+
+    How to interpret:
+        Compare ``stressed_var_95`` and ``stressed_cvar_95`` across
+        scenarios to identify which shock level pushes your portfolio
+        into unacceptable loss territory. If a moderate shock (-5%)
+        already produces a severe stressed CVaR, the portfolio has
+        insufficient risk budget.
 
     Parameters:
         returns: Historical return series (Series) or multi-asset returns
-            (DataFrame).
+            (DataFrame). For DataFrames, the cross-asset mean is used.
         scenarios: Mapping of scenario name to additive return shock
-            (e.g. ``{"crash": -0.10, "boom": 0.05}``).
+            (e.g. ``{"crash": -0.10, "boom": 0.05}``). A shock of
+            -0.10 subtracts 10% from every observation.
 
     Returns:
         Dict with keys:
 
         * ``"scenario_results"`` -- dict mapping scenario name to a dict
-          with ``"stressed_mean"``, ``"stressed_var_95"``,
-          ``"stressed_cvar_95"``.
-        * ``"base_mean"`` -- mean of the original returns.
+          with ``"stressed_mean"``, ``"stressed_var_95"`` (5th percentile
+          of stressed returns), ``"stressed_cvar_95"`` (mean of returns
+          below the 5th percentile).
+        * ``"base_mean"`` -- mean of the original (unstressed) returns.
+
+    Example:
+        >>> import pandas as pd, numpy as np
+        >>> np.random.seed(42)
+        >>> returns = pd.Series(np.random.normal(0.0005, 0.01, 252))
+        >>> result = stress_test_returns(returns, {"mild": -0.005, "severe": -0.02})
+        >>> result["scenario_results"]["severe"]["stressed_mean"] < result["base_mean"]
+        True
+
+    See Also:
+        historical_stress_test: Replay known crisis periods.
+        vol_stress_test: Scale volatility by multipliers.
+        joint_stress_test: Simultaneous multi-factor shocks.
     """
     if isinstance(returns, pd.DataFrame):
         base_vals = returns.mean(axis=1).dropna().values
@@ -81,22 +145,61 @@ def historical_stress_test(
 ) -> dict[str, Any]:
     """Test portfolio returns against known historical crisis periods.
 
-    If *crisis_periods* is ``None``, a built-in set of crises is used
-    (GFC 2008, COVID 2020, Dot-Com 2000, Euro Debt 2011, etc.).
+    Replays the portfolio through actual historical crises and reports
+    cumulative return, max drawdown, and mean daily return for each
+    period. This is the most intuitive form of stress testing because
+    the scenarios are real events that stakeholders can relate to.
+
+    When to use:
+        Use historical stress testing for:
+        - Board and regulator presentations ("how would we have
+          performed in the GFC?").
+        - Identifying whether the portfolio's risk profile has
+          improved or deteriorated relative to past crises.
+        - Calibrating position limits against known worst cases.
+
+    How to interpret:
+        Compare ``cumulative_return`` and ``max_drawdown`` across
+        crises. A portfolio that survived the GFC with only -15%
+        cumulative return has very different tail risk from one that
+        lost -45%. The ``periods_found`` list tells you which crises
+        overlap with your data -- crises not found are silently skipped.
+
+    Built-in crisis periods (used when *crisis_periods* is None):
+        - GFC 2008: 2008-09-01 to 2009-03-31
+        - COVID 2020: 2020-02-19 to 2020-03-23
+        - Dot-Com 2000: 2000-03-10 to 2002-10-09
+        - Euro Debt 2011: 2011-07-01 to 2011-11-30
+        - Taper Tantrum 2013: 2013-05-22 to 2013-09-05
+        - Volmageddon 2018: 2018-02-02 to 2018-02-08
+        - Flash Crash 2010: 2010-05-06
 
     Parameters:
         returns: Return series with a ``DatetimeIndex``.
         crisis_periods: Mapping of crisis name to ``(start, end)`` date
-            strings.  Periods not covered by the data are skipped.
+            strings. Periods not covered by the data are skipped.
 
     Returns:
         Dict with keys:
 
         * ``"crisis_results"`` -- dict mapping crisis name to a dict
-          with ``"cumulative_return"``, ``"max_drawdown"``,
-          ``"mean_daily_return"``, ``"n_days"``.
-        * ``"periods_found"`` -- list of crisis names that overlap with
-          the data.
+          with ``"cumulative_return"`` (compounded return over the
+          crisis), ``"max_drawdown"`` (worst peak-to-trough within
+          the crisis), ``"mean_daily_return"``, ``"n_days"``.
+        * ``"periods_found"`` -- list of crisis names that overlap
+          with the data.
+
+    Example:
+        >>> import pandas as pd, numpy as np
+        >>> idx = pd.bdate_range("2008-01-01", "2009-12-31")
+        >>> returns = pd.Series(np.random.normal(-0.001, 0.02, len(idx)), index=idx)
+        >>> result = historical_stress_test(returns)
+        >>> "gfc_2008" in result["periods_found"]
+        True
+
+    See Also:
+        stress_test_returns: User-defined additive shocks.
+        reverse_stress_test: Find scenarios that produce a target loss.
     """
     if crisis_periods is None:
         crisis_periods = _CRISIS_PERIODS
@@ -144,8 +247,24 @@ def vol_stress_test(
     """Stress test by scaling return volatility with multipliers.
 
     Demeaned returns are scaled by each multiplier, then the mean is
-    re-added.  This preserves the mean while increasing (or decreasing)
-    dispersion.
+    re-added. This preserves the expected return while increasing (or
+    decreasing) dispersion. The technique is useful for asking "what
+    happens to VaR and CVaR if volatility doubles?"
+
+    When to use:
+        Use volatility stress tests to:
+        - Assess margin adequacy under elevated vol regimes.
+        - Calibrate dynamic position sizing rules.
+        - Compare the portfolio's sensitivity to vol scaling
+          (a diversified portfolio should be less sensitive than a
+          concentrated one).
+
+    How to interpret:
+        The ``stressed_vol`` should scale linearly with the multiplier
+        (by construction). The key outputs are ``stressed_var_95`` and
+        ``stressed_cvar_95``: if doubling vol (multiplier 2.0) causes
+        CVaR to more than double, the portfolio has convex (nonlinear)
+        tail exposure.
 
     Parameters:
         returns: Historical return series.
@@ -159,6 +278,18 @@ def vol_stress_test(
           ``"stressed_vol"``, ``"stressed_var_95"``,
           ``"stressed_cvar_95"``, ``"stressed_mean"``.
         * ``"base_vol"`` -- volatility of the original returns.
+
+    Example:
+        >>> import pandas as pd, numpy as np
+        >>> np.random.seed(42)
+        >>> returns = pd.Series(np.random.normal(0.0005, 0.01, 500))
+        >>> result = vol_stress_test(returns, vol_shocks=[1.5, 2.0])
+        >>> result["vol_results"]["2.0"]["stressed_vol"] > result["base_vol"]
+        True
+
+    See Also:
+        stress_test_returns: Additive shock scenarios.
+        joint_stress_test: Combined vol, spot, and correlation shocks.
     """
     if vol_shocks is None:
         vol_shocks = [1.5, 2.0, 2.5, 3.0]
@@ -199,12 +330,26 @@ def spot_stress_test(
     """Shift spot (price) levels by specified percentage amounts.
 
     Each shock is applied as a multiplicative factor to the final price
-    (e.g. -0.10 means a 10 % drop from the last price).
+    (e.g., -0.10 means a 10% drop from the last price). This is useful
+    for mark-to-market stress testing of current positions.
+
+    When to use:
+        Use spot stress tests for:
+        - Options portfolio Greeks analysis (delta P&L under spot move).
+        - Margin calculation under adverse spot scenarios.
+        - Reporting to counterparties ("what is my exposure if the
+          underlying drops 20%?").
+
+    How to interpret:
+        The ``shocked_price`` shows the resulting price level after the
+        shock. For a DataFrame (multi-asset), the same percentage shock
+        is applied to each asset's last price. ``price_change`` is the
+        absolute dollar change.
 
     Parameters:
         prices: Price series or DataFrame of asset prices.
         spot_shocks: List of percentage shocks (e.g. ``[-0.30, -0.20,
-            -0.10, 0.10, 0.20]``).  Defaults to
+            -0.10, 0.10, 0.20]``). Defaults to
             ``[-0.30, -0.20, -0.10, -0.05, 0.05, 0.10]``.
 
     Returns:
@@ -213,6 +358,17 @@ def spot_stress_test(
         * ``"spot_results"`` -- dict mapping shock (as string) to
           ``"shocked_price"``, ``"price_change"``, ``"pct_change"``.
         * ``"base_price"`` -- the last observed price.
+
+    Example:
+        >>> import pandas as pd
+        >>> prices = pd.Series([100.0, 102.0, 101.0, 103.0])
+        >>> result = spot_stress_test(prices, spot_shocks=[-0.10, 0.10])
+        >>> result["spot_results"]["-0.1"]["shocked_price"]
+        92.7
+
+    See Also:
+        vol_stress_test: Scale volatility by multipliers.
+        sensitivity_ladder: P&L sensitivity to a single factor.
     """
     if spot_shocks is None:
         spot_shocks = [-0.30, -0.20, -0.10, -0.05, 0.05, 0.10]
@@ -255,14 +411,36 @@ def sensitivity_ladder(
 ) -> dict[str, Any]:
     """Compute portfolio P&L across a range of factor shocks.
 
-    Fits a linear regression of portfolio returns on the factor, then
-    uses the beta to estimate the P&L impact of each shock level.
+    Fits a linear regression of portfolio returns on a single factor,
+    then uses the estimated beta to project the portfolio P&L impact
+    at each shock level. The result is a "ladder" -- a table of factor
+    values and corresponding portfolio returns.
+
+    When to use:
+        Use sensitivity ladders to:
+        - Understand how exposed the portfolio is to a single risk
+          factor (e.g., S&P 500, 10Y yield, oil price).
+        - Construct hedging ratios (the beta tells you how much
+          factor exposure to neutralise).
+        - Present risk to traders and PMs in an intuitive format.
+
+    Mathematical formulation:
+        Step 1: Fit r_p = alpha + beta * r_f + epsilon via OLS.
+        Step 2: For each shock s, estimate P&L = alpha + beta * s.
+
+    How to interpret:
+        The ``ladder`` maps each factor shock to the estimated portfolio
+        return. A high ``beta`` means the portfolio is very sensitive
+        to the factor. ``r_squared`` tells you how much of the
+        portfolio's variance is explained by this factor; if R^2 is
+        low (<0.3), the ladder is unreliable because other factors
+        dominate.
 
     Parameters:
         portfolio_returns: Portfolio return series.
         factor_returns: Single-factor return series (same index).
         shock_range: Array of factor shock values (e.g.
-            ``np.linspace(-0.10, 0.10, 21)``).  Defaults to
+            ``np.linspace(-0.10, 0.10, 21)``). Defaults to
             ``np.linspace(-0.10, 0.10, 21)``.
 
     Returns:
@@ -270,9 +448,22 @@ def sensitivity_ladder(
 
         * ``"ladder"`` -- dict mapping shock level (float) to estimated
           portfolio P&L.
-        * ``"beta"`` -- regression beta.
-        * ``"alpha"`` -- regression intercept.
+        * ``"beta"`` -- regression beta (sensitivity).
+        * ``"alpha"`` -- regression intercept (return when factor = 0).
         * ``"r_squared"`` -- R-squared of the regression.
+
+    Example:
+        >>> import pandas as pd, numpy as np
+        >>> np.random.seed(42)
+        >>> factor = pd.Series(np.random.normal(0, 0.01, 252))
+        >>> portfolio = 0.8 * factor + np.random.normal(0, 0.005, 252)
+        >>> result = sensitivity_ladder(portfolio, factor)
+        >>> abs(result["beta"] - 0.8) < 0.2  # beta close to true value
+        True
+
+    See Also:
+        spot_stress_test: Direct price-level shocks.
+        joint_stress_test: Multi-factor simultaneous shocks.
     """
     if shock_range is None:
         shock_range = np.linspace(-0.10, 0.10, 21)
@@ -309,13 +500,39 @@ def reverse_stress_test(
 ) -> dict[str, Any]:
     """Find scenarios that produce at least the specified target loss.
 
-    Simulates returns from a fitted normal distribution and identifies
-    paths where the cumulative loss meets or exceeds *target_loss*.
+    Reverse stress testing inverts the usual question: instead of
+    "what is the loss under scenario X?", it asks "what scenarios
+    produce a loss of at least Y?" This is a regulatory requirement
+    under ICAAP/SREP and is valuable for identifying the portfolio's
+    breaking point.
+
+    When to use:
+        Use reverse stress tests when you need to:
+        - Identify the conditions under which the portfolio breaches
+          a risk limit (e.g., -20% annual loss).
+        - Satisfy regulatory requirements for reverse stress testing.
+        - Understand how "unlikely" a catastrophic loss really is.
+
+    How to interpret:
+        ``probability`` is the fraction of simulated paths that hit
+        the target loss. A probability of 0.01 means a 1% chance of
+        the target loss under the fitted normal model. ``avg_loss``
+        and ``worst_loss`` characterise the severity of qualifying
+        scenarios. ``threshold_percentile`` places the target loss
+        in the simulated distribution (e.g., 2nd percentile means
+        the target is a 1-in-50 event).
+
+    Caveats:
+        The simulation assumes normally distributed returns (fitted
+        from the historical sample). For fat-tailed assets, the true
+        probability of extreme losses is higher than estimated here.
+        Consider using ``filtered_historical_simulation`` from the
+        ``monte_carlo`` sub-module for more realistic tails.
 
     Parameters:
         returns: Historical return series.
         target_loss: Target cumulative loss as a negative number
-            (e.g. ``-0.20`` for a 20 % loss).
+            (e.g. ``-0.20`` for a 20% loss).
         n_sims: Number of Monte Carlo paths to simulate.
         seed: Random seed for reproducibility.
 
@@ -327,9 +544,22 @@ def reverse_stress_test(
         * ``"probability"`` -- estimated probability of hitting the
           target.
         * ``"avg_loss"`` -- mean loss across qualifying scenarios.
-        * ``"worst_loss"`` -- worst loss observed.
+        * ``"worst_loss"`` -- worst loss observed in qualifying
+          scenarios.
         * ``"threshold_percentile"`` -- percentile at which the target
           loss sits in the simulated distribution.
+
+    Example:
+        >>> import pandas as pd, numpy as np
+        >>> np.random.seed(42)
+        >>> returns = pd.Series(np.random.normal(0.0003, 0.01, 252))
+        >>> result = reverse_stress_test(returns, target_loss=-0.30, n_sims=5000, seed=42)
+        >>> result["probability"] >= 0
+        True
+
+    See Also:
+        historical_stress_test: Replay known crisis periods.
+        stress_test_returns: User-defined additive shocks.
     """
     if isinstance(returns, pd.DataFrame):
         vals = returns.mean(axis=1).dropna().values
@@ -375,30 +605,69 @@ def joint_stress_test(
 ) -> dict[str, Any]:
     """Apply combined volatility, spot, and correlation shocks.
 
-    Procedure:
+    Real crises involve simultaneous increases in volatility, drops in
+    asset prices, and spikes in correlation (diversification breaks
+    down when you need it most). This function applies all three shocks
+    simultaneously to produce a stressed covariance matrix and stressed
+    expected returns.
 
-    1. Scale demeaned returns by *vol_shock* (volatility multiplier).
-    2. Shift the mean by *spot_shock* (additive level shift).
-    3. Adjust the correlation matrix toward uniform correlation by
-       blending toward a matrix of ones (``correlation_shock`` in
-       ``[0, 1]`` where 0 = no change, 1 = perfect correlation).
+    When to use:
+        Use joint stress tests for:
+        - Portfolio optimisation stress testing: feed the stressed
+          covariance matrix into a mean-variance optimiser.
+        - Capital adequacy under combined adverse conditions.
+        - Comparing diversification benefits under normal vs. stressed
+          conditions (correlation shock toward 1.0 eliminates
+          diversification).
+
+    Procedure:
+        1. Scale demeaned returns by *vol_shock* (volatility multiplier).
+        2. Shift the mean by *spot_shock* (additive level shift).
+        3. Blend the correlation matrix toward uniform correlation:
+           stressed_corr = (1 - c) * corr + c * ones_matrix,
+           where c = correlation_shock.
+
+    How to interpret:
+        The stressed covariance matrix (``stressed_cov``) reflects
+        the combined effect of all three shocks. Pass it to
+        ``wraquant.opt`` for stress-aware portfolio construction.
+        Compare ``stressed_vol`` / ``base_vol`` to verify the vol
+        scaling. Compare ``stressed_corr`` to the base correlation
+        to see how diversification degrades.
 
     Parameters:
-        returns: Multi-asset return DataFrame.
+        returns: Multi-asset return DataFrame (columns = assets).
         vol_shock: Volatility multiplier (e.g. 2.0 = double vol).
-        spot_shock: Additive shift to mean returns.
-        correlation_shock: Blend factor toward perfect correlation
-            (0 = unchanged, 1 = perfect positive correlation).
+        spot_shock: Additive shift to mean returns (e.g. -0.10 =
+            subtract 10% from each asset's mean return).
+        correlation_shock: Blend factor toward perfect correlation.
+            0 = unchanged, 0.5 = halfway to perfect correlation,
+            1 = all pairwise correlations set to 1.0.
 
     Returns:
         Dict with keys:
 
-        * ``"stressed_mean"`` -- stressed mean return per asset.
-        * ``"stressed_vol"`` -- stressed volatility per asset.
-        * ``"stressed_corr"`` -- stressed correlation matrix.
-        * ``"stressed_cov"`` -- stressed covariance matrix.
-        * ``"base_mean"`` -- original mean returns.
-        * ``"base_vol"`` -- original volatilities.
+        * ``"stressed_mean"`` -- stressed mean return per asset (dict).
+        * ``"stressed_vol"`` -- stressed volatility per asset (dict).
+        * ``"stressed_corr"`` -- stressed correlation matrix (ndarray).
+        * ``"stressed_cov"`` -- stressed covariance matrix (ndarray).
+        * ``"base_mean"`` -- original mean returns (dict).
+        * ``"base_vol"`` -- original volatilities (dict).
+
+    Example:
+        >>> import pandas as pd, numpy as np
+        >>> np.random.seed(42)
+        >>> returns = pd.DataFrame({
+        ...     "SPY": np.random.normal(0.0005, 0.01, 252),
+        ...     "TLT": np.random.normal(0.0002, 0.005, 252),
+        ... })
+        >>> result = joint_stress_test(returns, vol_shock=2.0, correlation_shock=0.5)
+        >>> result["stressed_vol"]["SPY"] > result["base_vol"]["SPY"]
+        True
+
+    See Also:
+        vol_stress_test: Volatility scaling only.
+        marginal_stress_contribution: Identify worst-contributing asset.
     """
     clean = returns.dropna()
     assets = clean.columns.tolist()
@@ -439,27 +708,61 @@ def marginal_stress_contribution(
     returns: pd.DataFrame,
     scenario: dict[str, float],
 ) -> dict[str, Any]:
-    """Identify which asset contributes most to stress loss.
+    """Identify which asset contributes most to portfolio stress loss.
 
-    Computes each asset's contribution to the total portfolio stress
-    loss under the given scenario.
+    Decomposes the total portfolio loss under a stress scenario into
+    per-asset contributions. This is essential for understanding
+    *where* the risk is concentrated and deciding which positions to
+    hedge or reduce.
+
+    When to use:
+        Use marginal stress contribution after running a stress test
+        to answer: "which position is killing the portfolio under
+        this scenario?" This guides targeted hedging decisions (e.g.,
+        buy puts on the worst-contributing asset).
+
+    How to interpret:
+        ``asset_contributions`` shows each asset's dollar P&L under the
+        scenario (weight_i * scenario_return_i). ``pct_contributions``
+        normalises these to sum to 1.0, showing the *fraction* of
+        total loss attributable to each asset. ``worst_asset`` is the
+        asset with the most negative contribution.
 
     Parameters:
         portfolio_weights: Weight vector aligned with ``returns.columns``.
-        returns: Multi-asset return DataFrame.
-        scenario: Mapping of asset name to shocked return value.
-            Assets not in the scenario use their historical mean.
+            Must have the same length as the number of columns.
+        returns: Multi-asset return DataFrame (columns = assets).
+        scenario: Mapping of asset name to shocked return value. Assets
+            not in the scenario use their historical mean return.
 
     Returns:
         Dict with keys:
 
         * ``"total_stress_loss"`` -- portfolio return under the scenario.
         * ``"asset_contributions"`` -- dict mapping asset name to its
-          P&L contribution.
+          P&L contribution (weight * return).
         * ``"pct_contributions"`` -- dict mapping asset name to its
-          percentage contribution to total loss (sums to 1).
+          percentage contribution to total loss.
         * ``"worst_asset"`` -- name of the asset contributing the most
           loss.
+
+    Example:
+        >>> import pandas as pd, numpy as np
+        >>> np.random.seed(42)
+        >>> returns = pd.DataFrame({
+        ...     "AAPL": np.random.normal(0.001, 0.02, 100),
+        ...     "MSFT": np.random.normal(0.001, 0.015, 100),
+        ... })
+        >>> weights = np.array([0.6, 0.4])
+        >>> scenario = {"AAPL": -0.15, "MSFT": -0.05}
+        >>> result = marginal_stress_contribution(weights, returns, scenario)
+        >>> result["worst_asset"]
+        'AAPL'
+
+    See Also:
+        joint_stress_test: Generate stressed parameters for scenarios.
+        wraquant.risk.portfolio.risk_contribution: Euler risk
+            decomposition (non-scenario-based).
     """
     assets = returns.columns.tolist()
     means = returns.mean().values

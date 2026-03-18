@@ -392,3 +392,274 @@ def trade_analysis(trades_df: pd.DataFrame) -> dict[str, float]:
         "max_loss": float(pnl.min()),
         "n_trades": float(n),
     }
+
+
+def comprehensive_tearsheet(
+    returns: pd.Series,
+    benchmark: pd.Series | None = None,
+    risk_free: float = 0.0,
+    periods_per_year: int = 252,
+    trades_df: pd.DataFrame | None = None,
+    regime_states: pd.Series | None = None,
+) -> dict[str, Any]:
+    """Generate a complete performance report combining all available metrics.
+
+    This is the "kitchen sink" tearsheet — it computes every metric in
+    the backtesting module and organises them into a nested dictionary
+    that can feed directly into dashboards and visualisation tools.
+
+    The returned dictionary contains the following top-level keys:
+
+    - ``summary``: Core risk/return metrics from ``generate_tearsheet``.
+    - ``extended_metrics``: All metrics from ``backtest.metrics``
+      (Omega, Burke, UPI, Kappa, tail, Rachev, SQN, etc.).
+    - ``monthly_returns``: Monthly return table (years x months).
+    - ``yearly_returns``: Annual compounded returns.
+    - ``drawdown_analysis``: Top 5 drawdowns with dates and durations.
+    - ``rolling_metrics``: Rolling 3m/6m/12m Sharpe, vol, and return.
+    - ``trade_analysis``: Per-trade statistics (if ``trades_df`` is
+      provided).
+    - ``regime_performance``: Performance broken out by regime state
+      (if ``regime_states`` is provided).
+
+    Parameters:
+        returns: Simple return series with a DatetimeIndex.
+        benchmark: Benchmark return series for relative metrics.
+        risk_free: Annual risk-free rate.
+        periods_per_year: Trading periods per year (252 for daily).
+        trades_df: Trade log DataFrame with a ``pnl`` column.
+            If provided, trade-level analysis is included.
+        regime_states: Series of regime labels (e.g., "bull", "bear",
+            "normal") aligned with ``returns``.  If provided, the
+            tearsheet includes per-regime performance breakdowns.
+
+    Returns:
+        Nested dictionary with all metrics and analysis tables.
+
+    Example:
+        >>> import pandas as pd, numpy as np
+        >>> rng = np.random.default_rng(42)
+        >>> rets = pd.Series(
+        ...     rng.normal(0.0004, 0.01, 504),
+        ...     index=pd.bdate_range("2022-01-03", periods=504),
+        ... )
+        >>> ts = comprehensive_tearsheet(rets)
+        >>> "summary" in ts and "extended_metrics" in ts
+        True
+
+    See Also:
+        generate_tearsheet: Core performance metrics only.
+        strategy_comparison: Side-by-side comparison of multiple strategies.
+    """
+    from wraquant.backtest.metrics import (
+        burke_ratio,
+        common_sense_ratio,
+        gain_to_pain_ratio,
+        kappa_ratio,
+        omega_ratio,
+        payoff_ratio as _payoff_ratio,
+        profit_factor as _profit_factor,
+        rachev_ratio,
+        recovery_factor,
+        system_quality_number,
+        tail_ratio,
+        ulcer_performance_index,
+    )
+
+    # --- Core summary ---
+    summary = generate_tearsheet(
+        returns,
+        benchmark=benchmark,
+        risk_free=risk_free,
+        periods_per_year=periods_per_year,
+    )
+
+    # --- Extended metrics ---
+    extended: dict[str, float] = {
+        "omega_ratio": omega_ratio(returns),
+        "burke_ratio": burke_ratio(returns, periods_per_year=periods_per_year),
+        "ulcer_performance_index": ulcer_performance_index(
+            returns, periods_per_year=periods_per_year
+        ),
+        "kappa_2": kappa_ratio(returns, order=2, periods_per_year=periods_per_year),
+        "kappa_3": kappa_ratio(returns, order=3, periods_per_year=periods_per_year),
+        "tail_ratio": tail_ratio(returns),
+        "common_sense_ratio": common_sense_ratio(
+            returns, risk_free=risk_free, periods_per_year=periods_per_year
+        ),
+        "rachev_ratio": rachev_ratio(returns),
+        "gain_to_pain_ratio": gain_to_pain_ratio(returns),
+        "profit_factor": _profit_factor(returns),
+        "payoff_ratio": _payoff_ratio(returns),
+        "recovery_factor": recovery_factor(returns),
+        "system_quality_number": system_quality_number(returns),
+    }
+
+    # --- Monthly and yearly returns ---
+    monthly = monthly_returns_table(returns)
+
+    yearly_returns: dict[int, float] = {}
+    if not returns.empty and hasattr(returns.index, "year"):
+        for year in sorted(returns.index.year.unique()):
+            yr_rets = returns[returns.index.year == year]
+            yearly_returns[int(year)] = float((1 + yr_rets).prod() - 1)
+
+    # --- Drawdown analysis ---
+    dd_table = drawdown_table(returns, top_n=5)
+
+    # --- Rolling metrics ---
+    rolling = rolling_metrics_table(
+        returns,
+        windows=[63, 126, 252],
+        periods_per_year=periods_per_year,
+    )
+
+    result: dict[str, Any] = {
+        "summary": summary,
+        "extended_metrics": extended,
+        "monthly_returns": monthly,
+        "yearly_returns": yearly_returns,
+        "drawdown_analysis": dd_table,
+        "rolling_metrics": rolling,
+    }
+
+    # --- Trade analysis ---
+    if trades_df is not None and "pnl" in trades_df.columns:
+        ta = trade_analysis(trades_df)
+
+        # Win rate by month if trades have timestamps
+        if "timestamp" in trades_df.columns or isinstance(
+            trades_df.index, pd.DatetimeIndex
+        ):
+            ts_col = (
+                trades_df.index
+                if isinstance(trades_df.index, pd.DatetimeIndex)
+                else pd.to_datetime(trades_df["timestamp"])
+            )
+            monthly_wr: dict[str, float] = {}
+            for month_key, grp in trades_df.groupby(ts_col.to_period("M")):
+                pnl_grp = grp["pnl"].dropna()
+                if len(pnl_grp) > 0:
+                    monthly_wr[str(month_key)] = float(
+                        (pnl_grp > 0).sum() / len(pnl_grp)
+                    )
+            ta["win_rate_by_month"] = monthly_wr
+
+        # Holding period if entry/exit times available
+        if "entry_time" in trades_df.columns and "exit_time" in trades_df.columns:
+            durations = pd.to_datetime(trades_df["exit_time"]) - pd.to_datetime(
+                trades_df["entry_time"]
+            )
+            ta["avg_holding_period_days"] = float(durations.mean().total_seconds() / 86400)
+
+        # Best / worst trades
+        pnl_sorted = trades_df["pnl"].dropna().sort_values()
+        ta["worst_5_trades"] = pnl_sorted.head(5).tolist()
+        ta["best_5_trades"] = pnl_sorted.tail(5).tolist()
+
+        result["trade_analysis"] = ta
+
+    # --- Regime-conditional performance ---
+    if regime_states is not None:
+        common_idx = returns.index.intersection(regime_states.index)
+        r_aligned = returns.loc[common_idx]
+        s_aligned = regime_states.loc[common_idx]
+
+        regime_perf: dict[str, dict[str, float]] = {}
+        for regime in s_aligned.unique():
+            mask = s_aligned == regime
+            regime_rets = r_aligned[mask]
+            if len(regime_rets) > 1:
+                ann_vol = float(regime_rets.std() * np.sqrt(periods_per_year))
+                ann_ret = float(regime_rets.mean() * periods_per_year)
+                regime_perf[str(regime)] = {
+                    "count": int(mask.sum()),
+                    "mean_return": float(regime_rets.mean()),
+                    "annualized_return": ann_ret,
+                    "annualized_volatility": ann_vol,
+                    "sharpe": ann_ret / ann_vol if ann_vol > 0 else 0.0,
+                    "total_return": float((1 + regime_rets).prod() - 1),
+                }
+
+        result["regime_performance"] = regime_perf
+
+    return result
+
+
+def strategy_comparison(
+    strategies: dict[str, pd.Series],
+    risk_free: float = 0.0,
+    periods_per_year: int = 252,
+) -> pd.DataFrame:
+    """Compare multiple strategies side-by-side on all metrics.
+
+    Computes a comprehensive set of performance metrics for each
+    strategy and returns them in a single DataFrame where columns
+    are strategy names and rows are metric names.  The best and worst
+    values for each metric are easy to spot by sorting.
+
+    Parameters:
+        strategies: Mapping of ``{strategy_name: returns_series}``.
+        risk_free: Annual risk-free rate.
+        periods_per_year: Trading periods per year.
+
+    Returns:
+        DataFrame with metric names as the index and strategy names as
+        columns.  Contains all core and extended metrics.
+
+    Example:
+        >>> import pandas as pd, numpy as np
+        >>> rng = np.random.default_rng(42)
+        >>> strats = {
+        ...     "momentum": pd.Series(rng.normal(0.0005, 0.012, 252)),
+        ...     "mean_rev": pd.Series(rng.normal(0.0003, 0.008, 252)),
+        ... }
+        >>> comp = strategy_comparison(strats)
+        >>> "momentum" in comp.columns and "mean_rev" in comp.columns
+        True
+
+    See Also:
+        comprehensive_tearsheet: Full report for a single strategy.
+        generate_tearsheet: Core metrics for a single strategy.
+    """
+    from wraquant.backtest.metrics import (
+        burke_ratio,
+        common_sense_ratio,
+        gain_to_pain_ratio,
+        kappa_ratio,
+        omega_ratio,
+        payoff_ratio as _payoff_ratio,
+        profit_factor as _profit_factor,
+        rachev_ratio,
+        recovery_factor,
+        system_quality_number,
+        tail_ratio,
+        ulcer_performance_index,
+    )
+
+    records: dict[str, dict[str, float]] = {}
+    for name, rets in strategies.items():
+        ts = generate_tearsheet(
+            rets, risk_free=risk_free, periods_per_year=periods_per_year
+        )
+        # Remove non-numeric entries
+        ts.pop("n_periods", None)
+        # Add extended metrics
+        ts["omega_ratio"] = omega_ratio(rets)
+        ts["burke_ratio"] = burke_ratio(rets, periods_per_year=periods_per_year)
+        ts["ulcer_performance_index"] = ulcer_performance_index(
+            rets, periods_per_year=periods_per_year
+        )
+        ts["kappa_2"] = kappa_ratio(rets, order=2, periods_per_year=periods_per_year)
+        ts["tail_ratio"] = tail_ratio(rets)
+        ts["common_sense_ratio"] = common_sense_ratio(
+            rets, risk_free=risk_free, periods_per_year=periods_per_year
+        )
+        ts["rachev_ratio"] = rachev_ratio(rets)
+        ts["gain_to_pain_ratio"] = gain_to_pain_ratio(rets)
+        ts["payoff_ratio"] = _payoff_ratio(rets)
+        ts["recovery_factor"] = recovery_factor(rets)
+        ts["system_quality_number"] = system_quality_number(rets)
+        records[name] = ts
+
+    return pd.DataFrame(records)

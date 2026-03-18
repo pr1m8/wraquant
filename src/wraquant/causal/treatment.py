@@ -1,8 +1,62 @@
 """Treatment effect estimation via pure numpy/scipy implementations.
 
-Includes propensity score estimation, inverse probability weighting,
-nearest-neighbor matching, doubly robust estimation, regression
-discontinuity, synthetic control, and difference-in-differences.
+Causal inference methods estimate the causal effect of a treatment or
+intervention on an outcome, controlling for confounding variables. In
+finance, these methods answer questions like:
+
+- "Did the Fed rate cut cause the equity rally, or would it have
+  happened anyway?"
+- "What is the causal effect of share buyback announcements on stock
+  returns?"
+- "Did the new regulatory rule reduce trading costs, controlling for
+  market conditions?"
+
+This module provides six complementary causal inference estimators:
+
+1. **Inverse Probability Weighting** (``ipw_ate``) -- reweights
+   observations by the inverse of their propensity score to create a
+   pseudo-population where treatment is independent of covariates.
+   Simple but sensitive to extreme propensity scores.
+
+2. **Nearest-neighbor matching** (``matching_ate``) -- matches each
+   treated unit to the closest control unit(s) in covariate space.
+   Intuitive and nonparametric, but can be biased in high dimensions.
+
+3. **Doubly robust estimation** (``doubly_robust_ate``) -- combines IPW
+   with outcome regression. Consistent if *either* the propensity score
+   model *or* the outcome model is correctly specified. The recommended
+   default when you are unsure about model specification.
+
+4. **Regression discontinuity** (``regression_discontinuity``) -- exploits
+   a sharp cutoff in a running variable to identify a local treatment
+   effect. Example: index inclusion at a market-cap threshold.
+
+5. **Synthetic control** (``synthetic_control``) -- constructs a
+   weighted combination of control units that mimics the treated unit's
+   pre-treatment trajectory. The treatment effect is the post-treatment
+   gap. Ideal for single-unit studies (e.g., one country, one firm).
+
+6. **Difference-in-differences** (``diff_in_diff``) -- compares the
+   before-after change in the treatment group to the before-after change
+   in the control group. Requires the parallel trends assumption.
+
+Utilities:
+    - ``propensity_score``: logistic regression for treatment assignment
+      probabilities.
+
+How to choose:
+    - **Random treatment, confounders observed**: IPW or doubly robust.
+    - **Sharp cutoff determines treatment**: regression discontinuity.
+    - **One treated unit, many controls over time**: synthetic control.
+    - **Two-period panel, treatment at a known time**: diff-in-diff.
+    - **Uncertain model specification**: doubly robust (safest).
+
+References:
+    - Rubin (1974), "Estimating Causal Effects of Treatments"
+    - Imbens & Rubin (2015), "Causal Inference for Statistics, Social,
+      and Biomedical Sciences"
+    - Abadie, Diamond & Hainmueller (2010), "Synthetic Control Methods
+      for Comparative Case Studies"
 """
 
 from __future__ import annotations

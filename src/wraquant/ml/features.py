@@ -19,6 +19,9 @@ __all__ = [
     "microstructure_features",
     "label_fixed_horizon",
     "label_triple_barrier",
+    "interaction_features",
+    "cross_asset_features",
+    "regime_features",
 ]
 
 
@@ -464,3 +467,223 @@ def label_triple_barrier(
         labels.iloc[i] = label
 
     return labels
+
+
+# ---------------------------------------------------------------------------
+# Interaction features
+# ---------------------------------------------------------------------------
+
+
+def interaction_features(
+    data: pd.DataFrame,
+    columns: Sequence[str] | None = None,
+) -> pd.DataFrame:
+    """Create pairwise interaction terms between features.
+
+    For each pair of selected columns ``(A, B)``, computes:
+    - ``A_x_B``: element-wise product (captures multiplicative relationships)
+    - ``A_div_B``: element-wise ratio A / B (captures relative magnitudes)
+
+    Parameters
+    ----------
+    data : pd.DataFrame
+        Feature DataFrame.
+    columns : Sequence[str] or None
+        Columns to use for interaction terms. If None, all columns are used.
+
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame containing all pairwise interaction features, with column
+        names like ``col1_x_col2`` and ``col1_div_col2``.
+
+    Example
+    -------
+    >>> import pandas as pd, numpy as np
+    >>> df = pd.DataFrame({'a': [1, 2, 3], 'b': [4, 5, 6], 'c': [7, 8, 9]})
+    >>> result = interaction_features(df, columns=['a', 'b'])
+    >>> 'a_x_b' in result.columns
+    True
+    >>> 'a_div_b' in result.columns
+    True
+    """
+    from itertools import combinations as _combinations
+
+    if columns is None:
+        columns = list(data.columns)
+
+    result: dict[str, pd.Series] = {}
+
+    for col_a, col_b in _combinations(columns, 2):
+        result[f"{col_a}_x_{col_b}"] = data[col_a] * data[col_b]
+        denominator = data[col_b].replace(0, np.nan)
+        result[f"{col_a}_div_{col_b}"] = data[col_a] / denominator
+
+    return pd.DataFrame(result, index=data.index)
+
+
+# ---------------------------------------------------------------------------
+# Cross-asset features
+# ---------------------------------------------------------------------------
+
+
+def cross_asset_features(
+    asset: pd.Series,
+    benchmark: pd.Series,
+    windows: Sequence[int] = (10, 21, 63),
+) -> pd.DataFrame:
+    """Compute cross-asset relationship features.
+
+    Given an asset return series and a benchmark (or related asset) return
+    series, computes rolling correlation, rolling beta, and relative
+    strength for each window.
+
+    Parameters
+    ----------
+    asset : pd.Series
+        Return series for the asset of interest.
+    benchmark : pd.Series
+        Return series for the benchmark or related asset.
+    windows : Sequence[int]
+        Rolling window sizes for correlation and beta calculations.
+
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame with columns:
+        - ``rolling_corr_w{w}``: rolling Pearson correlation
+        - ``rolling_beta_w{w}``: rolling OLS beta (cov / var of benchmark)
+        - ``relative_strength_w{w}``: cumulative return ratio (asset / benchmark)
+          over the window
+
+    Example
+    -------
+    >>> import pandas as pd, numpy as np
+    >>> np.random.seed(0)
+    >>> asset = pd.Series(np.random.randn(200) * 0.01, name='asset')
+    >>> bench = pd.Series(np.random.randn(200) * 0.01, name='bench')
+    >>> result = cross_asset_features(asset, bench, windows=[10, 21])
+    >>> 'rolling_corr_w10' in result.columns
+    True
+    >>> 'rolling_beta_w21' in result.columns
+    True
+    """
+    aligned = pd.DataFrame({"asset": asset, "benchmark": benchmark}).dropna()
+    a = aligned["asset"]
+    b = aligned["benchmark"]
+
+    result: dict[str, pd.Series] = {}
+
+    for w in windows:
+        # Rolling correlation
+        result[f"rolling_corr_w{w}"] = a.rolling(w).corr(b)
+
+        # Rolling beta = cov(asset, benchmark) / var(benchmark)
+        cov = a.rolling(w).cov(b)
+        var = b.rolling(w).var()
+        result[f"rolling_beta_w{w}"] = cov / var.replace(0, np.nan)
+
+        # Relative strength: cumulative return of asset vs benchmark
+        cum_asset = (1 + a).rolling(w).apply(np.prod, raw=True)
+        cum_bench = (1 + b).rolling(w).apply(np.prod, raw=True)
+        result[f"relative_strength_w{w}"] = cum_asset / cum_bench.replace(
+            0, np.nan
+        )
+
+    return pd.DataFrame(result, index=aligned.index)
+
+
+# ---------------------------------------------------------------------------
+# Regime features
+# ---------------------------------------------------------------------------
+
+
+def regime_features(
+    regime_probabilities: pd.DataFrame,
+    regime_labels: pd.Series | None = None,
+) -> pd.DataFrame:
+    """Create features from regime probabilities or labels.
+
+    Given regime probabilities (e.g., from an HMM or Markov-switching model),
+    constructs features useful for downstream ML models: current regime
+    identity, regime duration (how many consecutive periods in the current
+    regime), and estimated transition probability (rolling mean of regime
+    changes).
+
+    Parameters
+    ----------
+    regime_probabilities : pd.DataFrame
+        DataFrame where each column is the probability of a regime
+        (e.g., columns ``['bull', 'bear']`` with probabilities summing to 1).
+    regime_labels : pd.Series or None
+        Hard regime labels. If None, the most probable regime at each step
+        is used (argmax of the probability columns).
+
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame with columns:
+        - ``current_regime``: integer label of the current regime
+        - ``regime_duration``: number of consecutive periods in the
+          current regime
+        - ``regime_change``: binary indicator (1 if regime changed)
+        - ``transition_prob_w{w}``: rolling mean of regime changes
+          for w in [5, 10, 21]
+        - one column per regime probability from the input
+
+    Example
+    -------
+    >>> import pandas as pd, numpy as np
+    >>> np.random.seed(42)
+    >>> probs = pd.DataFrame({
+    ...     'bull': np.random.dirichlet([5, 2], size=100)[:, 0],
+    ...     'bear': np.random.dirichlet([5, 2], size=100)[:, 1],
+    ... })
+    >>> result = regime_features(probs)
+    >>> 'current_regime' in result.columns
+    True
+    >>> 'regime_duration' in result.columns
+    True
+    """
+    result: dict[str, pd.Series] = {}
+
+    # Current regime (argmax)
+    if regime_labels is not None:
+        current = regime_labels.astype(int)
+    else:
+        current = pd.Series(
+            regime_probabilities.values.argmax(axis=1),
+            index=regime_probabilities.index,
+            name="current_regime",
+        )
+    result["current_regime"] = current
+
+    # Regime change indicator
+    regime_change = (current != current.shift(1)).astype(int)
+    regime_change.iloc[0] = 0
+    result["regime_change"] = regime_change
+
+    # Regime duration (consecutive periods in current regime)
+    duration = np.zeros(len(current), dtype=int)
+    duration[0] = 1
+    current_vals = current.values
+    for i in range(1, len(current_vals)):
+        if current_vals[i] == current_vals[i - 1]:
+            duration[i] = duration[i - 1] + 1
+        else:
+            duration[i] = 1
+    result["regime_duration"] = pd.Series(
+        duration, index=regime_probabilities.index
+    )
+
+    # Rolling transition probability (how frequently regimes change)
+    for w in [5, 10, 21]:
+        result[f"transition_prob_w{w}"] = regime_change.rolling(
+            w, min_periods=1
+        ).mean()
+
+    # Include raw probabilities
+    for col in regime_probabilities.columns:
+        result[f"prob_{col}"] = regime_probabilities[col]
+
+    return pd.DataFrame(result, index=regime_probabilities.index)

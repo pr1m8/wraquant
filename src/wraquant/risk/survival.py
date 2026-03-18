@@ -1,8 +1,62 @@
 """Survival analysis estimators for financial applications.
 
-Pure numpy/scipy implementations of standard survival analysis methods,
-suitable for modeling time-to-default, time-to-failure, and similar
-duration-based financial events.
+Survival analysis models the time until an event occurs -- in finance,
+this could be time-to-default, time until a drawdown ends, time between
+large losses, or fund lifetime. The key challenge is *censoring*: not
+all subjects experience the event during the observation period.
+
+This module provides pure numpy/scipy implementations of the standard
+survival analysis toolkit:
+
+Non-parametric estimators:
+    - ``kaplan_meier``: the Kaplan-Meier product-limit estimator of
+      the survival function S(t) = P(T > t). The most common survival
+      curve estimator. Handles right-censored data.
+    - ``nelson_aalen``: cumulative hazard estimator H(t). Related to
+      Kaplan-Meier via S(t) = exp(-H(t)) but more natural for hazard
+      rate estimation.
+    - ``hazard_rate``: kernel-smoothed instantaneous hazard rate from
+      Nelson-Aalen increments. Useful for visualising how default risk
+      changes over time.
+
+Semi-parametric model:
+    - ``cox_partial_likelihood``: Cox proportional hazards model.
+      Estimates the effect of covariates on the hazard rate without
+      specifying the baseline hazard. The workhorse of survival
+      regression: "does leverage, size, or profitability affect
+      time-to-default?"
+
+Parametric models:
+    - ``exponential_survival``: S(t) = exp(-lambda * t). Assumes
+      constant hazard (memoryless). Simple but often too restrictive.
+    - ``weibull_survival``: S(t) = exp(-(t/lambda)^k). Generalises
+      exponential (k=1). k < 1 = decreasing hazard (burn-in),
+      k > 1 = increasing hazard (aging/wear-out), which corresponds
+      to increasing default risk with time for distressed firms.
+
+Hypothesis testing:
+    - ``log_rank_test``: compares two survival curves. Use to test
+      whether two groups (e.g., investment-grade vs. high-yield) have
+      significantly different survival distributions.
+
+Utility:
+    - ``median_survival_time``: smallest t where S(t) <= 0.5.
+
+Financial applications:
+    - **Credit risk**: model time-to-default with Cox PH, using
+      leverage, profitability, and market indicators as covariates.
+    - **Drawdown analysis**: model time to recover from a drawdown;
+      Weibull shape > 1 suggests recovery becomes less likely over time.
+    - **Fund closure**: Kaplan-Meier curves for hedge fund lifetimes,
+      stratified by strategy type.
+    - **Trade duration**: model how long a position is held before
+      hitting a stop-loss or take-profit.
+
+References:
+    - Cox (1972), "Regression Models and Life-Tables"
+    - Kaplan & Meier (1958), "Nonparametric Estimation from Incomplete
+      Observations"
+    - Lando (2004), "Credit Risk Modeling: Theory and Applications"
 """
 
 from __future__ import annotations

@@ -1,7 +1,50 @@
 """Liquidity analytics for market microstructure.
 
-Provides measures of market liquidity including bid-ask spread estimators,
-price impact coefficients, and turnover metrics.
+Liquidity measures how easily an asset can be traded without
+significantly moving its price. Illiquid assets carry a liquidity risk
+premium and pose execution challenges. This module provides the
+standard toolkit for measuring liquidity from trade and quote data.
+
+Measures provided:
+
+**Illiquidity / price impact**:
+    - ``amihud_illiquidity``: the Amihud (2002) ratio -- average daily
+      |return| / volume. Higher values indicate less liquid assets.
+      The most widely used cross-sectional liquidity proxy because it
+      only requires daily data.
+    - ``kyle_lambda``: Kyle's lambda -- the permanent price impact
+      coefficient estimated via rolling OLS of price changes on signed
+      order flow. Higher lambda = more price impact per unit of volume.
+    - ``price_impact``: per-trade permanent price impact.
+
+**Spread estimators**:
+    - ``roll_spread``: Roll (1984) implied spread from serial
+      autocovariance of price changes. Requires only trade prices
+      (no quote data needed).
+    - ``effective_spread``: 2 * |trade_price - midpoint|. The
+      standard measure of execution cost.
+    - ``realized_spread``: spread earned by the liquidity provider
+      after a delay, capturing adverse selection.
+
+**Activity**:
+    - ``turnover_ratio``: daily volume / shares outstanding. Measures
+      trading activity relative to float.
+
+How to choose:
+    - **Cross-sectional liquidity ranking** (daily data only): use
+      ``amihud_illiquidity``.
+    - **Execution cost analysis** (trade + quote data): use
+      ``effective_spread`` and ``realized_spread``.
+    - **Price impact modeling**: use ``kyle_lambda`` for permanent
+      impact; ``price_impact`` for per-trade measurement.
+    - **No quote data available**: use ``roll_spread`` as a proxy
+      for the bid-ask spread.
+
+References:
+    - Amihud (2002), "Illiquidity and Stock Returns"
+    - Kyle (1985), "Continuous Auctions and Insider Trading"
+    - Roll (1984), "A Simple Implicit Measure of the Effective
+      Bid-Ask Spread"
 """
 
 from __future__ import annotations

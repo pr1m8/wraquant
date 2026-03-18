@@ -1,4 +1,4 @@
-"""Tests for extended distribution functions (tail_index, qqplot_data, jarque_bera, kolmogorov_smirnov)."""
+"""Tests for extended distribution functions."""
 
 from __future__ import annotations
 
@@ -7,6 +7,8 @@ import pandas as pd
 import pytest
 
 from wraquant.stats.distributions import (
+    anderson_darling,
+    best_fit_distribution,
     jarque_bera,
     kolmogorov_smirnov,
     qqplot_data,
@@ -181,3 +183,96 @@ class TestKolmogorovSmirnov:
         data = np.array([1.0, 2.0, np.nan, 3.0, 4.0, 5.0])
         result = kolmogorov_smirnov(data)
         assert np.isfinite(result["statistic"])
+
+
+# ---------------------------------------------------------------------------
+# anderson_darling
+# ---------------------------------------------------------------------------
+
+
+class TestAndersonDarling:
+    def test_output_keys(self) -> None:
+        data = _normal_data()
+        result = anderson_darling(data)
+        assert "statistic" in result
+        assert "critical_values" in result
+        assert "significance_levels" in result
+
+    def test_statistic_is_float(self) -> None:
+        data = _normal_data()
+        result = anderson_darling(data)
+        assert isinstance(result["statistic"], float)
+
+    def test_normal_data_low_statistic(self) -> None:
+        data = _normal_data(n=5000)
+        result = anderson_darling(data, dist="norm")
+        # For normal data, statistic should be below the 5% critical value
+        crit_5 = result["critical_values"][2]  # 5% significance
+        assert result["statistic"] < crit_5
+
+    def test_nonnormal_data_high_statistic(self) -> None:
+        rng = np.random.default_rng(42)
+        data = rng.exponential(1.0, size=1000)
+        result = anderson_darling(data, dist="norm")
+        # Exponential data vs normal should produce a large statistic
+        assert result["statistic"] > 1.0
+
+    def test_handles_pandas(self) -> None:
+        data = pd.Series(_normal_data())
+        result = anderson_darling(data)
+        assert np.isfinite(result["statistic"])
+
+    def test_handles_nan(self) -> None:
+        data = np.array([1.0, 2.0, np.nan, 3.0, 4.0, 5.0, 6.0, 7.0])
+        result = anderson_darling(data)
+        assert np.isfinite(result["statistic"])
+
+
+# ---------------------------------------------------------------------------
+# best_fit_distribution
+# ---------------------------------------------------------------------------
+
+
+class TestBestFitDistribution:
+    def test_returns_dataframe(self) -> None:
+        data = _normal_data()
+        result = best_fit_distribution(data)
+        assert isinstance(result, pd.DataFrame)
+
+    def test_expected_columns(self) -> None:
+        data = _normal_data()
+        result = best_fit_distribution(data)
+        expected_cols = {"distribution", "params", "ks_statistic", "ad_statistic", "aic"}
+        assert expected_cols.issubset(set(result.columns))
+
+    def test_sorted_by_aic(self) -> None:
+        data = _normal_data()
+        result = best_fit_distribution(data)
+        aics = result["aic"].values
+        assert np.all(aics[:-1] <= aics[1:])
+
+    def test_norm_ranks_high_for_normal_data(self) -> None:
+        data = _normal_data(n=2000)
+        result = best_fit_distribution(data)
+        # Normal distribution should be in top 3 for normal data
+        top3 = result["distribution"].head(3).tolist()
+        assert "norm" in top3
+
+    def test_t_ranks_high_for_t_data(self) -> None:
+        data = _heavy_tailed_data(n=2000)
+        result = best_fit_distribution(data)
+        # t-distribution should be in top 3 for t-distributed data
+        top3 = result["distribution"].head(3).tolist()
+        assert "t" in top3
+
+    def test_custom_candidates(self) -> None:
+        data = _normal_data()
+        result = best_fit_distribution(data, candidates=["norm", "t"])
+        assert len(result) == 2
+        assert set(result["distribution"]) == {"norm", "t"}
+
+    def test_handles_pandas(self) -> None:
+        data = pd.Series(_normal_data())
+        result = best_fit_distribution(data)
+        assert isinstance(result, pd.DataFrame)
+        assert len(result) > 0

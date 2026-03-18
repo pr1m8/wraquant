@@ -31,6 +31,8 @@ __all__ = [
     "transformer_forecast",
     "autoencoder_features",
     "gru_forecast",
+    "multivariate_lstm_forecast",
+    "temporal_fusion_transformer",
 ]
 
 
@@ -835,5 +837,550 @@ def autoencoder_features(
         "latent_features": latent,
         "reconstruction_error": recon_err,
         "train_losses": train_losses,
+        "model": model,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Multivariate LSTM
+# ---------------------------------------------------------------------------
+
+
+def _create_multivariate_sequences(
+    features: np.ndarray,
+    target: np.ndarray,
+    seq_length: int,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Create input/target sequence pairs from multivariate features.
+
+    Parameters
+    ----------
+    features : np.ndarray
+        2-D array of shape ``(T, n_features)``.
+    target : np.ndarray
+        1-D array of shape ``(T,)`` -- the variable to predict.
+    seq_length : int
+        Number of look-back steps.
+
+    Returns
+    -------
+    tuple[np.ndarray, np.ndarray]
+        ``X`` of shape ``(n_samples, seq_length, n_features)`` and ``y`` of
+        shape ``(n_samples,)``.
+    """
+    xs, ys = [], []
+    for i in range(len(features) - seq_length):
+        xs.append(features[i : i + seq_length])
+        ys.append(target[i + seq_length])
+    X = np.array(xs, dtype=np.float32)
+    y = np.array(ys, dtype=np.float32)
+    return X, y
+
+
+def multivariate_lstm_forecast(
+    features: pd.DataFrame,
+    target: pd.Series | np.ndarray,
+    seq_length: int = 20,
+    hidden_dim: int = 64,
+    n_layers: int = 2,
+    dropout: float = 0.1,
+    n_epochs: int = 50,
+    lr: float = 1e-3,
+    train_ratio: float = 0.8,
+    batch_size: int = 32,
+) -> dict[str, Any]:
+    """Forecast a target series using multiple input features via LSTM.
+
+    Multivariate LSTM ingests a DataFrame of features (e.g., returns of
+    correlated assets, macro indicators, technical signals) and learns to
+    predict a single target variable. This outperforms univariate LSTM when
+    cross-asset signals exist -- for example, when sector ETF returns lead
+    individual stock returns, when VIX changes anticipate equity moves, or
+    when order-flow imbalance across related instruments carries predictive
+    information for the target.
+
+    The function normalises each feature column independently (z-score),
+    creates multivariate look-back sequences, trains the LSTM with a
+    chronological train/test split, and returns predictions on the held-out
+    test set along with train and test MSE metrics.
+
+    Mathematical background:
+        The LSTM cell equations are the same as in ``lstm_forecast``, but
+        the input dimensionality is now n_features rather than 1:
+            x_t in R^{n_features}
+            f_t = sigma(W_f [h_{t-1}, x_t] + b_f)
+            i_t = sigma(W_i [h_{t-1}, x_t] + b_i)
+            o_t = sigma(W_o [h_{t-1}, x_t] + b_o)
+
+        The weight matrices W_f, W_i, W_o, W_c have input dimension
+        n_features instead of 1, allowing the network to learn cross-feature
+        temporal dependencies.
+
+    Parameters
+    ----------
+    features : pd.DataFrame
+        DataFrame of shape ``(T, n_features)`` containing the input
+        features. All columns are used as inputs to the LSTM.
+    target : pd.Series or np.ndarray
+        Target variable of length T to predict.
+    seq_length : int
+        Number of look-back time steps for each input sequence.
+    hidden_dim : int
+        Number of hidden units in each LSTM layer.
+    n_layers : int
+        Number of stacked LSTM layers.
+    dropout : float
+        Dropout probability between LSTM layers (applied only when
+        ``n_layers > 1``).
+    n_epochs : int
+        Number of training epochs.
+    lr : float
+        Learning rate for the Adam optimizer.
+    train_ratio : float
+        Fraction of data used for training (chronological split).
+    batch_size : int
+        Mini-batch size for training.
+
+    Returns
+    -------
+    dict
+        ``predictions``: np.ndarray of test-set predictions,
+        ``actuals``: np.ndarray of actual test values,
+        ``train_losses``: list of per-epoch training losses,
+        ``train_mse``: float MSE on the training set,
+        ``test_mse``: float MSE on the test set,
+        ``model``: the trained ``torch.nn.Module``.
+
+    Raises
+    ------
+    ImportError
+        If PyTorch is not installed.
+
+    Example
+    -------
+    >>> import numpy as np, pandas as pd
+    >>> np.random.seed(42)
+    >>> df = pd.DataFrame({
+    ...     'asset_a': np.cumsum(np.random.randn(500) * 0.01),
+    ...     'asset_b': np.cumsum(np.random.randn(500) * 0.01),
+    ...     'vix': np.abs(np.random.randn(500)) * 15 + 15,
+    ... })
+    >>> target = pd.Series(np.cumsum(np.random.randn(500) * 0.01))
+    >>> result = multivariate_lstm_forecast(df, target, seq_length=10, n_epochs=5)
+    >>> result["predictions"].shape[0] > 0
+    True
+
+    References
+    ----------
+    - Hochreiter & Schmidhuber (1997), "Long Short-Term Memory"
+    - Fischer & Krauss (2018), "Deep learning with long short-term memory
+      networks for financial market predictions"
+    """
+    _check_torch()
+
+    feat_arr = np.asarray(features, dtype=np.float64)
+    tgt_arr = np.asarray(target, dtype=np.float64).ravel()
+
+    if feat_arr.ndim == 1:
+        feat_arr = feat_arr.reshape(-1, 1)
+
+    n_samples, n_features = feat_arr.shape
+
+    # Normalise features per column
+    feat_mu = feat_arr.mean(axis=0)
+    feat_std = feat_arr.std(axis=0)
+    feat_std[feat_std == 0] = 1.0
+    feat_norm = ((feat_arr - feat_mu) / feat_std).astype(np.float32)
+
+    # Normalise target
+    tgt_mu, tgt_std = float(tgt_arr.mean()), float(tgt_arr.std())
+    if tgt_std == 0:
+        tgt_std = 1.0
+    tgt_norm = ((tgt_arr - tgt_mu) / tgt_std).astype(np.float32)
+
+    X, y = _create_multivariate_sequences(feat_norm, tgt_norm, seq_length)
+    split = int(len(X) * train_ratio)
+    X_train, X_test = X[:split], X[split:]
+    y_train, y_test = y[:split], y[split:]
+
+    X_train_t = torch.from_numpy(X_train)
+    y_train_t = torch.from_numpy(y_train)
+    X_test_t = torch.from_numpy(X_test)
+
+    class _MultivarLSTM(nn.Module):
+        def __init__(self) -> None:
+            super().__init__()
+            self.lstm = nn.LSTM(
+                input_size=n_features,
+                hidden_size=hidden_dim,
+                num_layers=n_layers,
+                dropout=dropout if n_layers > 1 else 0.0,
+                batch_first=True,
+            )
+            self.fc = nn.Linear(hidden_dim, 1)
+
+        def forward(self, x: torch.Tensor) -> torch.Tensor:
+            out, _ = self.lstm(x)
+            return self.fc(out[:, -1, :]).squeeze(-1)
+
+    model = _MultivarLSTM()
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+    criterion = nn.MSELoss()
+
+    # Train
+    model.train()
+    train_losses: list[float] = []
+    n_train = len(X_train_t)
+
+    for _epoch in range(n_epochs):
+        epoch_loss = 0.0
+        n_batches = 0
+        perm = torch.randperm(n_train)
+        for i in range(0, n_train, batch_size):
+            idx = perm[i : i + batch_size]
+            xb = X_train_t[idx]
+            yb = y_train_t[idx]
+
+            optimizer.zero_grad()
+            pred = model(xb)
+            loss = criterion(pred, yb)
+            loss.backward()
+            optimizer.step()
+            epoch_loss += loss.item()
+            n_batches += 1
+
+        train_losses.append(epoch_loss / max(n_batches, 1))
+
+    # Predict
+    model.eval()
+    with torch.no_grad():
+        train_preds_norm = model(X_train_t).numpy()
+        test_preds_norm = model(X_test_t).numpy()
+
+    # Denormalise
+    preds = test_preds_norm * tgt_std + tgt_mu
+    actuals = y_test * tgt_std + tgt_mu
+    train_preds = train_preds_norm * tgt_std + tgt_mu
+    train_actuals = y_train * tgt_std + tgt_mu
+
+    train_mse = float(np.mean((train_preds - train_actuals) ** 2))
+    test_mse = float(np.mean((preds - actuals) ** 2))
+
+    return {
+        "predictions": preds,
+        "actuals": actuals,
+        "train_losses": train_losses,
+        "train_mse": train_mse,
+        "test_mse": test_mse,
+        "model": model,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Temporal Fusion Transformer (simplified)
+# ---------------------------------------------------------------------------
+
+
+def temporal_fusion_transformer(
+    features: pd.DataFrame,
+    target: pd.Series | np.ndarray,
+    seq_length: int = 20,
+    hidden_dim: int = 64,
+    n_heads: int = 4,
+    n_lstm_layers: int = 1,
+    dropout: float = 0.1,
+    n_epochs: int = 50,
+    lr: float = 1e-3,
+    train_ratio: float = 0.8,
+    batch_size: int = 32,
+) -> dict[str, Any]:
+    """Simplified Temporal Fusion Transformer for interpretable forecasting.
+
+    The most promising architecture for interpretable financial forecasting.
+    This implementation provides the core TFT components: a variable
+    selection network that learns which input features matter, an LSTM
+    encoder for temporal processing, multi-head attention for capturing
+    long-range dependencies, and gated residual connections for stable
+    gradient flow.
+
+    Unlike black-box models, TFT produces per-feature importance weights
+    that reveal *which* inputs drive each prediction -- critical for
+    building trust in trading signals and satisfying model governance
+    requirements.
+
+    Architecture:
+        1. **Variable Selection Network (VSN)**: A soft-attention gate over
+           input features. Each feature is projected to ``hidden_dim``,
+           then a shared softmax gate selects the most relevant ones.
+        2. **LSTM Encoder**: Processes the selected features sequentially
+           to capture local temporal patterns.
+        3. **Multi-Head Attention**: Attends over the LSTM outputs to
+           capture long-range dependencies (e.g., monthly seasonality).
+        4. **Gated Residual Network (GRN)**: skip connections with gating
+           for stable training on noisy financial data.
+        5. **Output layer**: Linear projection to produce the forecast.
+
+    Parameters
+    ----------
+    features : pd.DataFrame
+        DataFrame of shape ``(T, n_features)`` containing the input
+        features.
+    target : pd.Series or np.ndarray
+        Target variable of length T.
+    seq_length : int
+        Number of look-back time steps.
+    hidden_dim : int
+        Dimensionality of the hidden representations.
+    n_heads : int
+        Number of attention heads (must divide ``hidden_dim``).
+    n_lstm_layers : int
+        Number of LSTM layers in the encoder.
+    dropout : float
+        Dropout probability.
+    n_epochs : int
+        Number of training epochs.
+    lr : float
+        Learning rate for Adam.
+    train_ratio : float
+        Fraction of data for training (chronological split).
+    batch_size : int
+        Mini-batch size.
+
+    Returns
+    -------
+    dict
+        ``predictions``: np.ndarray of test-set predictions,
+        ``actuals``: np.ndarray of actual test values,
+        ``train_losses``: list of per-epoch training losses,
+        ``feature_importance``: np.ndarray of shape ``(n_features,)``
+        giving the learned importance weight for each input feature
+        (higher = more important),
+        ``feature_names``: list of feature names from the input DataFrame,
+        ``model``: the trained ``torch.nn.Module``.
+
+    Raises
+    ------
+    ImportError
+        If PyTorch is not installed.
+
+    Example
+    -------
+    >>> import numpy as np, pandas as pd
+    >>> np.random.seed(42)
+    >>> df = pd.DataFrame({
+    ...     'momentum': np.random.randn(500),
+    ...     'volume': np.abs(np.random.randn(500)),
+    ...     'spread': np.random.randn(500) * 0.1,
+    ... })
+    >>> target = pd.Series(np.cumsum(np.random.randn(500) * 0.01))
+    >>> result = temporal_fusion_transformer(
+    ...     df, target, seq_length=10, hidden_dim=16, n_heads=2, n_epochs=5
+    ... )
+    >>> result["predictions"].shape[0] > 0
+    True
+    >>> len(result["feature_importance"]) == 3
+    True
+
+    References
+    ----------
+    - Lim et al. (2021), "Temporal Fusion Transformers for Interpretable
+      Multi-horizon Time Series Forecasting"
+    """
+    _check_torch()
+
+    feature_names = list(features.columns)
+    feat_arr = np.asarray(features, dtype=np.float64)
+    tgt_arr = np.asarray(target, dtype=np.float64).ravel()
+
+    if feat_arr.ndim == 1:
+        feat_arr = feat_arr.reshape(-1, 1)
+
+    _n_samples, n_features = feat_arr.shape
+
+    # Normalise
+    feat_mu = feat_arr.mean(axis=0)
+    feat_std = feat_arr.std(axis=0)
+    feat_std[feat_std == 0] = 1.0
+    feat_norm = ((feat_arr - feat_mu) / feat_std).astype(np.float32)
+
+    tgt_mu, tgt_std = float(tgt_arr.mean()), float(tgt_arr.std())
+    if tgt_std == 0:
+        tgt_std = 1.0
+    tgt_norm = ((tgt_arr - tgt_mu) / tgt_std).astype(np.float32)
+
+    X, y = _create_multivariate_sequences(feat_norm, tgt_norm, seq_length)
+    split = int(len(X) * train_ratio)
+    X_train, X_test = X[:split], X[split:]
+    y_train, y_test = y[:split], y[split:]
+
+    X_train_t = torch.from_numpy(X_train)
+    y_train_t = torch.from_numpy(y_train)
+    X_test_t = torch.from_numpy(X_test)
+
+    class _GatedResidualNetwork(nn.Module):
+        """Gated Residual Network for stable gradient flow."""
+
+        def __init__(self, input_dim: int, output_dim: int) -> None:
+            super().__init__()
+            self.fc1 = nn.Linear(input_dim, output_dim)
+            self.fc2 = nn.Linear(output_dim, output_dim)
+            self.gate = nn.Linear(output_dim, output_dim)
+            self.layer_norm = nn.LayerNorm(output_dim)
+            self.dropout = nn.Dropout(dropout)
+            # Skip connection projection if dims differ
+            self.skip = (
+                nn.Linear(input_dim, output_dim)
+                if input_dim != output_dim
+                else nn.Identity()
+            )
+
+        def forward(self, x: torch.Tensor) -> torch.Tensor:
+            residual = self.skip(x)
+            h = torch.nn.functional.elu(self.fc1(x))
+            h = self.dropout(self.fc2(h))
+            gate = torch.sigmoid(self.gate(h))
+            return self.layer_norm(residual + gate * h)
+
+    class _VariableSelectionNetwork(nn.Module):
+        """Learns soft attention weights over input features."""
+
+        def __init__(self) -> None:
+            super().__init__()
+            # Per-feature transformations
+            self.feature_transforms = nn.ModuleList(
+                [nn.Linear(1, hidden_dim) for _ in range(n_features)]
+            )
+            # Shared gate
+            self.gate = nn.Sequential(
+                nn.Linear(n_features * hidden_dim, n_features),
+                nn.Softmax(dim=-1),
+            )
+            self.grn = _GatedResidualNetwork(hidden_dim, hidden_dim)
+
+        def forward(
+            self, x: torch.Tensor,
+        ) -> tuple[torch.Tensor, torch.Tensor]:
+            # x: (batch, seq_len, n_features)
+            batch_sz, seq_len, _ = x.shape
+
+            # Transform each feature: (batch, seq_len, hidden_dim) each
+            transformed = []
+            for i in range(n_features):
+                transformed.append(
+                    torch.relu(
+                        self.feature_transforms[i](x[:, :, i : i + 1])
+                    )
+                )
+
+            # Stack: (batch, seq_len, n_features, hidden_dim)
+            stacked = torch.stack(transformed, dim=2)
+
+            # Compute gate weights: flatten features for gate input
+            gate_input = stacked.reshape(
+                batch_sz, seq_len, n_features * hidden_dim
+            )
+            weights = self.gate(gate_input)  # (batch, seq_len, n_features)
+
+            # Weighted sum of transformed features
+            # weights: (batch, seq_len, n_features, 1)
+            weighted = (
+                stacked * weights.unsqueeze(-1)
+            ).sum(dim=2)  # (batch, seq_len, hidden_dim)
+
+            out = self.grn(weighted)
+            # Average weights across batch and time for interpretation
+            avg_weights = weights.mean(dim=(0, 1))  # (n_features,)
+            return out, avg_weights
+
+    class _TFTModel(nn.Module):
+        def __init__(self) -> None:
+            super().__init__()
+            self.vsn = _VariableSelectionNetwork()
+            self.lstm = nn.LSTM(
+                input_size=hidden_dim,
+                hidden_size=hidden_dim,
+                num_layers=n_lstm_layers,
+                dropout=dropout if n_lstm_layers > 1 else 0.0,
+                batch_first=True,
+            )
+            self.attention = nn.MultiheadAttention(
+                embed_dim=hidden_dim,
+                num_heads=n_heads,
+                dropout=dropout,
+                batch_first=True,
+            )
+            self.grn_post_attn = _GatedResidualNetwork(
+                hidden_dim, hidden_dim
+            )
+            self.fc_out = nn.Linear(hidden_dim, 1)
+            self.dropout = nn.Dropout(dropout)
+
+        def forward(
+            self, x: torch.Tensor,
+        ) -> tuple[torch.Tensor, torch.Tensor]:
+            # Variable selection
+            selected, feat_weights = self.vsn(x)
+
+            # LSTM encoder
+            lstm_out, _ = self.lstm(selected)
+
+            # Multi-head self-attention over LSTM outputs
+            attn_out, _ = self.attention(
+                lstm_out, lstm_out, lstm_out
+            )
+
+            # Gated residual connection
+            combined = self.grn_post_attn(
+                self.dropout(attn_out) + lstm_out
+            )
+
+            # Use last time step for prediction
+            out = self.fc_out(combined[:, -1, :]).squeeze(-1)
+            return out, feat_weights
+
+    model = _TFTModel()
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+    criterion = nn.MSELoss()
+
+    # Train
+    model.train()
+    train_losses: list[float] = []
+    n_train = len(X_train_t)
+
+    for _epoch in range(n_epochs):
+        epoch_loss = 0.0
+        n_batches = 0
+        perm = torch.randperm(n_train)
+        for i in range(0, n_train, batch_size):
+            idx = perm[i : i + batch_size]
+            xb = X_train_t[idx]
+            yb = y_train_t[idx]
+
+            optimizer.zero_grad()
+            pred, _ = model(xb)
+            loss = criterion(pred, yb)
+            loss.backward()
+            optimizer.step()
+            epoch_loss += loss.item()
+            n_batches += 1
+
+        train_losses.append(epoch_loss / max(n_batches, 1))
+
+    # Predict and get feature importance
+    model.eval()
+    with torch.no_grad():
+        test_preds_norm, feat_importance = model(X_test_t)
+        test_preds_norm = test_preds_norm.numpy()
+        feat_importance = feat_importance.numpy()
+
+    preds = test_preds_norm * tgt_std + tgt_mu
+    actuals = y_test * tgt_std + tgt_mu
+
+    return {
+        "predictions": preds,
+        "actuals": actuals,
+        "train_losses": train_losses,
+        "feature_importance": feat_importance,
+        "feature_names": feature_names,
         "model": model,
     }

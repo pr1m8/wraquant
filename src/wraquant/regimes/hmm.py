@@ -498,11 +498,19 @@ def regime_statistics(
 
     Returns:
         pd.DataFrame with one row per regime and columns:
-        ``mean``, ``std``, ``sharpe``, ``min``, ``max``,
-        ``skewness``, ``kurtosis``, ``n_observations``,
-        ``pct_time``, ``avg_duration``.
+        ``mean``, ``std``, ``sharpe``, ``sortino_ratio``, ``min``, ``max``,
+        ``skewness``, ``kurtosis``, ``max_drawdown``, ``VaR_95``,
+        ``CVaR_95``, ``n_observations``, ``pct_time``, ``avg_duration``.
 
         - ``sharpe``: Annualized Sharpe ratio assuming 252 trading days.
+        - ``sortino_ratio``: Annualized Sortino ratio (downside deviation
+          only, 252 trading days).
+        - ``max_drawdown``: Maximum peak-to-trough drawdown within the
+          regime's return segments.
+        - ``VaR_95``: 5th percentile of returns (historical Value at Risk
+          at the 95 % confidence level).
+        - ``CVaR_95``: Mean of returns below the VaR_95 threshold
+          (Conditional Value at Risk / Expected Shortfall).
         - ``avg_duration``: Mean consecutive time steps spent in the regime.
 
     Example:
@@ -542,6 +550,26 @@ def regime_statistics(
             (mean_ret / std_ret * np.sqrt(252)) if std_ret > 1e-12 else 0.0
         )
 
+        # Sortino ratio (downside deviation only)
+        downside = regime_r[regime_r < 0]
+        if len(downside) > 1:
+            downside_std = float(np.sqrt(np.mean(downside**2)))
+            sortino = (
+                (mean_ret / downside_std * np.sqrt(252))
+                if downside_std > 1e-12
+                else 0.0
+            )
+        else:
+            sortino = 0.0
+
+        # Max drawdown within the regime's contiguous segments
+        max_dd = _max_drawdown_from_returns(regime_r)
+
+        # VaR and CVaR at 95 % confidence
+        var_95 = float(np.percentile(regime_r, 5))
+        cvar_mask = regime_r <= var_95
+        cvar_95 = float(np.mean(regime_r[cvar_mask])) if cvar_mask.any() else var_95
+
         # Average consecutive duration in this regime
         avg_dur = _avg_regime_duration(s, state)
 
@@ -551,10 +579,14 @@ def regime_statistics(
                 "mean": mean_ret,
                 "std": std_ret,
                 "sharpe": sharpe,
+                "sortino_ratio": sortino,
                 "min": float(np.min(regime_r)),
                 "max": float(np.max(regime_r)),
                 "skewness": float(_skewness(regime_r)),
                 "kurtosis": float(_kurtosis(regime_r)),
+                "max_drawdown": max_dd,
+                "VaR_95": var_95,
+                "CVaR_95": cvar_95,
                 "n_observations": n_obs,
                 "pct_time": n_obs / total if total > 0 else 0.0,
                 "avg_duration": avg_dur,
@@ -932,8 +964,622 @@ def regime_aware_portfolio(
 
 
 # ---------------------------------------------------------------------------
+# Markov-Switching Autoregression
+# ---------------------------------------------------------------------------
+
+
+def fit_ms_autoregression(
+    endog: pd.Series | np.ndarray,
+    k_regimes: int = 2,
+    order: int = 1,
+    switching_ar: bool = True,
+    switching_variance: bool = True,
+    exog_tvtp: np.ndarray | pd.DataFrame | None = None,
+) -> dict[str, Any]:
+    """Fit a Markov-switching autoregression (MS-AR) model.
+
+    This wraps ``statsmodels.tsa.regime_switching.MarkovAutoregression``,
+    which extends the standard Markov-switching regression to include
+    autoregressive lags whose coefficients can also switch across regimes.
+
+    **Hamilton (1989) framework:**
+
+    The seminal Hamilton (1989) paper introduced the Markov-switching
+    autoregressive model to study business-cycle dynamics. The key insight
+    is that the data-generating process can shift between distinct
+    regimes (e.g., expansion vs. recession) governed by a latent Markov
+    chain, and within each regime the series follows an AR(p) process
+    with regime-specific parameters:
+
+    .. math::
+
+        y_t = \\mu_{s_t} + \\phi_{1,s_t}\\,(y_{t-1} - \\mu_{s_{t-1}})
+              + \\cdots + \\phi_{p,s_t}\\,(y_{t-p} - \\mu_{s_{t-p}})
+              + \\sigma_{s_t}\\,\\epsilon_t
+
+    **When to use MS-AR vs. plain HMM:**
+
+    - Use **MS-AR** when the series exhibits serial correlation *within*
+      each regime (e.g., GDP growth, interest rates, momentum returns).
+      The autoregressive terms capture local dynamics that a plain HMM
+      ignores.
+    - Use a **plain Gaussian HMM** (``fit_gaussian_hmm``) when returns
+      are approximately i.i.d. within each regime and only the mean and
+      variance shift. This is typical for daily equity returns.
+    - Use **MS-Regression** (``fit_ms_regression``) when you want
+      regime-dependent intercepts/exogenous coefficients but no AR lags.
+
+    Parameters:
+        endog: Endogenous (dependent) variable. Typically a return or
+            growth-rate series.
+        k_regimes: Number of regimes (hidden states). 2 is the most
+            common choice (e.g., expansion/recession).
+        order: Autoregressive lag order *p*. Higher orders capture
+            longer memory within each regime.
+        switching_ar: If True, the AR coefficients switch across
+            regimes. If False, only the intercept and/or variance
+            switch.
+        switching_variance: If True, the innovation variance switches
+            across regimes. Almost always desirable for financial data.
+        exog_tvtp: Optional exogenous variables for time-varying
+            transition probabilities (TVTP). Shape ``(T, q)``. When
+            provided, the transition probabilities are modelled as
+            logistic functions of these variables, allowing macro
+            indicators to influence regime-switching dynamics.
+
+    Returns:
+        Dictionary with:
+
+        - ``smoothed_probs`` (np.ndarray): Smoothed regime probabilities,
+          shape ``(T, K)``.
+        - ``filtered_probs`` (np.ndarray): Filtered regime probabilities,
+          shape ``(T, K)``.
+        - ``states`` (np.ndarray): Most likely state sequence (argmax of
+          smoothed probabilities), shape ``(T,)``.
+        - ``transition_matrix`` (np.ndarray): Transition matrix,
+          shape ``(K, K)``.
+        - ``expected_durations`` (np.ndarray): Expected duration in each
+          regime, ``1 / (1 - P[k,k])``, shape ``(K,)``.
+        - ``regime_params`` (dict): Per-regime parameters including
+          ``'mean_k'``, ``'sigma2_k'``, and ``'ar_k_j'`` (AR
+          coefficient *j* for regime *k*).
+        - ``aic`` (float): Akaike Information Criterion.
+        - ``bic`` (float): Bayesian Information Criterion.
+        - ``summary`` (str): Text summary from statsmodels.
+        - ``model_result``: The fitted statsmodels result object.
+
+    Example:
+        >>> import numpy as np, pandas as pd
+        >>> rng = np.random.default_rng(0)
+        >>> # Simulate AR(1) with switching mean and persistence
+        >>> returns = pd.Series(np.concatenate([
+        ...     rng.normal(0.002, 0.008, 250),
+        ...     rng.normal(-0.001, 0.020, 250),
+        ... ]))
+        >>> result = fit_ms_autoregression(returns, k_regimes=2, order=1)
+        >>> print(result['transition_matrix'])
+        >>> print(result['regime_params'])
+
+    Notes:
+        Requires ``statsmodels >= 0.13``. Convergence can be slow for
+        higher-order AR models or many regimes. The Hamilton filter is
+        used for inference.
+
+    References:
+        Hamilton, J. D. (1989). "A New Approach to the Economic Analysis
+        of Nonstationary Time Series and the Business Cycle."
+        *Econometrica*, 57(2), 357-384.
+
+    See Also:
+        fit_ms_regression: Markov-switching regression (no AR terms).
+        fit_gaussian_hmm: HMM without autoregressive dynamics.
+        select_n_states: BIC-based state selection.
+    """
+    from statsmodels.tsa.regime_switching.markov_autoregression import (
+        MarkovAutoregression,
+    )
+
+    y = np.asarray(endog, dtype=np.float64).flatten()
+
+    model = MarkovAutoregression(
+        y,
+        k_regimes=k_regimes,
+        order=order,
+        switching_ar=switching_ar,
+        switching_variance=switching_variance,
+        exog_tvtp=exog_tvtp,
+    )
+    result = model.fit(disp=False)
+
+    # Extract regime-specific parameters
+    regime_params: dict[str, float] = {}
+    for k in range(k_regimes):
+        regime_params[f"mean_{k}"] = float(result.params[k])
+    if switching_variance:
+        for k in range(k_regimes):
+            regime_params[f"sigma2_{k}"] = float(
+                result.params[k_regimes + k]
+            )
+    # AR coefficients
+    if switching_ar:
+        for k in range(k_regimes):
+            for j in range(order):
+                key = f"ar_{k}_{j + 1}"
+                # statsmodels stores AR params after mean + variance params
+                base_idx = k_regimes + (k_regimes if switching_variance else 1)
+                ar_idx = base_idx + k * order + j
+                if ar_idx < len(result.params):
+                    regime_params[key] = float(result.params[ar_idx])
+    else:
+        for j in range(order):
+            key = f"ar_{j + 1}"
+            base_idx = k_regimes + (k_regimes if switching_variance else 1)
+            ar_idx = base_idx + j
+            if ar_idx < len(result.params):
+                regime_params[key] = float(result.params[ar_idx])
+
+    # Transition matrix -- statsmodels may return (K, K) or (K, K, T)
+    raw_transmat = np.array(result.regime_transition)
+    if raw_transmat.ndim == 3:
+        # Time-varying transition probs: average across time and transpose
+        transmat = raw_transmat.mean(axis=-1).T
+    elif raw_transmat.ndim == 2:
+        transmat = raw_transmat.T
+    else:
+        transmat = raw_transmat
+
+    # Ensure 2-D (K, K)
+    transmat = np.atleast_2d(transmat)
+
+    # Probabilities -- statsmodels returns (K, T); transpose to (T, K)
+    raw_smoothed = np.array(result.smoothed_marginal_probabilities)
+    raw_filtered = np.array(result.filtered_marginal_probabilities)
+
+    if raw_smoothed.shape[0] == k_regimes and raw_smoothed.shape[0] != raw_smoothed.shape[1]:
+        smoothed_probs = raw_smoothed.T
+    else:
+        smoothed_probs = raw_smoothed
+    if raw_filtered.shape[0] == k_regimes and raw_filtered.shape[0] != raw_filtered.shape[1]:
+        filtered_probs = raw_filtered.T
+    else:
+        filtered_probs = raw_filtered
+
+    states = np.argmax(smoothed_probs, axis=1)
+
+    # Expected durations
+    diag = np.diag(transmat).copy()
+    expected_durations = 1.0 / np.maximum(1.0 - diag, 1e-10)
+
+    return {
+        "smoothed_probs": smoothed_probs,
+        "filtered_probs": filtered_probs,
+        "states": states,
+        "transition_matrix": transmat,
+        "expected_durations": expected_durations,
+        "regime_params": regime_params,
+        "aic": float(result.aic),
+        "bic": float(result.bic),
+        "summary": str(result.summary()),
+        "model_result": result,
+    }
+
+
+# ---------------------------------------------------------------------------
+# BIC-Based State Selection
+# ---------------------------------------------------------------------------
+
+
+@requires_extra("regimes")
+def select_n_states(
+    returns: pd.Series | np.ndarray,
+    max_states: int = 5,
+    n_init: int = 10,
+    n_iter: int = 200,
+    random_state: int = 42,
+) -> dict[str, Any]:
+    """Select the optimal number of HMM states using the BIC criterion.
+
+    Fits Gaussian HMMs with ``n_states`` from 2 to ``max_states`` and
+    selects the model that minimises the Bayesian Information Criterion
+    (BIC).
+
+    **Why BIC over AIC for HMM state selection:**
+
+    The BIC imposes a stronger penalty on model complexity than the AIC,
+    which is critical for HMM selection because:
+
+    1. **HMM parameter count grows quadratically** with the number of
+       states (transition matrix has K*(K-1) free parameters), so without
+       a strong penalty the AIC tends to overfit by selecting too many
+       states.
+    2. **BIC is consistent**: as sample size grows, BIC selects the true
+       model (if it is in the candidate set). AIC tends to overfit even
+       asymptotically.
+    3. In practice, financial regime models with 2-3 states are usually
+       adequate; BIC correctly penalises 4+ state models that capture
+       noise rather than true regimes.
+
+    The BIC is defined as:
+
+    .. math::
+
+        \\text{BIC} = k \\ln(T) - 2 \\ln(\\hat{L})
+
+    where *k* is the number of free parameters, *T* is the sample size,
+    and :math:`\\hat{L}` is the maximised likelihood.
+
+    Parameters:
+        returns: Return series. NaN values are dropped.
+        max_states: Maximum number of states to consider (inclusive).
+            The search covers ``[2, 3, ..., max_states]``.
+        n_init: Number of random restarts per model fit.
+        n_iter: Maximum EM iterations per restart.
+        random_state: Base random seed.
+
+    Returns:
+        Dictionary with:
+
+        - ``optimal_n_states`` (int): The number of states with the
+          lowest BIC.
+        - ``scores`` (dict[int, float]): Mapping from *n_states* to
+          its BIC value.
+        - ``best_model`` (dict): The full result dict from
+          ``fit_gaussian_hmm`` for the optimal model.
+
+    Example:
+        >>> result = select_n_states(returns, max_states=5)
+        >>> print(f"Optimal states: {result['optimal_n_states']}")
+        >>> print(result['scores'])
+        {2: -2345.6, 3: -2310.1, 4: -2290.3, 5: -2275.0}
+
+    See Also:
+        fit_gaussian_hmm: Fit a single HMM with a fixed number of states.
+    """
+    scores: dict[int, float] = {}
+    best_bic = np.inf
+    best_n = 2
+    best_result: dict[str, Any] | None = None
+
+    for n in range(2, max_states + 1):
+        try:
+            result = fit_gaussian_hmm(
+                returns,
+                n_states=n,
+                n_init=n_init,
+                n_iter=n_iter,
+                random_state=random_state,
+            )
+            bic_val = result["bic"]
+            scores[n] = bic_val
+            if bic_val < best_bic:
+                best_bic = bic_val
+                best_n = n
+                best_result = result
+        except Exception:
+            # If fitting fails for this n, skip
+            scores[n] = np.inf
+
+    if best_result is None:
+        raise RuntimeError(
+            "All HMM fits failed. Check that the data has sufficient "
+            "variation for regime detection."
+        )
+
+    return {
+        "optimal_n_states": best_n,
+        "scores": scores,
+        "best_model": best_result,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Multivariate HMM
+# ---------------------------------------------------------------------------
+
+
+@requires_extra("regimes")
+def fit_multivariate_hmm(
+    returns: pd.DataFrame,
+    n_states: int = 2,
+    covariance_type: str = "full",
+    n_init: int = 10,
+    n_iter: int = 200,
+    random_state: int = 42,
+) -> dict[str, Any]:
+    """Fit a multivariate Gaussian HMM for multi-asset regime detection.
+
+    Extends the univariate HMM to a vector of asset returns, enabling
+    detection of regimes that manifest as shifts in *cross-asset
+    correlations*, not just individual-asset volatility.
+
+    **Why multivariate regime detection matters:**
+
+    Single-asset HMMs detect volatility regimes but miss a crucial
+    phenomenon: **correlation regime shifts**. During crises, asset
+    correlations spike toward 1, destroying diversification precisely
+    when it is needed most. A multivariate HMM captures this by
+    estimating a full covariance matrix per regime.
+
+    Typical findings on equity/bond data:
+
+    - **Low-vol regime**: Low equity vol, low bond vol, moderate
+      negative equity-bond correlation (diversification works).
+    - **High-vol regime**: High equity vol, elevated bond vol,
+      correlations shift (equities become more correlated with each
+      other, equity-bond correlation may flip sign).
+
+    The model estimates per-regime:
+
+    - Mean return vector :math:`\\mu_k \\in \\mathbb{R}^d`
+    - Full covariance matrix :math:`\\Sigma_k \\in \\mathbb{R}^{d \\times d}`
+    - From which per-regime correlation matrices are derived.
+
+    Parameters:
+        returns: DataFrame of multi-asset returns, shape ``(T, d)``
+            where *d* is the number of assets. Column names are
+            preserved for labeling. NaN rows are dropped.
+        n_states: Number of hidden states (regimes).
+        covariance_type: Covariance parameterisation. ``'full'`` is
+            strongly recommended for capturing correlation shifts.
+        n_init: Number of random EM restarts.
+        n_iter: Maximum EM iterations per restart.
+        random_state: Random seed.
+
+    Returns:
+        Dictionary with:
+
+        - ``states`` (np.ndarray): Most likely state sequence (Viterbi),
+          shape ``(T,)``.
+        - ``state_probs`` (np.ndarray): Smoothed state probabilities,
+          shape ``(T, K)``.
+        - ``means`` (np.ndarray): Per-regime mean vectors,
+          shape ``(K, d)``.
+        - ``covariances`` (np.ndarray): Per-regime covariance matrices,
+          shape ``(K, d, d)``.
+        - ``per_regime_correlations`` (dict[int, np.ndarray]): Per-regime
+          correlation matrices, keyed by regime index.
+        - ``transition_matrix`` (np.ndarray): Transition matrix ``(K, K)``.
+        - ``log_likelihood`` (float): Total log-likelihood.
+        - ``aic`` (float): AIC.
+        - ``bic`` (float): BIC.
+        - ``model``: The fitted hmmlearn model.
+        - ``index`` (pd.Index | None): Preserved DatetimeIndex.
+        - ``columns`` (list[str]): Asset names.
+
+    Example:
+        >>> import pandas as pd, numpy as np
+        >>> rng = np.random.default_rng(42)
+        >>> # Low-vol regime: low correlation
+        >>> cov_low = np.array([[0.0001, 0.00002], [0.00002, 0.00015]])
+        >>> low = rng.multivariate_normal([0.001, 0.0008], cov_low, 300)
+        >>> # High-vol regime: high correlation
+        >>> cov_high = np.array([[0.0009, 0.0006], [0.0006, 0.0008]])
+        >>> high = rng.multivariate_normal([-0.001, -0.0005], cov_high, 200)
+        >>> df = pd.DataFrame(np.vstack([low, high]), columns=['SPY', 'QQQ'])
+        >>> result = fit_multivariate_hmm(df, n_states=2)
+        >>> print(result['per_regime_correlations'][0])
+        >>> print(result['per_regime_correlations'][1])
+
+    See Also:
+        fit_gaussian_hmm: Univariate HMM.
+        regime_conditional_moments: Per-regime moments from states.
+    """
+    from hmmlearn.hmm import GaussianHMM
+
+    # Prepare data
+    if not isinstance(returns, pd.DataFrame):
+        raise TypeError("returns must be a pd.DataFrame for multivariate HMM")
+
+    clean = returns.dropna()
+    index = clean.index
+    columns = list(clean.columns)
+    X = clean.values.astype(np.float64)
+
+    T, d = X.shape
+
+    # Fit with multiple restarts
+    best_model = None
+    best_score = -np.inf
+
+    for i in range(n_init):
+        model = GaussianHMM(
+            n_components=n_states,
+            covariance_type=covariance_type,
+            n_iter=n_iter,
+            random_state=random_state + i,
+        )
+        try:
+            model.fit(X)
+            score = model.score(X)
+            if score > best_score:
+                best_score = score
+                best_model = model
+        except Exception:
+            continue
+
+    if best_model is None:
+        raise RuntimeError(
+            f"All {n_init} EM restarts failed for multivariate HMM."
+        )
+
+    model = best_model
+
+    states = model.predict(X)
+    state_probs = model.predict_proba(X)
+
+    # Extract means and covariances
+    means = model.means_  # (K, d)
+
+    if covariance_type == "full":
+        covariances = model.covars_  # (K, d, d)
+    elif covariance_type == "diag":
+        covariances = np.array([np.diag(model.covars_[k]) for k in range(n_states)])
+    elif covariance_type == "spherical":
+        covariances = np.array(
+            [np.eye(d) * model.covars_[k] for k in range(n_states)]
+        )
+    elif covariance_type == "tied":
+        covariances = np.array([model.covars_ for _ in range(n_states)])
+    else:
+        covariances = model.covars_
+
+    # Re-order states by ascending total variance (trace of cov)
+    total_var = np.array([np.trace(covariances[k]) for k in range(n_states)])
+    order = np.argsort(total_var)
+
+    state_map = {int(old): new for new, old in enumerate(order)}
+    states = np.array([state_map[int(s)] for s in states])
+    state_probs = state_probs[:, order]
+    means = means[order]
+    covariances = covariances[order]
+    transmat = model.transmat_[np.ix_(order, order)]
+
+    # Per-regime correlation matrices
+    per_regime_correlations: dict[int, np.ndarray] = {}
+    for k in range(n_states):
+        cov_k = covariances[k]
+        std_k = np.sqrt(np.diag(cov_k))
+        outer = np.outer(std_k, std_k)
+        outer = np.maximum(outer, 1e-12)
+        per_regime_correlations[k] = cov_k / outer
+
+    # Information criteria
+    if covariance_type == "full":
+        n_cov = n_states * d * (d + 1) // 2
+    elif covariance_type == "diag":
+        n_cov = n_states * d
+    elif covariance_type == "spherical":
+        n_cov = n_states
+    elif covariance_type == "tied":
+        n_cov = d * (d + 1) // 2
+    else:
+        n_cov = n_states * d * (d + 1) // 2
+
+    n_params = (
+        (n_states - 1)           # initial state
+        + n_states * (n_states - 1)  # transition matrix
+        + n_states * d           # means
+        + n_cov                  # covariances
+    )
+    log_likelihood = float(best_score)
+    aic = 2 * n_params - 2 * log_likelihood
+    bic = n_params * np.log(T) - 2 * log_likelihood
+
+    return {
+        "states": states,
+        "state_probs": state_probs,
+        "means": means,
+        "covariances": covariances,
+        "per_regime_correlations": per_regime_correlations,
+        "transition_matrix": transmat,
+        "log_likelihood": log_likelihood,
+        "aic": aic,
+        "bic": bic,
+        "model": model,
+        "index": index,
+        "columns": columns,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Regime-Conditional Moments
+# ---------------------------------------------------------------------------
+
+
+def regime_conditional_moments(
+    returns: pd.DataFrame,
+    states: np.ndarray,
+) -> dict[int, dict[str, np.ndarray]]:
+    """Compute per-regime mean vector and covariance/correlation matrices.
+
+    After fitting a multivariate HMM (or assigning regimes by any
+    method), this function extracts the sample moments for each regime.
+    These moments are the building blocks for **regime-aware portfolio
+    construction**: the mean vector feeds into the expected-return
+    input and the covariance matrix replaces the unconditional covariance
+    in a mean-variance optimiser.
+
+    Parameters:
+        returns: DataFrame of multi-asset returns, shape ``(T, d)``.
+        states: Integer regime labels, shape ``(T,)``, aligned with
+            ``returns``.
+
+    Returns:
+        Dictionary keyed by regime index (int), where each value is
+        a dict with:
+
+        - ``mean`` (np.ndarray): Sample mean vector, shape ``(d,)``.
+        - ``cov`` (np.ndarray): Sample covariance matrix,
+          shape ``(d, d)``.
+        - ``corr`` (np.ndarray): Sample correlation matrix,
+          shape ``(d, d)``.
+
+    Example:
+        >>> result = fit_multivariate_hmm(returns_df, n_states=2)
+        >>> moments = regime_conditional_moments(
+        ...     returns_df, result['states']
+        ... )
+        >>> # Use regime-0 covariance for portfolio optimisation
+        >>> cov_bull = moments[0]['cov']
+        >>> mu_bull = moments[0]['mean']
+
+    See Also:
+        fit_multivariate_hmm: Multi-asset regime detection.
+        regime_aware_portfolio: Blend weights across regimes.
+    """
+    if not isinstance(returns, pd.DataFrame):
+        raise TypeError("returns must be a pd.DataFrame")
+
+    R = returns.values.astype(np.float64)
+    s = np.asarray(states, dtype=int).flatten()
+
+    if len(R) != len(s):
+        raise ValueError(
+            f"returns and states must have the same length, "
+            f"got {len(R)} and {len(s)}."
+        )
+
+    unique_states = sorted(np.unique(s))
+    result: dict[int, dict[str, np.ndarray]] = {}
+
+    for state in unique_states:
+        mask = s == state
+        regime_R = R[mask]
+
+        mean_vec = np.mean(regime_R, axis=0)
+        cov_mat = np.cov(regime_R, rowvar=False, ddof=1)
+        # Ensure 2-D even for single-asset edge case
+        if cov_mat.ndim == 0:
+            cov_mat = np.array([[float(cov_mat)]])
+
+        # Correlation from covariance
+        std_vec = np.sqrt(np.diag(cov_mat))
+        outer = np.outer(std_vec, std_vec)
+        outer = np.maximum(outer, 1e-12)
+        corr_mat = cov_mat / outer
+
+        result[state] = {
+            "mean": mean_vec,
+            "cov": cov_mat,
+            "corr": corr_mat,
+        }
+
+    return result
+
+
+# ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
+
+
+def _max_drawdown_from_returns(returns: np.ndarray) -> float:
+    """Compute maximum drawdown from a return array."""
+    if len(returns) < 2:
+        return 0.0
+    cumulative = np.cumprod(1.0 + returns)
+    running_max = np.maximum.accumulate(cumulative)
+    drawdowns = (cumulative - running_max) / np.maximum(running_max, 1e-12)
+    return float(np.min(drawdowns))
 
 
 def _count_hmm_params(n_states: int, covariance_type: str) -> int:
