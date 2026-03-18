@@ -138,6 +138,7 @@ _LAZY_SUBMODULES = {
     "experiment",
     "microstructure",
     "execution",
+    "causal",
 }
 
 

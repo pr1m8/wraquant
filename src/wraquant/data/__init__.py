@@ -12,6 +12,15 @@ Example:
 """
 
 from wraquant.data.base import DataProvider, ProviderRegistry, registry
+from wraquant.data.cleaning_advanced import (
+    fix_text,
+    fuzzy_merge,
+    janitor_clean_names,
+    janitor_remove_empty,
+    normalize_countries,
+    parse_dates_flexible,
+    parse_prices,
+)
 from wraquant.data.cleaning import (
     align_series,
     detect_outliers,
@@ -39,6 +48,11 @@ from wraquant.data.validation import (
     data_quality_report,
     validate_ohlcv,
     validate_returns,
+)
+from wraquant.data.validation_advanced import (
+    create_ohlcv_schema,
+    create_returns_schema,
+    pandera_validate,
 )
 
 __all__ = [
@@ -74,4 +88,16 @@ __all__ = [
     "data_quality_report",
     "validate_ohlcv",
     "validate_returns",
+    # cleaning_advanced
+    "janitor_clean_names",
+    "janitor_remove_empty",
+    "fuzzy_merge",
+    "parse_dates_flexible",
+    "parse_prices",
+    "normalize_countries",
+    "fix_text",
+    # validation_advanced
+    "pandera_validate",
+    "create_ohlcv_schema",
+    "create_returns_schema",
 ]

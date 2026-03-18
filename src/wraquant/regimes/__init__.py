@@ -6,6 +6,11 @@ change-point detection, and regime labeling.
 
 from wraquant.regimes.changepoint import online_changepoint
 from wraquant.regimes.hmm import fit_hmm, predict_regime
+from wraquant.regimes.integrations import (
+    filterpy_kalman,
+    pomegranate_hmm,
+    river_drift_detector,
+)
 from wraquant.regimes.kalman import kalman_filter
 from wraquant.regimes.labels import label_regimes, regime_statistics
 
@@ -20,4 +25,8 @@ __all__ = [
     # labels
     "label_regimes",
     "regime_statistics",
+    # integrations
+    "pomegranate_hmm",
+    "filterpy_kalman",
+    "river_drift_detector",
 ]

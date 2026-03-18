@@ -6,6 +6,13 @@ event tracking, position sizing, and tearsheet generation.
 """
 
 from wraquant.backtest.engine import Backtest
+from wraquant.backtest.integrations import (
+    empyrical_metrics,
+    ffn_stats,
+    pyfolio_tearsheet_data,
+    quantstats_report,
+    vectorbt_backtest,
+)
 from wraquant.backtest.events import (
     Event,
     EventTracker,
@@ -53,4 +60,10 @@ __all__ = [
     "monthly_returns_table",
     "rolling_metrics_table",
     "trade_analysis",
+    # integrations
+    "vectorbt_backtest",
+    "quantstats_report",
+    "empyrical_metrics",
+    "pyfolio_tearsheet_data",
+    "ffn_stats",
 ]
