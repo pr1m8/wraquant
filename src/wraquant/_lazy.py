@@ -78,6 +78,7 @@ _EXTRA_TO_MODULES: dict[str, list[str]] = {
     "risk": ["pypfopt", "riskfolio"],
     "pricing": ["QuantLib", "financepy"],
     "stochastic": ["sdepy", "sdeint"],
+    "ml": ["sklearn"],
     "viz": ["matplotlib", "plotly"],
     "bayes": ["pymc", "arviz"],
     "quant-math": ["jax"],
