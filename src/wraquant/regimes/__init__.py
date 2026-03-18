@@ -129,7 +129,13 @@ from wraquant.regimes.base import (
     detect_regimes,
     regime_report,
 )
-from wraquant.regimes.changepoint import online_changepoint
+from wraquant.regimes.changepoint import (
+    binary_segmentation,
+    cusum_control_chart,
+    online_changepoint,
+    pelt_changepoint,
+    window_changepoint,
+)
 from wraquant.regimes.hmm import (
     fit_gaussian_hmm,
     fit_hmm,
@@ -157,7 +163,19 @@ from wraquant.regimes.kalman import (
     kalman_smoother,
     unscented_kalman,
 )
-from wraquant.regimes.labels import label_regimes
+from wraquant.regimes.labels import (
+    composite_regime_labels,
+    label_regimes,
+    regime_duration_analysis,
+    trend_regime_labels,
+    volatility_regime_labels,
+)
+from wraquant.regimes.scoring import (
+    compare_regime_methods,
+    regime_predictability,
+    regime_separation_score,
+    regime_stability_score,
+)
 
 __all__ = [
     # base (unified interface)
@@ -186,8 +204,21 @@ __all__ = [
     "unscented_kalman",
     # changepoint
     "online_changepoint",
+    "pelt_changepoint",
+    "binary_segmentation",
+    "window_changepoint",
+    "cusum_control_chart",
     # labels
     "label_regimes",
+    "volatility_regime_labels",
+    "trend_regime_labels",
+    "composite_regime_labels",
+    "regime_duration_analysis",
+    # scoring
+    "regime_stability_score",
+    "regime_separation_score",
+    "regime_predictability",
+    "compare_regime_methods",
     # integrations
     "pomegranate_hmm",
     "filterpy_kalman",

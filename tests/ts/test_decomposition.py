@@ -55,3 +55,72 @@ class TestTrendFilter:
             raise AssertionError("Should have raised ValueError")  # noqa: TRY301
         except ValueError:
             pass
+
+
+# ---------------------------------------------------------------------------
+# SSA Decomposition
+# ---------------------------------------------------------------------------
+
+from wraquant.ts.decomposition import emd_decompose, ssa_decompose
+
+
+class TestSSADecompose:
+    def test_components_sum_to_original(self) -> None:
+        """All SSA components must sum back to the original series."""
+        data = _make_seasonal_series(n=200, period=20)
+        result = ssa_decompose(data, window=40)
+        reconstructed = sum(result["components"].values())
+        np.testing.assert_allclose(
+            reconstructed.values, data.values, atol=1e-8,
+        )
+
+    def test_singular_values_decreasing(self) -> None:
+        data = _make_seasonal_series(n=200, period=20)
+        result = ssa_decompose(data, window=40, n_components=10)
+        sv = result["singular_values"]
+        assert len(sv) == 10
+        # Singular values should be non-negative and sorted descending
+        assert np.all(sv >= 0)
+        assert np.all(np.diff(sv) <= 1e-10)  # non-increasing
+
+    def test_explained_variance_sums_near_one(self) -> None:
+        data = _make_seasonal_series(n=200, period=20)
+        result = ssa_decompose(data, window=40)
+        ev = result["explained_variance"]
+        assert abs(ev.sum() - 1.0) < 1e-8
+
+    def test_grouped_components(self) -> None:
+        data = _make_seasonal_series(n=200, period=20)
+        groups = {"trend": [0], "oscillatory": [1, 2]}
+        result = ssa_decompose(data, window=40, groups=groups)
+        assert "trend" in result["components"]
+        assert "oscillatory" in result["components"]
+
+
+# ---------------------------------------------------------------------------
+# EMD Decomposition
+# ---------------------------------------------------------------------------
+
+
+class TestEMDDecompose:
+    def test_imfs_finite(self) -> None:
+        """All IMFs must contain finite values."""
+        data = _make_seasonal_series(n=300, period=20)
+        result = emd_decompose(data, max_imfs=5)
+        assert result["n_imfs"] >= 1
+        assert np.all(np.isfinite(result["imfs"]))
+        assert np.all(np.isfinite(result["residual"]))
+
+    def test_imfs_plus_residual_sum_to_original(self) -> None:
+        data = _make_seasonal_series(n=300, period=20)
+        result = emd_decompose(data, max_imfs=10)
+        reconstructed = result["imfs"].sum(axis=0) + result["residual"]
+        np.testing.assert_allclose(
+            reconstructed, data.dropna().values, atol=1e-6,
+        )
+
+    def test_returns_at_least_one_imf(self) -> None:
+        data = _make_seasonal_series(n=200, period=20)
+        result = emd_decompose(data, max_imfs=3)
+        assert result["imfs"].shape[0] >= 1
+        assert result["imfs"].shape[1] == len(data.dropna())

@@ -384,6 +384,69 @@ def anderson_darling(
     }
 
 
+def kernel_density_estimate(
+    data: np.ndarray | pd.Series,
+    n_points: int = 200,
+    bandwidth: str | float = "scott",
+) -> dict[str, np.ndarray]:
+    """Kernel density estimation using Gaussian kernels.
+
+    Non-parametric density estimation that makes no assumptions about
+    the underlying distribution shape. Useful for visualizing return
+    distributions, computing non-parametric VaR, and comparing
+    regime-specific densities.
+
+    Parameters:
+        data: Sample data (1D array of returns or prices).
+        n_points: Number of evaluation points for the density curve.
+        bandwidth: Bandwidth method ("scott", "silverman") or float.
+
+    Returns:
+        Dictionary containing:
+        - **x** -- Evaluation points (n_points,).
+        - **density** -- Estimated density values (n_points,).
+        - **bandwidth** -- Bandwidth used.
+        - **mode** -- Location of peak density.
+        - **cdf** -- Cumulative distribution values (n_points,).
+
+    Example:
+        >>> from wraquant.stats.distributions import kernel_density_estimate
+        >>> kde = kernel_density_estimate(returns, n_points=500)
+        >>> var_95 = kde['x'][np.searchsorted(kde['cdf'], 0.05)]
+    """
+    from scipy.stats import gaussian_kde
+
+    clean = np.asarray(data, dtype=float)
+    clean = clean[~np.isnan(clean)]
+
+    kde = gaussian_kde(clean, bw_method=bandwidth)
+
+    # Create evaluation grid spanning the data range with padding
+    data_min, data_max = clean.min(), clean.max()
+    data_range = data_max - data_min
+    padding = data_range * 0.15
+    x = np.linspace(data_min - padding, data_max + padding, n_points)
+
+    density = kde.evaluate(x)
+
+    # Compute CDF via cumulative trapezoidal integration
+    cdf = np.cumsum(density)
+    dx = x[1] - x[0]
+    cdf = cdf * dx
+    # Normalize to ensure CDF ends at 1
+    cdf = cdf / cdf[-1]
+
+    mode_idx = np.argmax(density)
+
+    return {
+        "x": x,
+        "density": density,
+        "bandwidth": float(kde.factor),
+        "mode": float(x[mode_idx]),
+        "cdf": cdf,
+    }
+
+
 def best_fit_distribution(
     data: pd.Series | np.ndarray,
     candidates: list[str] | None = None,

@@ -18,6 +18,9 @@ __all__ = [
     "nuts_diagnostic",
     "trace_summary",
     "gelman_rubin",
+    "hamiltonian_monte_carlo",
+    "slice_sampler",
+    "convergence_diagnostics",
 ]
 
 
@@ -363,5 +366,353 @@ def trace_summary(
 
     data["ess"] = diag["ess"].tolist()
     data["r_hat"] = diag["r_hat"].tolist()
+
+    return pd.DataFrame(data, index=param_names)
+
+
+# ---------------------------------------------------------------------------
+# Hamiltonian Monte Carlo (pure numpy)
+# ---------------------------------------------------------------------------
+
+
+def hamiltonian_monte_carlo(
+    log_posterior: Callable[[np.ndarray], float],
+    grad_log_posterior: Callable[[np.ndarray], np.ndarray],
+    initial: np.ndarray,
+    n_samples: int = 5_000,
+    step_size: float = 0.01,
+    n_leapfrog: int = 20,
+    burn_in: int = 1_000,
+    mass_matrix: np.ndarray | None = None,
+    rng_seed: int = 42,
+) -> dict[str, np.ndarray | float]:
+    """Hamiltonian Monte Carlo sampler (pure numpy, no JAX/PyMC needed).
+
+    HMC uses Hamiltonian dynamics to propose distant points in parameter
+    space that are likely to be accepted, dramatically reducing the
+    random-walk behaviour of Metropolis-Hastings.  This makes it much
+    more efficient for correlated, high-dimensional posteriors.
+
+    The algorithm works by augmenting the parameter space with a
+    "momentum" variable and simulating Hamiltonian dynamics using the
+    leapfrog integrator.  The total energy (Hamiltonian) is approximately
+    conserved, leading to high acceptance rates even for large jumps.
+
+    **When to use HMC**: Use HMC when Metropolis-Hastings mixes poorly
+    (high autocorrelation, low effective sample size) or when the
+    posterior has strong correlations between parameters.  HMC requires
+    the gradient of the log-posterior, which is the main practical
+    barrier.
+
+    **Tuning**: The two key parameters are ``step_size`` (too large
+    causes rejections; too small wastes computation) and ``n_leapfrog``
+    (too few gives random-walk behaviour; too many wastes computation).
+    A good heuristic is to aim for acceptance rates of 60--80 %.
+
+    Args:
+        log_posterior: Function mapping parameter vector to log posterior
+            density (up to a normalising constant).
+        grad_log_posterior: Function mapping parameter vector to the
+            gradient of the log posterior (a vector of the same length).
+        initial: Initial parameter vector of shape ``(d,)``.
+        n_samples: Number of samples to draw (before burn-in).
+        step_size: Leapfrog step size (epsilon).  Typical range
+            0.001 -- 0.1 depending on the scale of the problem.
+        n_leapfrog: Number of leapfrog steps per proposal (L).
+        burn_in: Number of initial samples to discard.
+        mass_matrix: Diagonal mass matrix of shape ``(d,)``.  If None,
+            uses identity (unit mass for all parameters).  Set this to
+            the inverse of the marginal posterior variances for better
+            performance.
+        rng_seed: Random seed for reproducibility.
+
+    Returns:
+        Dictionary with:
+            - ``samples``: np.ndarray of shape ``(n_samples, d)`` --
+              posterior samples after burn-in.
+            - ``acceptance_rate``: float -- fraction of proposals
+              accepted.
+            - ``log_posteriors``: np.ndarray -- log posterior values for
+              each kept sample.
+
+    Example:
+        >>> import numpy as np
+        >>> # Sample from N(3, 1)
+        >>> log_p = lambda q: -0.5 * (q[0] - 3.0) ** 2
+        >>> grad_log_p = lambda q: np.array([-(q[0] - 3.0)])
+        >>> result = hamiltonian_monte_carlo(log_p, grad_log_p,
+        ...     initial=np.array([0.0]), n_samples=5000, burn_in=500)
+        >>> print(f"Mean: {result['samples'].mean():.1f}")  # ~3.0
+    """
+    rng = np.random.default_rng(rng_seed)
+    q = np.asarray(initial, dtype=float).ravel().copy()
+    d = len(q)
+
+    if mass_matrix is None:
+        mass_matrix = np.ones(d)
+    else:
+        mass_matrix = np.asarray(mass_matrix, dtype=float).ravel()
+
+    inv_mass = 1.0 / mass_matrix
+
+    total = n_samples + burn_in
+    samples = np.zeros((total, d))
+    log_posts = np.zeros(total)
+    n_accepted = 0
+
+    current_lp = log_posterior(q)
+
+    for i in range(total):
+        # Sample momentum
+        p = rng.normal(0, np.sqrt(mass_matrix))
+        current_p = p.copy()
+        current_q = q.copy()
+
+        # Leapfrog integration
+        grad = grad_log_posterior(q)
+        p = p + 0.5 * step_size * grad  # half step for momentum
+
+        for step in range(n_leapfrog - 1):
+            q = q + step_size * inv_mass * p  # full step for position
+            grad = grad_log_posterior(q)
+            p = p + step_size * grad  # full step for momentum
+
+        q = q + step_size * inv_mass * p  # final full step for position
+        grad = grad_log_posterior(q)
+        p = p + 0.5 * step_size * grad  # half step for momentum
+
+        # Negate momentum (for reversibility, though not needed for MH)
+        p = -p
+
+        # Compute Hamiltonian
+        proposed_lp = log_posterior(q)
+        current_K = 0.5 * np.sum(current_p ** 2 * inv_mass)
+        proposed_K = 0.5 * np.sum(p ** 2 * inv_mass)
+
+        # Metropolis acceptance
+        log_alpha = (proposed_lp - proposed_K) - (current_lp - current_K)
+
+        if np.isfinite(log_alpha) and np.log(rng.uniform()) < log_alpha:
+            # Accept
+            current_lp = proposed_lp
+            n_accepted += 1
+        else:
+            # Reject: revert
+            q = current_q
+
+        samples[i] = q.copy()
+        log_posts[i] = current_lp
+
+    return {
+        "samples": samples[burn_in:],
+        "acceptance_rate": float(n_accepted / total),
+        "log_posteriors": log_posts[burn_in:],
+    }
+
+
+# ---------------------------------------------------------------------------
+# Slice sampler
+# ---------------------------------------------------------------------------
+
+
+def slice_sampler(
+    log_posterior: Callable[[float], float],
+    initial: float = 0.0,
+    n_samples: int = 5_000,
+    burn_in: int = 500,
+    w: float = 1.0,
+    rng_seed: int = 42,
+) -> np.ndarray:
+    """Univariate slice sampler (Neal, 2003).
+
+    Slice sampling is an adaptive MCMC method that requires **no tuning**
+    of a proposal distribution.  It works by:
+
+    1. Drawing a horizontal "slice" under the (unnormalised) density at
+       the current point.
+    2. Finding an interval around the current point that contains the
+       slice.
+    3. Sampling uniformly from that interval, shrinking it if the
+       proposed point falls outside the slice.
+
+    This makes it more robust than Metropolis-Hastings (no rejected
+    samples, no proposal std to tune) while being simple to implement.
+
+    **When to use this**: Use slice sampling for univariate conditional
+    distributions inside a Gibbs sampler, or for simple 1D posteriors
+    where you don't want to worry about tuning.
+
+    Args:
+        log_posterior: Function mapping a scalar to the log (unnormalised)
+            posterior density.
+        initial: Starting value.
+        n_samples: Number of samples to keep (after burn-in).
+        burn_in: Number of initial samples to discard.
+        w: Initial bracket width.  The algorithm adapts from this, so
+            the exact value is not critical.  A rough estimate of the
+            posterior std is a good choice.
+        rng_seed: Random seed.
+
+    Returns:
+        np.ndarray of shape ``(n_samples,)`` -- posterior samples.
+
+    Example:
+        >>> import numpy as np
+        >>> # Sample from N(2, 1)
+        >>> log_p = lambda x: -0.5 * (x - 2.0) ** 2
+        >>> samples = slice_sampler(log_p, initial=0.0, n_samples=5000)
+        >>> print(f"Mean: {samples.mean():.1f}")  # ~2.0
+    """
+    rng = np.random.default_rng(rng_seed)
+    total = n_samples + burn_in
+    samples = np.zeros(total)
+
+    x = float(initial)
+    lp_x = log_posterior(x)
+
+    for i in range(total):
+        # Draw the slice level
+        log_y = lp_x + np.log(rng.uniform())
+
+        # Step out: find the bracket [L, R]
+        u = rng.uniform()
+        L = x - w * u
+        R = L + w
+
+        # Expand bracket
+        max_steps = 100
+        j = 0
+        while log_posterior(L) > log_y and j < max_steps:
+            L -= w
+            j += 1
+        j = 0
+        while log_posterior(R) > log_y and j < max_steps:
+            R += w
+            j += 1
+
+        # Shrink and sample
+        for _ in range(200):  # safety limit
+            x_prime = L + rng.uniform() * (R - L)
+            lp_prime = log_posterior(x_prime)
+
+            if lp_prime > log_y:
+                x = x_prime
+                lp_x = lp_prime
+                break
+
+            if x_prime < x:
+                L = x_prime
+            else:
+                R = x_prime
+        else:
+            # Fallback: keep current sample
+            pass
+
+        samples[i] = x
+
+    return samples[burn_in:]
+
+
+# ---------------------------------------------------------------------------
+# Enhanced convergence diagnostics
+# ---------------------------------------------------------------------------
+
+
+def convergence_diagnostics(
+    chains: np.ndarray | list[np.ndarray],
+    param_names: Sequence[str] | None = None,
+) -> pd.DataFrame:
+    """Comprehensive MCMC convergence diagnostics for multi-chain output.
+
+    Computes a battery of diagnostics that every Bayesian analysis should
+    report:
+
+    - **Split R-hat**: The Gelman-Rubin statistic computed on split
+      chains (each chain is split in half), which is more sensitive to
+      non-stationarity than the original R-hat.  Values below 1.01 are
+      considered good; below 1.05 is acceptable.
+
+    - **Effective Sample Size (ESS)**: The number of effectively
+      independent samples, accounting for autocorrelation.  Low ESS
+      means your inferences are based on fewer independent data points
+      than you might think.
+
+    - **ESS per second**: Not computed here (would need timing info),
+      but ESS alone tells you if you need to run longer.
+
+    - **Autocorrelation time**: The number of steps between effectively
+      independent samples.  ``tau = n / ESS``.
+
+    - **MCSE** (Monte Carlo Standard Error): The standard error of the
+      posterior mean estimate due to finite sampling.
+      ``MCSE = posterior_std / sqrt(ESS)``.
+
+    **Interpreting the results**: Your MCMC has converged if *all* of:
+    (1) R-hat < 1.05, (2) ESS > 400, (3) trace plots show no trends.
+    If R-hat > 1.1, you need more samples or better tuning.
+
+    Args:
+        chains: Multi-chain samples, either a 3D array of shape
+            ``(n_chains, n_samples, n_params)`` or a list of 2D arrays.
+        param_names: Optional parameter names.  Defaults to
+            ``['param_0', ...]``.
+
+    Returns:
+        pd.DataFrame with columns: ``mean``, ``std``, ``r_hat``,
+        ``split_r_hat``, ``ess``, ``autocorrelation_time``, ``mcse``.
+
+    Example:
+        >>> import numpy as np
+        >>> rng = np.random.default_rng(0)
+        >>> chains = rng.normal(size=(4, 2000, 3))
+        >>> diag = convergence_diagnostics(chains)
+        >>> print(diag[['split_r_hat', 'ess']])
+    """
+    if isinstance(chains, list):
+        chains = np.array(chains)
+    chains = np.asarray(chains, dtype=float)
+
+    if chains.ndim == 2:
+        # Single chain: split into two halves for split-R-hat
+        n_half = chains.shape[0] // 2
+        chains = np.stack([chains[:n_half], chains[n_half : 2 * n_half]])
+
+    if chains.ndim != 3:
+        raise ValueError(f"chains must be 2D or 3D, got {chains.ndim}D.")
+
+    m, n, k = chains.shape
+
+    if param_names is None:
+        param_names = [f"param_{j}" for j in range(k)]
+
+    # Standard R-hat
+    r_hat = gelman_rubin(chains)
+
+    # Split R-hat: split each chain in half
+    n_half = n // 2
+    split_chains = np.zeros((2 * m, n_half, k))
+    for c in range(m):
+        split_chains[2 * c] = chains[c, :n_half, :]
+        split_chains[2 * c + 1] = chains[c, n_half : 2 * n_half, :]
+    split_r_hat = gelman_rubin(split_chains)
+
+    # Flatten for ESS and summary stats
+    flat = chains.reshape(-1, k)
+    means = np.mean(flat, axis=0)
+    stds = np.std(flat, axis=0, ddof=1)
+
+    ess = np.array([_ess_single(flat[:, j]) for j in range(k)])
+    autocorr_time = (m * n) / np.maximum(ess, 1.0)
+    mcse = stds / np.sqrt(np.maximum(ess, 1.0))
+
+    data = {
+        "mean": means.tolist(),
+        "std": stds.tolist(),
+        "r_hat": r_hat.tolist(),
+        "split_r_hat": split_r_hat.tolist(),
+        "ess": ess.tolist(),
+        "autocorrelation_time": autocorr_time.tolist(),
+        "mcse": mcse.tolist(),
+    }
 
     return pd.DataFrame(data, index=param_names)

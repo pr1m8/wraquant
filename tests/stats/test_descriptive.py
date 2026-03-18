@@ -103,3 +103,125 @@ class TestOmegaRatio:
         ratio = omega_ratio(ret)
         assert ratio > 0
         assert np.isfinite(ratio)
+
+
+# ---------------------------------------------------------------------------
+# Rolling Sharpe
+# ---------------------------------------------------------------------------
+
+
+class TestRollingSharpe:
+    def test_finite_values(self) -> None:
+        from wraquant.stats.descriptive import rolling_sharpe
+
+        ret = _make_returns()
+        rs = rolling_sharpe(ret, window=60)
+        finite = rs.dropna()
+        assert len(finite) > 0
+        assert np.all(np.isfinite(finite.values))
+
+    def test_length(self) -> None:
+        from wraquant.stats.descriptive import rolling_sharpe
+
+        ret = _make_returns()
+        rs = rolling_sharpe(ret, window=60)
+        assert len(rs) == len(ret)
+
+    def test_nan_before_window(self) -> None:
+        from wraquant.stats.descriptive import rolling_sharpe
+
+        ret = _make_returns()
+        rs = rolling_sharpe(ret, window=60)
+        # First 59 values should be NaN
+        assert rs.iloc[:59].isna().all()
+
+
+# ---------------------------------------------------------------------------
+# Rolling drawdown
+# ---------------------------------------------------------------------------
+
+
+class TestRollingDrawdown:
+    def test_non_positive(self) -> None:
+        from wraquant.stats.descriptive import rolling_drawdown
+
+        ret = _make_returns()
+        rd = rolling_drawdown(ret, window=60)
+        assert (rd.dropna() <= 0).all()
+
+    def test_length(self) -> None:
+        from wraquant.stats.descriptive import rolling_drawdown
+
+        ret = _make_returns()
+        rd = rolling_drawdown(ret, window=60)
+        assert len(rd) == len(ret)
+
+
+# ---------------------------------------------------------------------------
+# Return attribution
+# ---------------------------------------------------------------------------
+
+
+class TestReturnAttribution:
+    def test_sums_to_excess(self) -> None:
+        from wraquant.stats.descriptive import return_attribution
+
+        pw = pd.Series({"Tech": 0.4, "Fin": 0.3, "Health": 0.3})
+        bw = pd.Series({"Tech": 0.3, "Fin": 0.4, "Health": 0.3})
+        pr = pd.Series({"Tech": 0.05, "Fin": 0.02, "Health": 0.03})
+        br = pd.Series({"Tech": 0.04, "Fin": 0.03, "Health": 0.03})
+
+        result = return_attribution(pw, bw, pr, br)
+
+        # Components should sum to total excess
+        component_sum = result["allocation"] + result["selection"] + result["interaction"]
+        np.testing.assert_allclose(component_sum, result["total_excess"], atol=1e-10)
+
+        # Total excess should match portfolio return minus benchmark return
+        port_ret = float(pw @ pr)
+        bench_ret = float(bw @ br)
+        np.testing.assert_allclose(result["total_excess"], port_ret - bench_ret, atol=1e-10)
+
+    def test_keys(self) -> None:
+        from wraquant.stats.descriptive import return_attribution
+
+        pw = pd.Series({"A": 0.5, "B": 0.5})
+        bw = pd.Series({"A": 0.5, "B": 0.5})
+        pr = pd.Series({"A": 0.01, "B": 0.02})
+        br = pd.Series({"A": 0.01, "B": 0.02})
+
+        result = return_attribution(pw, bw, pr, br)
+        assert set(result.keys()) == {"allocation", "selection", "interaction", "total_excess", "detail"}
+
+
+# ---------------------------------------------------------------------------
+# Risk contribution
+# ---------------------------------------------------------------------------
+
+
+class TestRiskContribution:
+    def test_sums_to_portfolio_std(self) -> None:
+        from wraquant.stats.descriptive import risk_contribution
+
+        w = pd.Series({"A": 0.5, "B": 0.3, "C": 0.2})
+        cov = pd.DataFrame(
+            np.diag([0.04, 0.09, 0.01]),
+            index=["A", "B", "C"],
+            columns=["A", "B", "C"],
+        )
+        rc = risk_contribution(w, cov)
+        port_std = np.sqrt(float(w.values @ cov.values @ w.values))
+        np.testing.assert_allclose(rc.sum(), port_std, atol=1e-10)
+
+    def test_returns_series(self) -> None:
+        from wraquant.stats.descriptive import risk_contribution
+
+        w = pd.Series({"A": 0.6, "B": 0.4})
+        cov = pd.DataFrame(
+            [[0.04, 0.01], [0.01, 0.09]],
+            index=["A", "B"],
+            columns=["A", "B"],
+        )
+        rc = risk_contribution(w, cov)
+        assert isinstance(rc, pd.Series)
+        assert list(rc.index) == ["A", "B"]

@@ -7,10 +7,13 @@ import pandas as pd
 import pytest
 
 from wraquant.bayes.mcmc import (
+    convergence_diagnostics,
     gelman_rubin,
     gibbs_sampler,
+    hamiltonian_monte_carlo,
     metropolis_hastings,
     nuts_diagnostic,
+    slice_sampler,
     trace_summary,
 )
 
@@ -242,3 +245,162 @@ class TestTraceSummary:
         assert "r_hat" in summary.columns
         # R-hat should be close to 1 for converged chains
         np.testing.assert_allclose(summary["r_hat"].values, 1.0, atol=0.15)
+
+
+# ---------------------------------------------------------------------------
+# Hamiltonian Monte Carlo tests
+# ---------------------------------------------------------------------------
+
+
+class TestHamiltonianMonteCarlo:
+    def test_samples_converge_to_known_normal(self) -> None:
+        """HMC should recover the mean and std of N(3, 1)."""
+
+        def log_p(q: np.ndarray) -> float:
+            return float(-0.5 * (q[0] - 3.0) ** 2)
+
+        def grad_log_p(q: np.ndarray) -> np.ndarray:
+            return np.array([-(q[0] - 3.0)])
+
+        result = hamiltonian_monte_carlo(
+            log_p,
+            grad_log_p,
+            initial=np.array([0.0]),
+            n_samples=5_000,
+            step_size=0.1,
+            n_leapfrog=20,
+            burn_in=1_000,
+        )
+        samples = result["samples"]
+        assert abs(np.mean(samples) - 3.0) < 0.2
+        assert abs(np.std(samples) - 1.0) < 0.3
+
+    def test_acceptance_rate_reasonable(self) -> None:
+        def log_p(q: np.ndarray) -> float:
+            return float(-0.5 * np.sum(q ** 2))
+
+        def grad_log_p(q: np.ndarray) -> np.ndarray:
+            return -q
+
+        result = hamiltonian_monte_carlo(
+            log_p,
+            grad_log_p,
+            initial=np.zeros(2),
+            n_samples=2_000,
+            step_size=0.1,
+            n_leapfrog=10,
+            burn_in=500,
+        )
+        assert 0.3 < result["acceptance_rate"] < 1.0
+
+    def test_multivariate_mean(self) -> None:
+        """HMC should recover multivariate normal mean."""
+        mu = np.array([1.0, -2.0])
+
+        def log_p(q: np.ndarray) -> float:
+            return float(-0.5 * np.sum((q - mu) ** 2))
+
+        def grad_log_p(q: np.ndarray) -> np.ndarray:
+            return -(q - mu)
+
+        result = hamiltonian_monte_carlo(
+            log_p,
+            grad_log_p,
+            initial=np.zeros(2),
+            n_samples=5_000,
+            step_size=0.1,
+            n_leapfrog=15,
+            burn_in=1_000,
+        )
+        means = np.mean(result["samples"], axis=0)
+        np.testing.assert_allclose(means, mu, atol=0.3)
+
+    def test_output_structure(self) -> None:
+        def log_p(q: np.ndarray) -> float:
+            return float(-0.5 * q[0] ** 2)
+
+        def grad_log_p(q: np.ndarray) -> np.ndarray:
+            return -q
+
+        result = hamiltonian_monte_carlo(
+            log_p,
+            grad_log_p,
+            initial=np.array([0.0]),
+            n_samples=500,
+            burn_in=100,
+        )
+        assert "samples" in result
+        assert "acceptance_rate" in result
+        assert "log_posteriors" in result
+        assert result["samples"].shape == (500, 1)
+
+
+# ---------------------------------------------------------------------------
+# Slice sampler tests
+# ---------------------------------------------------------------------------
+
+
+class TestSliceSampler:
+    def test_normal_mean(self) -> None:
+        def log_p(x: float) -> float:
+            return -0.5 * (x - 2.0) ** 2
+
+        samples = slice_sampler(log_p, initial=0.0, n_samples=5_000, burn_in=500)
+        assert abs(np.mean(samples) - 2.0) < 0.2
+
+    def test_normal_std(self) -> None:
+        def log_p(x: float) -> float:
+            return -0.5 * (x - 0.0) ** 2
+
+        samples = slice_sampler(log_p, initial=5.0, n_samples=5_000, burn_in=500)
+        assert abs(np.std(samples) - 1.0) < 0.3
+
+    def test_output_length(self) -> None:
+        def log_p(x: float) -> float:
+            return -0.5 * x ** 2
+
+        samples = slice_sampler(log_p, n_samples=1_000, burn_in=100)
+        assert len(samples) == 1_000
+
+
+# ---------------------------------------------------------------------------
+# Enhanced convergence diagnostics tests
+# ---------------------------------------------------------------------------
+
+
+class TestConvergenceDiagnostics:
+    def test_converged_chains_r_hat_near_one(self) -> None:
+        """For IID chains, R-hat and split-R-hat should be near 1."""
+        rng = np.random.default_rng(42)
+        chains = rng.normal(size=(4, 2000, 3))
+        diag = convergence_diagnostics(chains)
+        np.testing.assert_allclose(diag["r_hat"].values, 1.0, atol=0.1)
+        np.testing.assert_allclose(diag["split_r_hat"].values, 1.0, atol=0.1)
+
+    def test_ess_positive(self) -> None:
+        rng = np.random.default_rng(42)
+        chains = rng.normal(size=(3, 1000, 2))
+        diag = convergence_diagnostics(chains)
+        assert np.all(np.array(diag["ess"].values) > 0)
+
+    def test_mcse_smaller_than_std(self) -> None:
+        rng = np.random.default_rng(42)
+        chains = rng.normal(size=(4, 2000, 2))
+        diag = convergence_diagnostics(chains)
+        assert np.all(np.array(diag["mcse"].values) < np.array(diag["std"].values))
+
+    def test_output_columns(self) -> None:
+        rng = np.random.default_rng(42)
+        chains = rng.normal(size=(2, 500, 2))
+        diag = convergence_diagnostics(chains, param_names=["alpha", "beta"])
+        for col in ["mean", "std", "r_hat", "split_r_hat", "ess", "autocorrelation_time", "mcse"]:
+            assert col in diag.columns
+        assert list(diag.index) == ["alpha", "beta"]
+
+    def test_single_chain_input(self) -> None:
+        """A single 2D chain should be split and analysed."""
+        rng = np.random.default_rng(42)
+        chain = rng.normal(size=(1000, 2))
+        diag = convergence_diagnostics(chain)
+        assert diag.shape[0] == 2
+        assert np.all(np.isfinite(diag["split_r_hat"].values))

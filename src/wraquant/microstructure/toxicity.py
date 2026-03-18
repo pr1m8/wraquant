@@ -244,3 +244,297 @@ def information_share(
         return np.ones(n_venues, dtype=np.float64) / n_venues
 
     return np.array([v / total for v in inv_vars], dtype=np.float64)
+
+
+# ---------------------------------------------------------------------------
+# Enhanced toxicity analytics
+# ---------------------------------------------------------------------------
+
+
+def bulk_volume_classification(
+    close: pd.Series,
+    high: pd.Series,
+    low: pd.Series,
+    volume: pd.Series,
+) -> pd.DataFrame:
+    """Bulk Volume Classification (BVC).
+
+    Classifies aggregate volume into buy- and sell-initiated components
+    using the position of the close price relative to the high-low range.
+    This avoids the need for tick-by-tick data or quote data, making it
+    practical for daily-frequency analysis.
+
+    The buy fraction is estimated as::
+
+        Z = (close - low) / (high - low)
+        buy_fraction = Z  (linear interpolation)
+
+    The CDF of a standard normal evaluated at ``Z`` is sometimes used,
+    but the linear version performs comparably and is more transparent.
+
+    **When to use**: When you need to estimate buy/sell volume from daily
+    OHLCV data without tick-by-tick trade records.  Suitable as an input
+    to VPIN calculations, order flow imbalance metrics, or any model
+    requiring buy/sell volume decomposition.
+
+    **Interpretation**: When the close is near the high, most volume is
+    classified as buys.  When the close is near the low, most volume is
+    classified as sells.  The BVC estimate is noisier than Lee-Ready for
+    individual trades but aggregates well across bars.
+
+    Parameters:
+        close: Closing prices.
+        high: High prices.
+        low: Low prices.
+        volume: Total volume per bar.
+
+    Returns:
+        DataFrame with columns ``'buy_volume'``, ``'sell_volume'``,
+        ``'buy_fraction'``.
+
+    References:
+        Easley, D., Lopez de Prado, M. M. & O'Hara, M. (2012). "Bulk
+        Classification of Trading Activity." *Working Paper*, Johnson
+        School Research Paper Series.
+    """
+    hl_range = high - low
+    # Avoid division by zero for doji bars
+    z = np.where(hl_range > 0, (close - low) / hl_range, 0.5)
+    z = np.clip(z, 0.0, 1.0)
+
+    buy_vol = volume * z
+    sell_vol = volume * (1.0 - z)
+
+    return pd.DataFrame(
+        {
+            "buy_volume": buy_vol.values,
+            "sell_volume": sell_vol.values,
+            "buy_fraction": z,
+        },
+        index=close.index,
+    )
+
+
+def adjusted_pin(
+    buy_trades: pd.Series | NDArray[np.floating],
+    sell_trades: pd.Series | NDArray[np.floating],
+) -> dict[str, float]:
+    """Adjusted Probability of Informed Trading (AdjPIN).
+
+    Extends the standard PIN model (Easley et al., 1996) by separating
+    information-driven order flow from symmetric order-flow shocks that
+    arise from liquidity effects.  The Duarte & Young (2009) adjustment
+    adds a regime where *both* buy and sell arrival rates increase
+    simultaneously (a liquidity event), preventing the model from
+    misattributing liquidity shocks as informed trading.
+
+    The standard PIN is known to overstate the probability of informed
+    trading during periods of high overall activity (e.g., index
+    rebalancing, option expiration).  AdjPIN corrects for this bias.
+
+    **When to use**: When you need a cleaner measure of information
+    asymmetry that is not contaminated by correlated liquidity events.
+    Preferred over standard PIN for cross-sectional comparisons where
+    stocks have heterogeneous trading activity.
+
+    **Interpretation**:
+
+    - ``adj_pin`` < 0.10: Low information asymmetry, suitable for
+      uninformed market-making.
+    - ``adj_pin`` 0.10-0.30: Moderate; some informed activity detected.
+    - ``adj_pin`` > 0.30: High information asymmetry; adverse selection
+      risk is elevated.
+
+    Parameters:
+        buy_trades: Number of buy-initiated trades per period.
+        sell_trades: Number of sell-initiated trades per period.
+
+    Returns:
+        Dictionary with keys ``'adj_pin'``, ``'pin_unadjusted'``,
+        ``'alpha'``, ``'delta'``, ``'mu'``, ``'eps_b'``, ``'eps_s'``,
+        ``'theta'`` (probability of symmetric activity shock).
+
+    References:
+        Duarte, J. & Young, L. (2009). "Why is PIN Priced?" *Journal of
+        Financial Economics*, 91(2), 119-138.
+    """
+    b = np.asarray(buy_trades, dtype=np.float64)
+    s = np.asarray(sell_trades, dtype=np.float64)
+    n = len(b)
+
+    # Initial guesses
+    mu0 = float(np.mean(np.abs(b - s)))
+    eps_b0 = float(np.mean(b)) * 0.5
+    eps_s0 = float(np.mean(s)) * 0.5
+
+    def neg_log_lik(params: NDArray[np.floating]) -> float:
+        alpha, delta, mu, eps_b, eps_s, theta = params
+        alpha = np.clip(alpha, 1e-6, 1 - 1e-6)
+        delta = np.clip(delta, 1e-6, 1 - 1e-6)
+        theta = np.clip(theta, 1e-6, 1 - 1e-6)
+        mu = max(mu, 1e-6)
+        eps_b = max(eps_b, 1e-6)
+        eps_s = max(eps_s, 1e-6)
+
+        ll = 0.0
+        for i in range(n):
+            bi, si = b[i], s[i]
+            # Four regimes:
+            # 1. No event, no shock
+            # 2. Bad-news event (sell informed)
+            # 3. Good-news event (buy informed)
+            # 4. Symmetric liquidity shock (both sides increase)
+            log_parts = np.array([
+                np.log((1 - alpha) * (1 - theta))
+                + _poisson_ll(bi, eps_b) + _poisson_ll(si, eps_s),
+                np.log(alpha * delta * (1 - theta))
+                + _poisson_ll(bi, eps_b) + _poisson_ll(si, eps_s + mu),
+                np.log(alpha * (1 - delta) * (1 - theta))
+                + _poisson_ll(bi, eps_b + mu) + _poisson_ll(si, eps_s),
+                np.log(theta)
+                + _poisson_ll(bi, eps_b + mu) + _poisson_ll(si, eps_s + mu),
+            ])
+            max_lp = np.max(log_parts)
+            ll += max_lp + np.log(np.sum(np.exp(log_parts - max_lp)))
+        return -ll
+
+    x0 = np.array([0.5, 0.5, mu0, eps_b0, eps_s0, 0.2])
+    bounds = [
+        (1e-4, 1 - 1e-4),
+        (1e-4, 1 - 1e-4),
+        (1e-4, None),
+        (1e-4, None),
+        (1e-4, None),
+        (1e-4, 1 - 1e-4),
+    ]
+    result = minimize(neg_log_lik, x0, bounds=bounds, method="L-BFGS-B")
+    alpha, delta, mu, eps_b, eps_s, theta = result.x
+
+    # Adjusted PIN excludes symmetric shock regime
+    adj_pin = (alpha * mu) / (alpha * mu + eps_b + eps_s + 2 * theta * mu)
+    # Unadjusted for comparison
+    pin_unadj = (alpha * mu) / (alpha * mu + eps_b + eps_s)
+
+    return {
+        "adj_pin": float(np.clip(adj_pin, 0, 1)),
+        "pin_unadjusted": float(np.clip(pin_unadj, 0, 1)),
+        "alpha": float(alpha),
+        "delta": float(delta),
+        "mu": float(mu),
+        "eps_b": float(eps_b),
+        "eps_s": float(eps_s),
+        "theta": float(theta),
+    }
+
+
+def toxicity_index(
+    vpin_values: pd.Series | NDArray[np.floating],
+    ofi_values: pd.Series | NDArray[np.floating],
+    spread_values: pd.Series | NDArray[np.floating],
+    weights: tuple[float, float, float] = (0.5, 0.3, 0.2),
+) -> NDArray[np.floating]:
+    """Composite toxicity index combining VPIN, OFI, and spread dynamics.
+
+    Produces a single 0-100 score summarizing the overall level of adverse
+    selection / order flow toxicity.  Each input component is independently
+    normalized to [0, 1] via min-max scaling, then combined with the
+    specified weights and rescaled to 0-100.
+
+    **When to use**: For a single-number dashboard indicator of market
+    toxicity that synthesizes multiple underlying signals.  Useful for
+    setting risk limits (e.g., "pause quoting when toxicity > 70") or for
+    cross-sectional comparison across instruments.
+
+    **Interpretation**:
+
+    - **0-20**: Low toxicity; market is safe for passive market-making.
+    - **20-50**: Moderate toxicity; monitor order flow closely.
+    - **50-80**: Elevated toxicity; consider widening quotes or reducing
+      size.
+    - **80-100**: Extreme toxicity; likely informed trading event in
+      progress.
+
+    Parameters:
+        vpin_values: VPIN time series (typically in [0, 1]).
+        ofi_values: Absolute order flow imbalance (|OFI|), higher = more
+            toxic.
+        spread_values: Spread time series (wider = more toxic).
+        weights: Relative weights for (VPIN, OFI, spread).  Must sum to
+            1.0.
+
+    Returns:
+        Composite toxicity index in [0, 100].
+
+    References:
+        Easley, D., Lopez de Prado, M. M. & O'Hara, M. (2011). "The
+        Microstructure of the 'Flash Crash'." *Journal of Portfolio
+        Management*, 37(2), 118-128.
+    """
+    def _min_max(arr: NDArray[np.floating]) -> NDArray[np.floating]:
+        lo = np.nanmin(arr)
+        hi = np.nanmax(arr)
+        if hi - lo < 1e-15:
+            return np.zeros_like(arr)
+        return (arr - lo) / (hi - lo)
+
+    v = _min_max(np.asarray(vpin_values, dtype=np.float64))
+    o = _min_max(np.abs(np.asarray(ofi_values, dtype=np.float64)))
+    s = _min_max(np.asarray(spread_values, dtype=np.float64))
+
+    w_v, w_o, w_s = weights
+    composite = w_v * v + w_o * o + w_s * s
+    return np.clip(composite * 100.0, 0.0, 100.0)
+
+
+def informed_trading_intensity(
+    buy_volume: pd.Series,
+    sell_volume: pd.Series,
+    window: int = 20,
+) -> pd.Series:
+    """Time-varying probability of informed trading using a sequential model.
+
+    Estimates the instantaneous probability that the marginal trade is
+    information-driven, based on the sequential trade framework of Glosten
+    & Milgrom (1985) and Easley & O'Hara (1987).
+
+    The approach uses a rolling Bayesian update.  In each window, the
+    fraction of trades on the "aggressive" side (whichever of buy or sell
+    dominates) is used to infer the conditional probability that an
+    information event is occurring, under the assumption that informed
+    traders cluster on one side while uninformed traders arrive symmetrically.
+
+    **When to use**: For real-time monitoring of informed trading intensity.
+    Unlike the static PIN model, this provides a *time-varying* signal that
+    can be used to dynamically adjust quotes or execution strategies.
+
+    **Interpretation**: Values near 0.5 indicate balanced (uninformed)
+    flow.  Values approaching 1.0 indicate that nearly all marginal volume
+    is on one side, consistent with an active informed trader.
+
+    Parameters:
+        buy_volume: Buy-initiated volume per observation.
+        sell_volume: Sell-initiated volume per observation.
+        window: Rolling window for the Bayesian update.
+
+    Returns:
+        Rolling informed trading intensity in [0, 1].
+
+    References:
+        Easley, D. & O'Hara, M. (1987). "Price, Trade Size, and
+        Information in Securities Markets." *Journal of Financial
+        Economics*, 19(1), 69-90.
+    """
+    total = buy_volume + sell_volume
+    imbalance = np.abs(buy_volume - sell_volume)
+
+    # Fraction of aggressive volume in each window
+    rolling_imbalance = imbalance.rolling(window).sum()
+    rolling_total = total.rolling(window).sum()
+
+    # Informed intensity = excess imbalance beyond chance
+    # Under pure noise, imbalance is ~sqrt(n) * sigma, so normalize
+    intensity = rolling_imbalance / rolling_total
+    intensity = intensity.replace([np.inf, -np.inf], np.nan)
+    intensity = intensity.clip(0.0, 1.0)
+    intensity.name = "informed_trading_intensity"
+    return intensity

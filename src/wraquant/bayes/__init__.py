@@ -7,24 +7,34 @@ convergence diagnostics, and wrappers for external Bayesian packages
 """
 
 from wraquant.bayes.mcmc import (
+    convergence_diagnostics,
     gelman_rubin,
     gibbs_sampler,
+    hamiltonian_monte_carlo,
     metropolis_hastings,
     nuts_diagnostic,
+    slice_sampler,
     trace_summary,
 )
 from wraquant.bayes.models import (
     bayes_factor,
+    bayesian_changepoint,
+    bayesian_cointegration,
+    bayesian_factor_model,
+    bayesian_linear_regression,
     bayesian_portfolio,
+    bayesian_portfolio_bl,
     bayesian_regression,
     bayesian_sharpe,
     bayesian_var,
+    bayesian_volatility,
     credible_interval,
+    model_comparison,
     posterior_predictive,
 )
 
 __all__ = [
-    # models.py — pure numpy/scipy Bayesian methods
+    # models.py — pure numpy/scipy Bayesian methods (original)
     "bayesian_regression",
     "bayesian_sharpe",
     "bayesian_portfolio",
@@ -32,12 +42,24 @@ __all__ = [
     "credible_interval",
     "bayes_factor",
     "posterior_predictive",
-    # mcmc.py — MCMC utilities
+    # models.py — enhanced deep implementations
+    "bayesian_linear_regression",
+    "bayesian_factor_model",
+    "bayesian_changepoint",
+    "bayesian_portfolio_bl",
+    "bayesian_volatility",
+    "bayesian_cointegration",
+    "model_comparison",
+    # mcmc.py — MCMC utilities (original)
     "metropolis_hastings",
     "gibbs_sampler",
     "nuts_diagnostic",
     "trace_summary",
     "gelman_rubin",
+    # mcmc.py — enhanced MCMC
+    "hamiltonian_monte_carlo",
+    "slice_sampler",
+    "convergence_diagnostics",
 ]
 
 

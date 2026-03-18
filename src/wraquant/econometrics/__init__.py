@@ -50,7 +50,6 @@ from wraquant.econometrics.volatility import (
     garch,
     garch_numpy_fallback,
     gjr_garch,
-    realized_garch,
 )
 
 __all__ = [
@@ -94,5 +93,4 @@ __all__ = [
     "gjr_garch",
     "dcc_garch",
     "arch_test",
-    "realized_garch",
 ]

@@ -208,3 +208,472 @@ def turnover_ratio(
     ratio = volume / shares_outstanding
     ratio.name = "turnover_ratio"
     return ratio
+
+
+# ---------------------------------------------------------------------------
+# Enhanced liquidity analytics
+# ---------------------------------------------------------------------------
+
+
+def corwin_schultz_spread(
+    high: pd.Series,
+    low: pd.Series,
+    window: int = 1,
+) -> pd.Series:
+    """Corwin & Schultz (2012) high-low spread estimator.
+
+    Estimates the effective bid-ask spread from consecutive daily high and
+    low prices.  The key insight is that daily high prices are almost always
+    buyer-initiated (at the ask) while daily lows are seller-initiated (at
+    the bid).  The ratio of high-to-low therefore captures both volatility
+    *and* the spread.  By comparing single-day and two-day high-low ranges
+    the method disentangles the two components.
+
+    **When to use**: When only daily OHLC data is available and you need a
+    spread estimate.  More robust than the Roll (1984) estimator because it
+    does not require negative serial covariance and performs better in the
+    presence of stale prices.
+
+    **Interpretation**: Output is in price units (same scale as the input).
+    Values typically range from 0 (perfectly liquid) to several percent of
+    price for illiquid stocks.  Negative estimates are floored at zero
+    (model assumption violated, usually when volatility overwhelms spread).
+
+    Parameters:
+        high: Daily high prices.
+        low: Daily low prices.
+        window: Averaging window for the spread estimate.  ``window=1``
+            returns the raw daily estimate.
+
+    Returns:
+        Estimated bid-ask spread series, floored at zero.
+
+    References:
+        Corwin, S. A. & Schultz, P. (2012). "A Simple Way to Estimate
+        Bid-Ask Spreads from Daily High and Low Prices." *Journal of
+        Finance*, 67(2), 719-760.
+    """
+    # Natural log of high/low ratio, squared
+    ln_hl = np.log(high / low)
+    beta = ln_hl ** 2
+
+    # Sum of beta over two consecutive days
+    beta_sum = beta + beta.shift(1)
+
+    # Two-day high-low range
+    high_2d = pd.concat([high, high.shift(1)], axis=1).max(axis=1)
+    low_2d = pd.concat([low, low.shift(1)], axis=1).min(axis=1)
+    gamma = np.log(high_2d / low_2d) ** 2
+
+    # Corwin-Schultz alpha and spread
+    # alpha = (sqrt(2*beta) - sqrt(beta)) / (3 - 2*sqrt(2))
+    #       - sqrt(gamma / (3 - 2*sqrt(2)))
+    k = 3.0 - 2.0 * np.sqrt(2.0)
+    alpha = (np.sqrt(2.0 * beta_sum) - np.sqrt(beta_sum)) / k - np.sqrt(gamma / k)
+
+    # S = 2 * (e^alpha - 1) / (1 + e^alpha)
+    exp_alpha = np.exp(alpha)
+    spread = 2.0 * (exp_alpha - 1.0) / (1.0 + exp_alpha)
+
+    # Floor at zero -- negative estimates are artefacts
+    spread = spread.clip(lower=0.0)
+
+    if window > 1:
+        spread = spread.rolling(window).mean()
+
+    spread.name = "corwin_schultz_spread"
+    return spread
+
+
+def closing_quoted_spread(
+    bid_close: pd.Series,
+    ask_close: pd.Series,
+) -> pd.Series:
+    """Quoted bid-ask spread at the market close.
+
+    The closing spread is particularly relevant for investors who trade at or
+    near the close (e.g., mutual fund NAV calculations, index rebalancing,
+    MOC orders).  It also serves as a simple daily liquidity proxy when
+    intraday data is unavailable.
+
+    **When to use**: When analyzing execution costs for daily-frequency
+    traders, evaluating end-of-day liquidity conditions, or constructing a
+    daily spread time series from closing quote data.
+
+    **Interpretation**: Narrower spreads indicate better end-of-day
+    liquidity.  Spread widening at the close often precedes periods of
+    higher volatility or information events (e.g., earnings releases).
+
+    Parameters:
+        bid_close: Best bid price at market close.
+        ask_close: Best ask price at market close.
+
+    Returns:
+        Closing quoted spread series (ask - bid), in price units.
+
+    References:
+        Chordia, T., Roll, R. & Subrahmanyam, A. (2001). "Market Liquidity
+        and Trading Activity." *Journal of Finance*, 56(2), 501-530.
+    """
+    spread = ask_close - bid_close
+    spread.name = "closing_quoted_spread"
+    return spread
+
+
+def depth_imbalance(
+    bid_depth: pd.Series | NDArray[np.floating],
+    ask_depth: pd.Series | NDArray[np.floating],
+) -> pd.Series | NDArray[np.floating]:
+    """Order book depth imbalance.
+
+    Computes ``(bid_depth - ask_depth) / (bid_depth + ask_depth)`` to
+    measure the directional imbalance in resting limit order volume.
+
+    **When to use**: For real-time assessment of supply-demand imbalance in
+    the limit order book.  Commonly used as a short-horizon return predictor
+    in high-frequency strategies.
+
+    **Interpretation**:
+
+    - **+1**: All depth is on the bid side (strong buying interest,
+      bullish signal).
+    - **-1**: All depth is on the ask side (strong selling interest,
+      bearish signal).
+    - **0**: Balanced book.
+
+    Values persistently above +0.3 or below -0.3 often indicate directional
+    pressure that leads to price movement in the direction of the deeper
+    side.
+
+    Parameters:
+        bid_depth: Total volume at the best bid (or top-N bid levels).
+        ask_depth: Total volume at the best ask (or top-N ask levels).
+
+    Returns:
+        Depth imbalance in [-1, 1].
+
+    References:
+        Cao, C., Hansch, O. & Wang, X. (2009). "The Information Content
+        of an Open Limit-Order Book." *Journal of Futures Markets*, 29(1),
+        16-41.
+    """
+    bid_arr = np.asarray(bid_depth, dtype=np.float64)
+    ask_arr = np.asarray(ask_depth, dtype=np.float64)
+
+    total = bid_arr + ask_arr
+    imbalance = np.where(total > 0, (bid_arr - ask_arr) / total, 0.0)
+
+    if isinstance(bid_depth, pd.Series):
+        return pd.Series(imbalance, index=bid_depth.index, name="depth_imbalance")
+    return imbalance
+
+
+def lambda_kyle_rolling(
+    prices: pd.Series,
+    volume: pd.Series,
+    window: int = 20,
+) -> pd.DataFrame:
+    """Rolling Kyle's lambda with confidence intervals.
+
+    Extends :func:`kyle_lambda` by computing standard errors from the
+    rolling OLS regression, yielding point estimates along with 95%
+    confidence bounds.  This is essential for determining whether the
+    estimated price impact is statistically significant at each point in
+    time.
+
+    **When to use**: When you need not just the *level* of price impact but
+    also its *precision*.  Useful for detecting regime changes in market
+    liquidity -- a significant widening of the confidence interval suggests
+    structural uncertainty about the price impact coefficient.
+
+    **Interpretation**: A positive lambda indicates that buy-initiated
+    volume pushes prices up (and sell-initiated pushes down), consistent
+    with the Kyle (1985) model.  Lambda values close to zero (or with
+    confidence intervals spanning zero) suggest limited permanent price
+    impact, i.e., a liquid market.
+
+    Parameters:
+        prices: Price series.
+        volume: Signed volume series (positive for buys, negative for
+            sells).
+        window: Rolling regression window (must be >= 5).
+
+    Returns:
+        DataFrame with columns ``'lambda'``, ``'std_err'``,
+        ``'ci_lower'``, ``'ci_upper'`` (95% confidence interval).
+
+    References:
+        Kyle, A. S. (1985). "Continuous Auctions and Insider Trading."
+        *Econometrica*, 53(6), 1315-1335.
+    """
+    delta_p = prices.diff()
+
+    lam = pd.Series(np.nan, index=prices.index, name="lambda")
+    se = pd.Series(np.nan, index=prices.index, name="std_err")
+
+    for i in range(window, len(prices)):
+        y = delta_p.iloc[i - window + 1 : i + 1].values
+        x = volume.iloc[i - window + 1 : i + 1].values
+
+        # Skip windows with NaN
+        mask = ~(np.isnan(y) | np.isnan(x))
+        if mask.sum() < 5:
+            continue
+
+        y_clean = y[mask]
+        x_clean = x[mask]
+
+        n = len(y_clean)
+        x_bar = np.mean(x_clean)
+        var_x = np.sum((x_clean - x_bar) ** 2)
+
+        if var_x < 1e-15:
+            continue
+
+        beta = np.sum((x_clean - x_bar) * (y_clean - np.mean(y_clean))) / var_x
+        residuals = y_clean - (np.mean(y_clean) - beta * x_bar + beta * x_clean)
+        s2 = np.sum(residuals ** 2) / max(n - 2, 1)
+        std_err = np.sqrt(s2 / var_x)
+
+        lam.iloc[i] = beta
+        se.iloc[i] = std_err
+
+    ci_lower = lam - 1.96 * se
+    ci_upper = lam + 1.96 * se
+
+    return pd.DataFrame(
+        {"lambda": lam, "std_err": se, "ci_lower": ci_lower, "ci_upper": ci_upper},
+        index=prices.index,
+    )
+
+
+def amihud_rolling(
+    returns: pd.Series,
+    volume: pd.Series,
+    window: int = 21,
+    normalize: bool = True,
+) -> pd.Series:
+    """Rolling Amihud (2002) illiquidity ratio with proper normalization.
+
+    Computes the Amihud ratio over a rolling window and optionally
+    normalizes by the cross-sectional or time-series mean so that values
+    are comparable across different assets and time periods.
+
+    **When to use**: For tracking how an individual asset's liquidity
+    evolves over time.  The normalization makes the measure comparable
+    across assets with different price levels and trading volumes.
+
+    **Interpretation**: Higher values indicate less liquidity (more price
+    impact per unit of trading volume).  Sudden spikes often correspond
+    to liquidity crises or market stress events.  Typical values for
+    large-cap US stocks are 1e-11 to 1e-9 (unnormalized).
+
+    Parameters:
+        returns: Asset return series.
+        volume: Dollar volume series (price * shares traded).
+        window: Rolling window size (default 21 for ~1 month of trading
+            days).
+        normalize: If *True*, divide each rolling value by the full-sample
+            mean so the time-series average is 1.0.
+
+    Returns:
+        Rolling Amihud illiquidity series.
+
+    References:
+        Amihud, Y. (2002). "Illiquidity and Stock Returns: Cross-Section
+        and Time-Series Effects." *Journal of Financial Markets*, 5(1),
+        31-56.
+    """
+    ratio = np.abs(returns) / volume
+    ratio = ratio.replace([np.inf, -np.inf], np.nan)
+    rolling = ratio.rolling(window).mean()
+
+    if normalize:
+        full_mean = np.nanmean(rolling)
+        if full_mean > 0:
+            rolling = rolling / full_mean
+
+    rolling.name = "amihud_rolling"
+    return rolling
+
+
+def liquidity_commonality(
+    asset_illiquidity: pd.Series,
+    market_illiquidity: pd.Series,
+    window: int = 60,
+) -> pd.Series:
+    """Commonality in liquidity (Chordia, Roll & Subrahmanyam, 2000).
+
+    Measures how much an individual asset's liquidity co-moves with
+    market-wide liquidity.  The commonality coefficient is estimated via
+    rolling regressions of changes in the asset's illiquidity measure on
+    changes in the market-wide illiquidity measure.
+
+    **When to use**: For assessing systematic liquidity risk.  Assets with
+    high commonality become illiquid precisely when the entire market
+    becomes illiquid -- an undesirable property that investors demand a
+    premium for bearing.
+
+    **Interpretation**: The output is the rolling R-squared from the
+    regression.  Higher values (closer to 1) indicate stronger co-movement
+    with market liquidity.  Values above 0.3 suggest meaningful systematic
+    liquidity risk.  Most large-cap stocks show commonality R-squared of
+    0.05-0.20.
+
+    Parameters:
+        asset_illiquidity: Individual asset's illiquidity measure (e.g.,
+            Amihud ratio, effective spread) as a time series.
+        market_illiquidity: Market-wide illiquidity aggregate (e.g.,
+            equal-weighted average Amihud ratio across all stocks).
+        window: Rolling regression window (default 60 for ~3 months).
+
+    Returns:
+        Rolling R-squared of the commonality regression.
+
+    References:
+        Chordia, T., Roll, R. & Subrahmanyam, A. (2000). "Commonality in
+        Liquidity." *Journal of Financial Economics*, 56(1), 3-28.
+    """
+    d_asset = asset_illiquidity.diff()
+    d_market = market_illiquidity.diff()
+
+    r_squared = pd.Series(np.nan, index=asset_illiquidity.index, name="liquidity_commonality")
+
+    for i in range(window, len(d_asset)):
+        y = d_asset.iloc[i - window + 1 : i + 1].values
+        x = d_market.iloc[i - window + 1 : i + 1].values
+
+        mask = ~(np.isnan(y) | np.isnan(x))
+        if mask.sum() < 5:
+            continue
+
+        y_c = y[mask]
+        x_c = x[mask]
+
+        x_bar = np.mean(x_c)
+        y_bar = np.mean(y_c)
+        ss_xx = np.sum((x_c - x_bar) ** 2)
+        ss_yy = np.sum((y_c - y_bar) ** 2)
+
+        if ss_xx < 1e-15 or ss_yy < 1e-15:
+            r_squared.iloc[i] = 0.0
+            continue
+
+        ss_xy = np.sum((x_c - x_bar) * (y_c - y_bar))
+        r2 = (ss_xy ** 2) / (ss_xx * ss_yy)
+        r_squared.iloc[i] = r2
+
+    return r_squared
+
+
+def spread_decomposition(
+    trade_prices: pd.Series,
+    bid: pd.Series,
+    ask: pd.Series,
+    direction: pd.Series,
+    delay: int = 5,
+) -> dict[str, float]:
+    """Huang-Stoll (1997) three-way spread decomposition.
+
+    Decomposes the effective spread into three economically distinct
+    components:
+
+    1. **Adverse selection**: compensation for trading against informed
+       traders who possess private information.  This portion of the spread
+       is a *permanent* price impact -- the midpoint moves against the
+       liquidity provider after the trade.
+    2. **Order processing**: compensation for the mechanical costs of
+       market-making (exchange fees, technology, labor).
+    3. **Inventory holding**: compensation for the risk of holding an
+       unbalanced inventory.
+
+    **When to use**: For understanding *why* spreads are wide.  If adverse
+    selection dominates, the market has significant information asymmetry.
+    If order processing dominates, the market is structurally costly.
+
+    **Interpretation**:
+
+    - Adverse selection fraction > 0.5 indicates a market dominated by
+      informed trading (e.g., single-stock options, small-cap equities
+      before earnings).
+    - Order processing fraction > 0.5 indicates a market where mechanical
+      costs dominate (e.g., bond markets, low-volatility large-cap
+      equities).
+    - Inventory fraction is typically the smallest component for equities
+      but can be large for less liquid instruments.
+
+    Parameters:
+        trade_prices: Executed trade prices.
+        bid: Best bid prices at time of each trade.
+        ask: Best ask prices at time of each trade.
+        direction: Trade direction indicator (+1 buy, -1 sell).
+        delay: Number of observations to look ahead for measuring the
+            permanent price impact (default 5).
+
+    Returns:
+        Dictionary with keys:
+
+        - ``'adverse_selection'``: fraction of the spread due to
+          information asymmetry.
+        - ``'order_processing'``: fraction due to order handling costs.
+        - ``'inventory_holding'``: fraction due to inventory risk.
+        - ``'effective_spread_mean'``: average effective spread.
+
+    References:
+        Huang, R. D. & Stoll, H. R. (1997). "The Components of the
+        Bid-Ask Spread: A General Approach." *Review of Financial Studies*,
+        10(4), 995-1034.
+    """
+    mid = (bid + ask) / 2.0
+
+    # Effective half-spread per trade
+    eff_half = direction * (trade_prices - mid)
+
+    # Permanent component: midpoint revision in the direction of the trade
+    mid_future = mid.shift(-delay)
+    permanent = direction * (mid_future - mid)
+
+    # Drop NaN rows at the end
+    valid = ~(eff_half.isna() | permanent.isna())
+    eff_valid = eff_half[valid]
+    perm_valid = permanent[valid]
+
+    mean_eff = float(np.nanmean(eff_valid))
+    mean_perm = float(np.nanmean(perm_valid))
+
+    if mean_eff <= 0:
+        # Degenerate case
+        return {
+            "adverse_selection": np.nan,
+            "order_processing": np.nan,
+            "inventory_holding": np.nan,
+            "effective_spread_mean": mean_eff * 2.0,
+        }
+
+    # Adverse selection fraction
+    adverse_frac = np.clip(mean_perm / mean_eff, 0.0, 1.0)
+
+    # Realized spread = transitory component (order processing + inventory)
+    transitory_frac = 1.0 - adverse_frac
+
+    # Split transitory into order processing and inventory via serial
+    # correlation of trade direction (proxy for inventory management)
+    dir_arr = direction[valid].values.astype(np.float64)
+    if len(dir_arr) > 1:
+        autocorr = np.corrcoef(dir_arr[:-1], dir_arr[1:])[0, 1]
+        if np.isnan(autocorr):
+            autocorr = 0.0
+        # Inventory fraction proportional to serial correlation of direction
+        inventory_share = np.clip(abs(autocorr), 0.0, 1.0)
+    else:
+        inventory_share = 0.0
+
+    inventory_frac = transitory_frac * inventory_share
+    processing_frac = transitory_frac * (1.0 - inventory_share)
+
+    return {
+        "adverse_selection": float(adverse_frac),
+        "order_processing": float(processing_frac),
+        "inventory_holding": float(inventory_frac),
+        "effective_spread_mean": float(mean_eff * 2.0),
+    }

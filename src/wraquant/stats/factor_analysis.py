@@ -20,6 +20,9 @@ __all__ = [
     "risk_factor_decomposition",
     "factor_correlation",
     "common_factors",
+    "fama_french_factors",
+    "factor_exposure",
+    "factor_risk_decomposition",
 ]
 
 
@@ -527,4 +530,340 @@ def common_factors(
         "individual_factors": factor_arrays,
         "common_factor_scores": common_scores,
         "cross_correlations": cross_corr,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Fama-French style factor construction
+# ---------------------------------------------------------------------------
+
+
+def fama_french_factors(
+    returns: pd.DataFrame,
+    characteristics: pd.DataFrame,
+    n_quantiles: int = 3,
+) -> pd.DataFrame:
+    """Construct Fama-French style factors from a cross-section of returns.
+
+    Sorts assets into portfolios based on each characteristic at each time
+    period, then computes long-short (top-minus-bottom quantile) factor
+    returns.  This replicates the standard methodology used by Fama and
+    French to construct SMB, HML, and related factors.
+
+    When to use:
+        - To create custom factors from firm characteristics (e.g.,
+          book-to-market, momentum, profitability, investment).
+        - To replicate or extend the Fama-French factor zoo.
+        - To test whether a new characteristic is a priced risk factor
+          (construct the factor, then test its risk premium via
+          ``fama_macbeth``).
+
+    Mathematical formulation:
+        For each period *t* and each characteristic *c*:
+
+        1. Sort assets into *q* quantiles based on the characteristic.
+        2. Compute the equal-weighted mean return for the top and bottom
+           quantile.
+        3. Factor return = ``mean(top quantile returns) - mean(bottom
+           quantile returns)``.
+
+        This is a zero-cost, long-short portfolio that isolates the
+        return premium associated with the characteristic.
+
+    How to interpret:
+        - A consistently positive factor return means that assets with
+          high values of the characteristic outperform those with low
+          values (and vice versa for negative).
+        - The *t*-statistic of the mean factor return tests whether the
+          premium is significantly different from zero.
+        - Standard Fama-French uses terciles (3 groups) for the main
+          sort and independent double sorts for intersections (e.g.,
+          size x value).
+
+    Parameters:
+        returns: DataFrame of asset returns ``(T, N)`` with a DatetimeIndex
+            and asset names as columns.
+        characteristics: DataFrame of asset characteristics ``(T, N)``
+            with the same index and columns as *returns*, or a DataFrame
+            with ``(N, K)`` where *N* assets are the index and *K*
+            characteristics are the columns (static sort).
+        n_quantiles: Number of quantile buckets (default 3 = terciles,
+            matching Fama-French convention).
+
+    Returns:
+        DataFrame of factor returns ``(T, K)`` where *K* is the number
+        of characteristics.
+
+    Example:
+        >>> import pandas as pd, numpy as np
+        >>> rng = np.random.default_rng(42)
+        >>> T, N = 100, 30
+        >>> dates = pd.bdate_range("2020-01-01", periods=T)
+        >>> assets = [f"s{i}" for i in range(N)]
+        >>> ret = pd.DataFrame(rng.normal(0, 0.02, (T, N)), index=dates, columns=assets)
+        >>> bm = pd.DataFrame(rng.uniform(0.5, 3.0, (T, N)), index=dates, columns=assets)
+        >>> ff = fama_french_factors(ret, bm)
+        >>> ff.shape[0] == T
+        True
+
+    See Also:
+        factor_mimicking_portfolios: General factor-mimicking portfolio
+            construction.
+        factor_exposure: Regress returns on constructed factors.
+    """
+    T = len(returns)
+
+    # Case 1: characteristics has same index/columns as returns (time-varying)
+    if (
+        isinstance(characteristics, pd.DataFrame)
+        and set(characteristics.columns) == set(returns.columns)
+        and len(characteristics) == T
+    ):
+        factor_ret = np.full(T, np.nan)
+        for t_idx in range(T):
+            row_chars = characteristics.iloc[t_idx].dropna()
+            valid = row_chars.index.intersection(returns.columns)
+            if len(valid) < n_quantiles:
+                continue
+            c = row_chars.loc[valid]
+            r = returns.iloc[t_idx].loc[valid]
+            try:
+                q = pd.qcut(c, q=n_quantiles, labels=False, duplicates="drop")
+            except ValueError:
+                continue
+            top = q == q.max()
+            bottom = q == q.min()
+            if top.sum() > 0 and bottom.sum() > 0:
+                factor_ret[t_idx] = float(r[top].mean() - r[bottom].mean())
+
+        return pd.DataFrame({"factor_1": factor_ret}, index=returns.index)
+
+    # Case 2: characteristics is (N, K) — multiple static characteristics
+    result: dict[str, np.ndarray] = {}
+    char_cols = characteristics.columns
+
+    for col in char_cols:
+        chars_vals = characteristics[col].values.astype(float)
+        valid_mask = ~np.isnan(chars_vals)
+        if valid_mask.sum() < n_quantiles:
+            result[col] = np.full(T, np.nan)
+            continue
+
+        try:
+            q = pd.qcut(
+                chars_vals[valid_mask],
+                q=n_quantiles,
+                labels=False,
+                duplicates="drop",
+            )
+        except ValueError:
+            result[col] = np.full(T, np.nan)
+            continue
+
+        full_q = np.full(len(chars_vals), np.nan)
+        full_q[valid_mask] = q
+        top = full_q == np.nanmax(full_q)
+        bottom = full_q == np.nanmin(full_q)
+
+        if top.sum() > 0 and bottom.sum() > 0:
+            # Map characteristics index to returns columns
+            char_assets = characteristics.index
+            ret_subset = returns[char_assets]
+            ls = ret_subset.values[:, top].mean(axis=1) - ret_subset.values[:, bottom].mean(axis=1)
+        else:
+            ls = np.full(T, np.nan)
+
+        result[col] = ls
+
+    return pd.DataFrame(result, index=returns.index)
+
+
+# ---------------------------------------------------------------------------
+# Factor exposure (betas) via regression
+# ---------------------------------------------------------------------------
+
+
+def factor_exposure(
+    returns: pd.DataFrame | pd.Series,
+    factor_returns: pd.DataFrame,
+) -> pd.DataFrame:
+    """Regress returns on factor returns to estimate factor exposures (betas).
+
+    For each asset (or a single portfolio), runs an OLS regression of
+    returns on factor returns (with intercept) and reports the factor
+    betas, t-statistics, and R-squared.
+
+    When to use:
+        - To estimate a portfolio's or asset's exposure to known factors
+          (e.g., market, size, value, momentum).
+        - As the first step in factor-based risk decomposition.
+        - To validate that a factor-neutral strategy truly has zero
+          exposure to target factors.
+
+    Mathematical formulation:
+        For each asset *i*:
+
+        .. math::
+
+            r_i = \\alpha_i + \\sum_{k=1}^K \\beta_{ik} f_k + \\epsilon_i
+
+        The betas are the OLS coefficients on the factor returns.
+
+    How to interpret:
+        - ``beta > 0``: positive exposure to the factor (moves with it).
+        - ``beta = 0``: no exposure.
+        - ``|t_stat| > 2``: the exposure is statistically significant.
+        - ``R_squared``: fraction of return variance explained by the
+          factor model.  Higher R-squared means the model is a good fit.
+
+    Parameters:
+        returns: Asset returns.  A Series for a single asset or a
+            DataFrame ``(T, N)`` for multiple assets.
+        factor_returns: DataFrame of factor returns ``(T, K)``.
+
+    Returns:
+        DataFrame with one row per asset and columns:
+        ``alpha``, ``beta_<factor_name>`` for each factor,
+        ``t_<factor_name>`` for each factor's t-statistic,
+        and ``r_squared``.
+
+    Example:
+        >>> import pandas as pd, numpy as np
+        >>> rng = np.random.default_rng(42)
+        >>> T = 200
+        >>> mkt = pd.Series(rng.normal(0, 0.01, T), name="MKT")
+        >>> smb = pd.Series(rng.normal(0, 0.005, T), name="SMB")
+        >>> factors = pd.DataFrame({"MKT": mkt, "SMB": smb})
+        >>> ret = 1.2 * mkt + 0.5 * smb + rng.normal(0, 0.003, T)
+        >>> result = factor_exposure(pd.Series(ret, name="fund"), factors)
+        >>> abs(result.loc["fund", "beta_MKT"] - 1.2) < 0.3
+        True
+
+    See Also:
+        factor_loadings: Lower-level loadings estimation.
+        factor_risk_decomposition: Risk decomposition from exposures.
+    """
+    import statsmodels.api as sm
+
+    if isinstance(returns, pd.Series):
+        returns = returns.to_frame()
+
+    common = returns.index.intersection(factor_returns.index)
+    ret_aligned = returns.loc[common]
+    fact_aligned = factor_returns.loc[common]
+    factor_names = list(fact_aligned.columns)
+
+    X = sm.add_constant(fact_aligned.values.astype(float))
+    rows: list[dict] = []
+
+    for col in ret_aligned.columns:
+        y = ret_aligned[col].values.astype(float)
+        mask = ~np.isnan(y)
+        if mask.sum() < len(factor_names) + 2:
+            continue
+
+        model = sm.OLS(y[mask], X[mask]).fit()
+
+        row: dict = {"asset": col, "alpha": float(model.params[0])}
+        for i, fname in enumerate(factor_names):
+            row[f"beta_{fname}"] = float(model.params[i + 1])
+            row[f"t_{fname}"] = float(model.tvalues[i + 1])
+        row["r_squared"] = float(model.rsquared)
+        rows.append(row)
+
+    result_df = pd.DataFrame(rows).set_index("asset")
+    return result_df
+
+
+# ---------------------------------------------------------------------------
+# Factor risk decomposition
+# ---------------------------------------------------------------------------
+
+
+def factor_risk_decomposition(
+    returns: pd.Series,
+    factor_returns: pd.DataFrame,
+) -> dict:
+    """Decompose total risk into systematic (factor) and idiosyncratic components.
+
+    Runs a factor model regression, then separates the total variance of
+    the return series into the portion explained by the factors
+    (systematic risk) and the unexplained residual (idiosyncratic risk).
+
+    When to use:
+        - To understand what fraction of a portfolio's risk comes from
+          common factor exposures vs. stock-specific bets.
+        - For risk budgeting: allocate risk limits to systematic and
+          idiosyncratic components.
+        - To evaluate diversification: a well-diversified portfolio has
+          low idiosyncratic risk relative to total risk.
+
+    Mathematical formulation:
+        .. math::
+
+            \\text{Var}(r) = \\beta' \\Sigma_f \\beta + \\sigma^2_\\epsilon
+
+        where ``\\beta`` is the vector of factor exposures, ``\\Sigma_f``
+        is the factor covariance matrix, and ``\\sigma^2_\\epsilon`` is
+        the idiosyncratic variance.
+
+        The R-squared of the regression gives the systematic risk share:
+
+        .. math::
+
+            R^2 = 1 - \\frac{\\sigma^2_\\epsilon}{\\text{Var}(r)}
+
+    Parameters:
+        returns: Return series for a single asset or portfolio.
+        factor_returns: DataFrame of factor returns ``(T, K)``.
+
+    Returns:
+        Dictionary with:
+        - ``systematic_risk``: variance explained by factors.
+        - ``idiosyncratic_risk``: residual variance.
+        - ``total_risk``: total return variance.
+        - ``R_squared``: fraction of risk that is systematic.
+        - ``betas``: factor exposure coefficients.
+
+    Example:
+        >>> import pandas as pd, numpy as np
+        >>> rng = np.random.default_rng(42)
+        >>> mkt = rng.normal(0, 0.01, 200)
+        >>> ret = pd.Series(1.2 * mkt + rng.normal(0, 0.005, 200))
+        >>> factors = pd.DataFrame({"MKT": mkt})
+        >>> result = factor_risk_decomposition(ret, factors)
+        >>> result["R_squared"] > 0.3
+        True
+
+    See Also:
+        risk_factor_decomposition: Lower-level decomposition with
+            marginal contributions.
+        factor_exposure: Factor exposure estimation.
+    """
+    import statsmodels.api as sm
+
+    common = returns.index.intersection(factor_returns.index) if hasattr(returns, 'index') and hasattr(factor_returns, 'index') else range(min(len(returns), len(factor_returns)))
+
+    if isinstance(common, pd.Index):
+        y = returns.loc[common].values.astype(float)
+        X = factor_returns.loc[common].values.astype(float)
+    else:
+        y = np.asarray(returns, dtype=float)[:len(common)]
+        X = np.asarray(factor_returns, dtype=float)[:len(common)]
+
+    X_const = sm.add_constant(X)
+    model = sm.OLS(y, X_const).fit()
+
+    total_var = float(np.var(y, ddof=1))
+    resid_var = float(np.var(model.resid, ddof=1))
+    systematic_var = max(total_var - resid_var, 0.0)
+
+    betas = model.params[1:]  # exclude intercept
+
+    return {
+        "systematic_risk": systematic_var,
+        "idiosyncratic_risk": resid_var,
+        "total_risk": total_var,
+        "R_squared": float(model.rsquared),
+        "betas": betas,
     }

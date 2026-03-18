@@ -1,8 +1,12 @@
 """Volatility econometrics.
 
-Provides GARCH-family models (GARCH, EGARCH, GJR-GARCH, DCC-GARCH,
-Realized GARCH), the ARCH-LM test, and pure-numpy fallbacks for basic
-GARCH estimation when the ``arch`` library is unavailable.
+Provides the ARCH-LM test and backward-compatible wrappers for GARCH-family
+models.  All GARCH estimation is delegated to :mod:`wraquant.vol.models`,
+which is the canonical home for volatility modeling.
+
+The pure-numpy GARCH(1,1) fallback is retained as a private helper
+(:func:`_garch_numpy_fallback`) for environments without the ``arch``
+library.
 """
 
 from __future__ import annotations
@@ -56,7 +60,7 @@ def arch_test(
 
 
 # ---------------------------------------------------------------------------
-# Pure numpy GARCH(1,1) fallback
+# Pure numpy GARCH(1,1) fallback (private)
 # ---------------------------------------------------------------------------
 
 
@@ -84,11 +88,23 @@ def _garch_loglik(
     return -ll
 
 
-def _fit_garch_numpy(
-    returns: np.ndarray,
+def _garch_numpy_fallback(
+    returns: np.ndarray | pd.Series,
 ) -> dict[str, Any]:
-    """Fit GARCH(1,1) via MLE using pure numpy/scipy (fallback)."""
-    ret = returns - returns.mean()
+    """Fit a GARCH(1,1) model using pure numpy/scipy (private fallback).
+
+    This is a fallback for when the ``arch`` library is not installed.
+    Only supports GARCH(1,1) with normal innovations.
+
+    Parameters:
+        returns: Return series.
+
+    Returns:
+        Dictionary with ``params``, ``conditional_volatility``,
+        ``standardized_residuals``, ``forecast``, and ``loglikelihood``.
+    """
+    ret = np.asarray(returns, dtype=float).ravel()
+    ret = ret - ret.mean()
     var0 = np.var(ret)
 
     # Initial guesses: omega, alpha, beta
@@ -132,7 +148,7 @@ def _fit_garch_numpy(
 
 
 # ---------------------------------------------------------------------------
-# GARCH family (arch library)
+# GARCH family — thin wrappers delegating to vol.models
 # ---------------------------------------------------------------------------
 
 
@@ -145,9 +161,7 @@ def garch(
 ) -> dict[str, Any]:
     """Fit a GARCH(p,q) model.
 
-    Uses the ``arch`` library for estimation.  If the library is not
-    installed, a pure-numpy GARCH(1,1) fallback is available via
-    :func:`garch_numpy_fallback`.
+    Delegates to :func:`wraquant.vol.models.garch_fit`.
 
     Parameters:
         returns: Return series (not percentage returns).
@@ -161,23 +175,19 @@ def garch(
         ``standardized_residuals``, ``forecast`` (one-step-ahead
         volatility), ``aic``, ``bic``, and ``loglikelihood``.
     """
-    from arch import arch_model
+    from wraquant.vol.models import garch_fit
 
-    ret = np.asarray(returns, dtype=float).ravel()
+    result = garch_fit(returns, p=p, q=q, dist=dist)
 
-    am = arch_model(ret * 100, vol="GARCH", p=p, q=q, dist=dist, mean="Constant")
-    result = am.fit(disp="off")
-
-    forecasts = result.forecast(horizon=1)
-
+    # Map vol.models output keys to legacy econometrics interface
     return {
-        "params": dict(result.params),
-        "conditional_volatility": result.conditional_volatility / 100,
-        "standardized_residuals": result.std_resid,
-        "forecast": float(np.sqrt(forecasts.variance.iloc[-1].values[0]) / 100),
-        "aic": float(result.aic),
-        "bic": float(result.bic),
-        "loglikelihood": float(result.loglikelihood),
+        "params": result["params"],
+        "conditional_volatility": result["conditional_volatility"],
+        "standardized_residuals": result["standardized_residuals"],
+        "forecast": result.get("forecast", None),
+        "aic": result.get("aic", None),
+        "bic": result.get("bic", None),
+        "loglikelihood": result.get("log_likelihood", None),
     }
 
 
@@ -186,8 +196,8 @@ def garch_numpy_fallback(
 ) -> dict[str, Any]:
     """Fit a GARCH(1,1) model using pure numpy/scipy.
 
-    This is a fallback for when the ``arch`` library is not installed.
-    Only supports GARCH(1,1) with normal innovations.
+    This is a backward-compatible public wrapper around the private
+    :func:`_garch_numpy_fallback` helper.
 
     Parameters:
         returns: Return series.
@@ -196,8 +206,7 @@ def garch_numpy_fallback(
         Dictionary with ``params``, ``conditional_volatility``,
         ``standardized_residuals``, ``forecast``, and ``loglikelihood``.
     """
-    ret = np.asarray(returns, dtype=float).ravel()
-    return _fit_garch_numpy(ret)
+    return _garch_numpy_fallback(returns)
 
 
 @requires_extra("timeseries")
@@ -208,9 +217,7 @@ def egarch(
 ) -> dict[str, Any]:
     """Fit an EGARCH(p,q) model (exponential GARCH).
 
-    The EGARCH specification of Nelson (1991) models the log of conditional
-    variance, allowing for asymmetric effects of positive and negative
-    shocks without requiring parameter constraints for positivity.
+    Delegates to :func:`wraquant.vol.models.egarch_fit`.
 
     Parameters:
         returns: Return series.
@@ -222,23 +229,18 @@ def egarch(
         ``standardized_residuals``, ``forecast``, ``aic``, ``bic``,
         and ``loglikelihood``.
     """
-    from arch import arch_model
+    from wraquant.vol.models import egarch_fit
 
-    ret = np.asarray(returns, dtype=float).ravel()
-
-    am = arch_model(ret * 100, vol="EGARCH", p=p, q=q, mean="Constant")
-    result = am.fit(disp="off")
-
-    forecasts = result.forecast(horizon=1)
+    result = egarch_fit(returns, p=p, q=q)
 
     return {
-        "params": dict(result.params),
-        "conditional_volatility": result.conditional_volatility / 100,
-        "standardized_residuals": result.std_resid,
-        "forecast": float(np.sqrt(forecasts.variance.iloc[-1].values[0]) / 100),
-        "aic": float(result.aic),
-        "bic": float(result.bic),
-        "loglikelihood": float(result.loglikelihood),
+        "params": result["params"],
+        "conditional_volatility": result["conditional_volatility"],
+        "standardized_residuals": result["standardized_residuals"],
+        "forecast": result.get("forecast", None),
+        "aic": result.get("aic", None),
+        "bic": result.get("bic", None),
+        "loglikelihood": result.get("log_likelihood", None),
     }
 
 
@@ -250,9 +252,7 @@ def gjr_garch(
 ) -> dict[str, Any]:
     """Fit a GJR-GARCH(p,q) model (threshold GARCH).
 
-    The GJR-GARCH model of Glosten, Jagannathan, and Runkle (1993) includes
-    an asymmetry term that captures the leverage effect -- negative shocks
-    tend to increase volatility more than positive shocks of equal magnitude.
+    Delegates to :func:`wraquant.vol.models.gjr_garch_fit`.
 
     Parameters:
         returns: Return series.
@@ -264,25 +264,18 @@ def gjr_garch(
         ``standardized_residuals``, ``forecast``, ``aic``, ``bic``,
         and ``loglikelihood``.
     """
-    from arch import arch_model
+    from wraquant.vol.models import gjr_garch_fit
 
-    ret = np.asarray(returns, dtype=float).ravel()
-
-    am = arch_model(
-        ret * 100, vol="GARCH", p=p, o=1, q=q, mean="Constant"
-    )
-    result = am.fit(disp="off")
-
-    forecasts = result.forecast(horizon=1)
+    result = gjr_garch_fit(returns, p=p, q=q)
 
     return {
-        "params": dict(result.params),
-        "conditional_volatility": result.conditional_volatility / 100,
-        "standardized_residuals": result.std_resid,
-        "forecast": float(np.sqrt(forecasts.variance.iloc[-1].values[0]) / 100),
-        "aic": float(result.aic),
-        "bic": float(result.bic),
-        "loglikelihood": float(result.loglikelihood),
+        "params": result["params"],
+        "conditional_volatility": result["conditional_volatility"],
+        "standardized_residuals": result["standardized_residuals"],
+        "forecast": result.get("forecast", None),
+        "aic": result.get("aic", None),
+        "bic": result.get("bic", None),
+        "loglikelihood": result.get("log_likelihood", None),
     }
 
 
@@ -294,9 +287,7 @@ def dcc_garch(
 ) -> dict[str, Any]:
     """Fit a Dynamic Conditional Correlation (DCC) GARCH model.
 
-    Estimates univariate GARCH(p,q) models for each series, then fits the
-    DCC correlation dynamics on the standardised residuals.  This is the
-    two-step approach of Engle (2002).
+    Delegates to :func:`wraquant.vol.models.dcc_fit`.
 
     Parameters:
         returns_df: DataFrame of return series (T, k), one column per asset.
@@ -308,160 +299,22 @@ def dcc_garch(
         ``conditional_correlations`` (T, k, k), ``conditional_covariances``
         (T, k, k), and ``standardized_residuals`` (T, k).
     """
-    from arch import arch_model
+    from wraquant.vol.models import dcc_fit
 
-    k = returns_df.shape[1]
-    T = returns_df.shape[0]
-    columns = list(returns_df.columns)
+    result = dcc_fit(returns_df, p=p, q=q)
 
-    cond_vols = np.empty((T, k))
-    std_resids = np.empty((T, k))
-    uni_params: dict[str, dict[str, float]] = {}
-
-    # Step 1: Univariate GARCH for each series
-    for i, col in enumerate(columns):
-        ret_i = returns_df[col].values * 100
-        am = arch_model(ret_i, vol="GARCH", p=p, q=q, mean="Constant")
-        result = am.fit(disp="off")
-
-        cond_vols[:, i] = result.conditional_volatility / 100
-        std_resids[:, i] = result.std_resid
-        uni_params[col] = dict(result.params)
-
-    # Step 2: DCC dynamics on standardised residuals
-    # Q_bar = unconditional correlation of standardised residuals
-    Q_bar = np.corrcoef(std_resids.T)
-
-    # DCC parameters (simple grid search for a, b)
-    best_ll = -np.inf
-    best_a, best_b = 0.05, 0.90
-
-    for a_cand in np.linspace(0.01, 0.15, 8):
-        for b_cand in np.linspace(0.70, 0.98, 8):
-            if a_cand + b_cand >= 1.0:
-                continue
-
-            Q_t = Q_bar.copy()
-            ll = 0.0
-            valid = True
-
-            for t in range(1, T):
-                eps = std_resids[t - 1].reshape(-1, 1)
-                Q_t = (1 - a_cand - b_cand) * Q_bar + a_cand * (eps @ eps.T) + b_cand * Q_t
-
-                # Standardise to correlation
-                d = np.sqrt(np.diag(Q_t))
-                if np.any(d <= 0):
-                    valid = False
-                    break
-                R_t = Q_t / np.outer(d, d)
-
-                try:
-                    sign, logdet = np.linalg.slogdet(R_t)
-                    if sign <= 0:
-                        valid = False
-                        break
-                    R_inv = np.linalg.inv(R_t)
-                    e = std_resids[t]
-                    ll += -0.5 * (logdet + e @ R_inv @ e - e @ e)
-                except np.linalg.LinAlgError:
-                    valid = False
-                    break
-
-            if valid and ll > best_ll:
-                best_ll = ll
-                best_a, best_b = a_cand, b_cand
-
-    # Reconstruct with best parameters
-    Q_t = Q_bar.copy()
-    cond_corr = np.empty((T, k, k))
-    cond_cov = np.empty((T, k, k))
-    cond_corr[0] = Q_bar
-    D0 = np.diag(cond_vols[0])
-    cond_cov[0] = D0 @ Q_bar @ D0
-
-    for t in range(1, T):
-        eps = std_resids[t - 1].reshape(-1, 1)
-        Q_t = (1 - best_a - best_b) * Q_bar + best_a * (eps @ eps.T) + best_b * Q_t
-
-        d = np.sqrt(np.diag(Q_t))
-        d = np.where(d <= 0, 1e-10, d)
-        R_t = Q_t / np.outer(d, d)
-        cond_corr[t] = R_t
-
-        D_t = np.diag(cond_vols[t])
-        cond_cov[t] = D_t @ R_t @ D_t
+    # Map vol.models output to legacy econometrics interface
+    # Extract per-asset params from univariate_results
+    univariate_params: dict[str, dict[str, float]] = {}
+    columns = list(returns_df.columns) if isinstance(returns_df, pd.DataFrame) else []
+    for i, uni_res in enumerate(result.get("univariate_results", [])):
+        col_name = columns[i] if i < len(columns) else f"series_{i}"
+        univariate_params[col_name] = uni_res.get("params", {})
 
     return {
-        "univariate_params": uni_params,
-        "conditional_correlations": cond_corr,
-        "conditional_covariances": cond_cov,
-        "standardized_residuals": std_resids,
-        "dcc_params": {"a": float(best_a), "b": float(best_b)},
-    }
-
-
-@requires_extra("timeseries")
-def realized_garch(
-    returns: np.ndarray | pd.Series,
-    realized_vol: np.ndarray | pd.Series,
-    p: int = 1,
-    q: int = 1,
-) -> dict[str, Any]:
-    """Fit a Realized GARCH model.
-
-    The Realized GARCH model of Hansen, Huang, and Shek (2012) augments
-    the standard GARCH with a measurement equation linking the conditional
-    variance to a realised volatility measure, improving forecasting
-    performance.
-
-    This implementation includes lagged realized volatility in the mean
-    equation as an exogenous regressor and fits a standard GARCH on the
-    residuals.  This approximates the Realized GARCH by allowing the
-    realized measure to inform the conditional mean.
-
-    Parameters:
-        returns: Return series.
-        realized_vol: Corresponding realized volatility measure (same length
-            as *returns*).
-        p: GARCH lag order.
-        q: ARCH lag order.
-
-    Returns:
-        Dictionary with ``params``, ``conditional_volatility``,
-        ``standardized_residuals``, ``forecast``, ``aic``, ``bic``,
-        and ``loglikelihood``.
-    """
-    from arch import arch_model
-
-    ret = np.asarray(returns, dtype=float).ravel() * 100
-    rv = np.asarray(realized_vol, dtype=float).ravel() * 100
-
-    # Include lagged realized vol as exogenous variable in the mean equation
-    # (arch_model's `x` parameter is for the mean equation)
-    rv_lagged = np.empty_like(rv)
-    rv_lagged[0] = rv[0]
-    rv_lagged[1:] = rv[:-1]
-
-    try:
-        am = arch_model(
-            ret, vol="GARCH", p=p, q=q, mean="ARX", lags=0,
-            x=pd.DataFrame({"rv_lag": rv_lagged}),
-        )
-        result = am.fit(disp="off")
-    except Exception:
-        # Fallback: standard GARCH if ARX specification fails
-        am = arch_model(ret, vol="GARCH", p=p, q=q, mean="Constant")
-        result = am.fit(disp="off")
-
-    forecasts = result.forecast(horizon=1)
-
-    return {
-        "params": dict(result.params),
-        "conditional_volatility": result.conditional_volatility / 100,
-        "standardized_residuals": result.std_resid,
-        "forecast": float(np.sqrt(forecasts.variance.iloc[-1].values[0]) / 100),
-        "aic": float(result.aic),
-        "bic": float(result.bic),
-        "loglikelihood": float(result.loglikelihood),
+        "univariate_params": univariate_params,
+        "conditional_correlations": result["conditional_correlations"],
+        "conditional_covariances": result["conditional_covariances"],
+        "standardized_residuals": result["standardized_residuals"],
+        "dcc_params": result["dcc_params"],
     }

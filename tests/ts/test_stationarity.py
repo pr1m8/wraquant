@@ -72,3 +72,155 @@ class TestDetrend:
         data = _make_series()
         result = detrend(data, method="linear")
         assert len(result) == len(data)
+
+
+# ---------------------------------------------------------------------------
+# ADF Test
+# ---------------------------------------------------------------------------
+
+from wraquant.ts.stationarity import (
+    adf_test,
+    kpss_test,
+    optimal_differencing,
+    phillips_perron,
+    variance_ratio_test,
+)
+
+
+class TestADFTest:
+    def test_detects_nonstationary_random_walk(self) -> None:
+        """A random walk should fail the ADF test (non-stationary)."""
+        rng = np.random.default_rng(42)
+        rw = pd.Series(np.cumsum(rng.normal(0, 1, 500)))
+        result = adf_test(rw)
+        assert result["is_stationary"] is False
+        assert result["p_value"] > 0.05
+
+    def test_detects_stationary_white_noise(self) -> None:
+        """White noise should pass the ADF test (stationary)."""
+        rng = np.random.default_rng(42)
+        wn = pd.Series(rng.normal(0, 1, 500))
+        result = adf_test(wn)
+        assert result["is_stationary"] is True
+        assert result["p_value"] < 0.05
+
+    def test_output_keys(self) -> None:
+        data = _make_series()
+        result = adf_test(data)
+        assert "test_statistic" in result
+        assert "p_value" in result
+        assert "critical_values" in result
+        assert "optimal_lag" in result
+        assert "is_stationary" in result
+        assert "interpretation" in result
+
+    def test_critical_values_present(self) -> None:
+        data = _make_series()
+        result = adf_test(data)
+        cv = result["critical_values"]
+        assert "1%" in cv
+        assert "5%" in cv
+        assert "10%" in cv
+
+
+# ---------------------------------------------------------------------------
+# KPSS Test
+# ---------------------------------------------------------------------------
+
+
+class TestKPSSTest:
+    def test_detects_stationary_white_noise(self) -> None:
+        """White noise should pass KPSS (null = stationary)."""
+        rng = np.random.default_rng(42)
+        wn = pd.Series(rng.normal(0, 1, 500))
+        result = kpss_test(wn)
+        assert result["is_stationary"] is True
+
+    def test_detects_nonstationary(self) -> None:
+        """A random walk should fail KPSS."""
+        rng = np.random.default_rng(42)
+        rw = pd.Series(np.cumsum(rng.normal(0, 1, 500)))
+        result = kpss_test(rw)
+        assert result["is_stationary"] is False
+
+    def test_output_keys(self) -> None:
+        data = _make_series()
+        result = kpss_test(data)
+        assert "test_statistic" in result
+        assert "p_value" in result
+        assert "n_lags" in result
+        assert "interpretation" in result
+
+
+# ---------------------------------------------------------------------------
+# Optimal Differencing
+# ---------------------------------------------------------------------------
+
+
+class TestOptimalDifferencing:
+    def test_random_walk_needs_d1(self) -> None:
+        """A random walk should require d=1."""
+        rng = np.random.default_rng(42)
+        rw = pd.Series(np.cumsum(rng.normal(0, 1, 500)))
+        result = optimal_differencing(rw)
+        assert result["optimal_d"] == 1
+        assert result["is_stationary"] is True
+
+    def test_stationary_needs_d0(self) -> None:
+        """White noise should need d=0."""
+        rng = np.random.default_rng(42)
+        wn = pd.Series(rng.normal(0, 1, 500))
+        result = optimal_differencing(wn)
+        assert result["optimal_d"] == 0
+
+    def test_test_results_per_d(self) -> None:
+        rng = np.random.default_rng(42)
+        rw = pd.Series(np.cumsum(rng.normal(0, 1, 500)))
+        result = optimal_differencing(rw)
+        assert 0 in result["test_results"]
+        assert 1 in result["test_results"]
+
+
+# ---------------------------------------------------------------------------
+# Phillips-Perron Test
+# ---------------------------------------------------------------------------
+
+
+class TestPhillipsPerron:
+    def test_detects_stationary(self) -> None:
+        rng = np.random.default_rng(42)
+        wn = pd.Series(rng.normal(0, 1, 500))
+        result = phillips_perron(wn)
+        assert result["is_stationary"] is True
+
+    def test_output_keys(self) -> None:
+        data = _make_series()
+        result = phillips_perron(data)
+        assert "test_statistic" in result
+        assert "p_value" in result
+        assert "n_lags" in result
+        assert "interpretation" in result
+
+
+# ---------------------------------------------------------------------------
+# Variance Ratio Test
+# ---------------------------------------------------------------------------
+
+
+class TestVarianceRatioTest:
+    def test_random_walk_vr_near_one(self) -> None:
+        rng = np.random.default_rng(42)
+        # Use exp(cumsum) to get positive price-like data
+        prices = pd.Series(100 * np.exp(np.cumsum(rng.normal(0, 0.01, 2000))))
+        result = variance_ratio_test(prices, lags=2)
+        assert 0.5 < result["variance_ratio"] < 1.5
+
+    def test_output_keys(self) -> None:
+        rng = np.random.default_rng(42)
+        prices = pd.Series(100 * np.exp(np.cumsum(rng.normal(0, 0.01, 500))))
+        result = variance_ratio_test(prices, lags=4)
+        assert "variance_ratio" in result
+        assert "z_statistic" in result
+        assert "z_robust" in result
+        assert "p_value" in result
+        assert "is_random_walk" in result

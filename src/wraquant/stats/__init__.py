@@ -1,7 +1,8 @@
 """Statistical analysis for financial data.
 
 Covers descriptive statistics, hypothesis tests, correlation/covariance
-estimation, distribution fitting, cointegration, regression, and factor models.
+estimation, distribution fitting, cointegration, regression, factor models,
+and advanced dependence measures.
 """
 
 from wraquant.stats.cointegration import (
@@ -15,8 +16,20 @@ from wraquant.stats.cointegration import (
 )
 from wraquant.stats.correlation import (
     correlation_matrix,
+    correlation_significance,
+    distance_correlation,
+    kendall_tau,
+    minimum_spanning_tree_correlation,
+    mutual_information,
+    partial_correlation,
     rolling_correlation,
     shrunk_covariance,
+)
+from wraquant.stats.dependence import (
+    concordance_index,
+    copula_selection,
+    rank_correlation_matrix,
+    tail_dependence_coefficient,
 )
 from wraquant.stats.descriptive import (
     annualized_return,
@@ -24,6 +37,10 @@ from wraquant.stats.descriptive import (
     calmar_ratio,
     max_drawdown,
     omega_ratio,
+    return_attribution,
+    risk_contribution,
+    rolling_drawdown,
+    rolling_sharpe,
     summary_stats,
 )
 from wraquant.stats.distributions import (
@@ -33,6 +50,7 @@ from wraquant.stats.distributions import (
     fit_stable_distribution,
     hurst_exponent,
     jarque_bera,
+    kernel_density_estimate,
     kolmogorov_smirnov,
     qqplot_data,
     tail_index,
@@ -57,8 +75,11 @@ from wraquant.stats.factor import (
 from wraquant.stats.factor_analysis import (
     common_factors,
     factor_correlation,
+    factor_exposure,
     factor_loadings,
     factor_mimicking_portfolios,
+    factor_risk_decomposition,
+    fama_french_factors,
     pca_factors,
     risk_factor_decomposition,
     scree_plot_data,
@@ -72,9 +93,15 @@ from wraquant.stats.regression import (
     wls,
 )
 from wraquant.stats.tests import (
+    breusch_pagan,
+    chow_test,
+    durbin_watson,
+    shapiro_wilk,
     test_autocorrelation,
     test_normality,
     test_stationarity,
+    variance_inflation_factor,
+    white_test,
 )
 
 __all__ = [
@@ -85,14 +112,35 @@ __all__ = [
     "max_drawdown",
     "calmar_ratio",
     "omega_ratio",
+    "rolling_sharpe",
+    "rolling_drawdown",
+    "return_attribution",
+    "risk_contribution",
     # tests
     "test_normality",
     "test_stationarity",
     "test_autocorrelation",
+    "shapiro_wilk",
+    "durbin_watson",
+    "breusch_pagan",
+    "white_test",
+    "chow_test",
+    "variance_inflation_factor",
     # correlation
     "correlation_matrix",
     "shrunk_covariance",
     "rolling_correlation",
+    "partial_correlation",
+    "distance_correlation",
+    "kendall_tau",
+    "mutual_information",
+    "correlation_significance",
+    "minimum_spanning_tree_correlation",
+    # dependence
+    "tail_dependence_coefficient",
+    "copula_selection",
+    "rank_correlation_matrix",
+    "concordance_index",
     # distributions
     "fit_distribution",
     "fit_stable_distribution",
@@ -104,6 +152,7 @@ __all__ = [
     "kolmogorov_smirnov",
     "anderson_darling",
     "best_fit_distribution",
+    "kernel_density_estimate",
     # robust
     "mad",
     "winsorize",
@@ -141,4 +190,7 @@ __all__ = [
     "risk_factor_decomposition",
     "factor_correlation",
     "common_factors",
+    "fama_french_factors",
+    "factor_exposure",
+    "factor_risk_decomposition",
 ]
