@@ -19,6 +19,7 @@ requires-python = ">=3.13"
 readme = "README.md"
 license = { text = "MIT" }
 
+[project.optional-dependencies]
 accelerate = [
   "polars>=1.38.1",
   "pyarrow>=23.0.1",
@@ -37,14 +38,8 @@ symbolic = [
   "patsy>=1.0.2",
   "numdifftools>=0.9.42",
 ]
-logging = [
-  "loguru>=0.7.3",
-  "rich>=14.3.3",
-  "tenacity>=9.1.4",
-]
-ml = [
-  "scikit-learn>=1.8.0",
-]
+logging = ["loguru>=0.7.3", "rich>=14.3.3", "tenacity>=9.1.4"]
+ml = ["scikit-learn>=1.8.0"]
 market-data = [
   "yfinance>=1.2.0",
   "pandas-datareader>=0.10.0",

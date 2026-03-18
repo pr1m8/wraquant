@@ -31,6 +31,7 @@ lint:
     - linters: [bandit]
       paths:
         - tests/**
+        - src/wraquant/experiment/tracker.py
 actions:
   disabled:
     - trunk-announce

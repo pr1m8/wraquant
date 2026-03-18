@@ -1,9 +1,18 @@
 """Statistical analysis for financial data.
 
 Covers descriptive statistics, hypothesis tests, correlation/covariance
-estimation, and distribution fitting.
+estimation, distribution fitting, cointegration, regression, and factor models.
 """
 
+from wraquant.stats.cointegration import (
+    engle_granger,
+    find_cointegrated_pairs,
+    half_life,
+    hedge_ratio,
+    pairs_backtest_signals,
+    spread,
+    zscore_signal,
+)
 from wraquant.stats.correlation import (
     correlation_matrix,
     rolling_correlation,
@@ -21,6 +30,19 @@ from wraquant.stats.distributions import (
     fit_distribution,
     hurst_exponent,
     tail_ratio,
+)
+from wraquant.stats.factor import (
+    factor_attribution,
+    fama_french_regression,
+    information_coefficient,
+    quantile_analysis,
+)
+from wraquant.stats.regression import (
+    fama_macbeth,
+    newey_west_ols,
+    ols,
+    rolling_ols,
+    wls,
 )
 from wraquant.stats.tests import (
     test_autocorrelation,
@@ -48,4 +70,23 @@ __all__ = [
     "fit_distribution",
     "tail_ratio",
     "hurst_exponent",
+    # cointegration
+    "engle_granger",
+    "half_life",
+    "spread",
+    "zscore_signal",
+    "hedge_ratio",
+    "pairs_backtest_signals",
+    "find_cointegrated_pairs",
+    # regression
+    "ols",
+    "rolling_ols",
+    "wls",
+    "fama_macbeth",
+    "newey_west_ols",
+    # factor
+    "fama_french_regression",
+    "factor_attribution",
+    "information_coefficient",
+    "quantile_analysis",
 ]
