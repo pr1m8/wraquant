@@ -102,4 +102,4 @@ def check_extra(group: str) -> bool:
     modules = _EXTRA_TO_MODULES.get(group)
     if modules is None:
         return False
-    return all(is_available(m) for m in modules)
+    return any(is_available(m) for m in modules)
