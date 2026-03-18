@@ -136,6 +136,8 @@ _LAZY_SUBMODULES = {
     "scale",
     "econometrics",
     "experiment",
+    "microstructure",
+    "execution",
 }
 
 
