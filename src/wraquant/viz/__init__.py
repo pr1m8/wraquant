@@ -7,7 +7,9 @@ functions require the ``viz`` optional dependency group::
     pdm install -G viz
 
 Interactive Plotly-based visualizations are available alongside the
-original matplotlib charts.
+original matplotlib charts.  Rich multi-panel dashboards and standalone
+chart functions offer comprehensive analysis views with dark-themed
+Plotly figures.
 """
 
 from wraquant.viz.advanced import (
@@ -25,6 +27,20 @@ from wraquant.viz.candlestick import (
     plotly_heikin_ashi,
     plotly_market_profile,
     plotly_renko,
+)
+from wraquant.viz.charts import (
+    plot_backtest_tearsheet,
+    plot_correlation_network,
+    plot_distribution_analysis,
+    plot_multi_asset,
+    plot_regime_overlay as plot_regime_overlay_probs,
+    plot_vol_surface,
+)
+from wraquant.viz.dashboard import (
+    portfolio_dashboard,
+    regime_dashboard,
+    risk_dashboard,
+    technical_dashboard,
 )
 from wraquant.viz.interactive import (
     plotly_correlation_heatmap,
@@ -106,4 +122,16 @@ __all__ = [
     "plotly_market_profile",
     "plotly_renko",
     "plotly_heikin_ashi",
+    # Dashboards (Plotly, dark theme)
+    "portfolio_dashboard",
+    "regime_dashboard",
+    "risk_dashboard",
+    "technical_dashboard",
+    # Rich standalone charts (Plotly, dark theme)
+    "plot_multi_asset",
+    "plot_vol_surface",
+    "plot_regime_overlay_probs",
+    "plot_distribution_analysis",
+    "plot_correlation_network",
+    "plot_backtest_tearsheet",
 ]
