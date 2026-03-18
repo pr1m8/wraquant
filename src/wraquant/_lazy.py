@@ -79,7 +79,7 @@ _EXTRA_TO_MODULES: dict[str, list[str]] = {
     "optimization": ["cvxpy", "pymoo"],
     "regimes": ["hmmlearn", "pykalman"],
     "backtesting": ["vectorbt", "quantstats"],
-    "risk": ["pypfopt", "riskfolio"],
+    "risk": ["pypfopt", "riskfolio", "copulas", "pyextremes"],
     "pricing": ["QuantLib", "financepy"],
     "stochastic": ["sdepy", "sdeint"],
     "viz": ["matplotlib", "plotly"],
