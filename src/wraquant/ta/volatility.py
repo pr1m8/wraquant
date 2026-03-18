@@ -434,17 +434,9 @@ def garman_klass(
     _validate_series(open_, "open_")
     _validate_period(period)
 
-    log_hl = np.log(high / low)
-    log_co = np.log(close / open_)
+    from wraquant.vol.realized import garman_klass as _garman_klass
 
-    term = 0.5 * log_hl**2 - (2.0 * np.log(2.0) - 1.0) * log_co**2
-    vol = term.rolling(window=period, min_periods=period).mean().apply(
-        lambda x: np.sqrt(x) if x >= 0 else np.nan
-    )
-    if annualize:
-        vol = vol * np.sqrt(252)
-    vol.name = "garman_klass"
-    return vol
+    return _garman_klass(open_=open_, high=high, low=low, close=close, window=period, annualize=annualize)
 
 
 # ---------------------------------------------------------------------------
@@ -489,15 +481,9 @@ def parkinson(
     _validate_series(low, "low")
     _validate_period(period)
 
-    log_hl_sq = np.log(high / low) ** 2
-    factor = 1.0 / (4.0 * np.log(2.0))
-    vol = (
-        factor * log_hl_sq.rolling(window=period, min_periods=period).mean()
-    ).apply(lambda x: np.sqrt(x) if x >= 0 else np.nan)
-    if annualize:
-        vol = vol * np.sqrt(252)
-    vol.name = "parkinson"
-    return vol
+    from wraquant.vol.realized import parkinson as _parkinson
+
+    return _parkinson(high, low, window=period, annualize=annualize)
 
 
 # ---------------------------------------------------------------------------
@@ -550,17 +536,9 @@ def rogers_satchell(
     _validate_series(open_, "open_")
     _validate_period(period)
 
-    term = (
-        np.log(high / close) * np.log(high / open_)
-        + np.log(low / close) * np.log(low / open_)
-    )
-    vol = term.rolling(window=period, min_periods=period).mean().apply(
-        lambda x: np.sqrt(x) if x >= 0 else np.nan
-    )
-    if annualize:
-        vol = vol * np.sqrt(252)
-    vol.name = "rogers_satchell"
-    return vol
+    from wraquant.vol.realized import rogers_satchell as _rogers_satchell
+
+    return _rogers_satchell(open_=open_, high=high, low=low, close=close, window=period, annualize=annualize)
 
 
 # ---------------------------------------------------------------------------
@@ -612,29 +590,9 @@ def yang_zhang(
     _validate_series(open_, "open_")
     _validate_period(period)
 
-    k = 0.34 / (1.34 + (period + 1) / (period - 1))
+    from wraquant.vol.realized import yang_zhang as _yang_zhang
 
-    # Overnight volatility: log(open / prev_close)
-    log_oc = np.log(open_ / close.shift(1))
-    overnight_var = log_oc.rolling(window=period, min_periods=period).var(ddof=1)
-
-    # Open-to-close volatility: log(close / open)
-    log_co = np.log(close / open_)
-    openclose_var = log_co.rolling(window=period, min_periods=period).var(ddof=1)
-
-    # Rogers-Satchell component
-    rs_term = (
-        np.log(high / close) * np.log(high / open_)
-        + np.log(low / close) * np.log(low / open_)
-    )
-    rs_var = rs_term.rolling(window=period, min_periods=period).mean()
-
-    vol_sq = overnight_var + k * openclose_var + (1.0 - k) * rs_var
-    vol = vol_sq.apply(lambda x: np.sqrt(x) if x >= 0 else np.nan)
-    if annualize:
-        vol = vol * np.sqrt(252)
-    vol.name = "yang_zhang"
-    return vol
+    return _yang_zhang(open_=open_, high=high, low=low, close=close, window=period, annualize=annualize)
 
 
 # ---------------------------------------------------------------------------

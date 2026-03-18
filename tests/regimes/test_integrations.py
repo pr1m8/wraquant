@@ -11,6 +11,12 @@ import pytest
 _has_pomegranate = importlib.util.find_spec("pomegranate") is not None
 _has_filterpy = importlib.util.find_spec("filterpy") is not None
 _has_river = importlib.util.find_spec("river") is not None
+_has_jax = importlib.util.find_spec("jax") is not None
+try:
+    from dynamax.linear_gaussian_ssm import LinearGaussianSSM  # noqa: F401
+    _has_dynamax = True
+except Exception:
+    _has_dynamax = False
 
 
 def _make_regime_data(n: int = 300, seed: int = 42) -> pd.Series:
@@ -163,3 +169,65 @@ class TestRiverDriftDetector:
         result = river_drift_detector(stream, method="page_hinkley")
         assert result["method"] == "page_hinkley"
         assert isinstance(result["drift_indices"], list)
+
+    @pytest.mark.skipif(not _has_river, reason="river not installed")
+    def test_eddm_method(self) -> None:
+        from wraquant.regimes.integrations import river_drift_detector
+
+        rng = np.random.default_rng(42)
+        stream = np.concatenate([
+            rng.normal(0, 1, 200),
+            rng.normal(5, 1, 200),
+        ])
+        result = river_drift_detector(stream, method="eddm")
+        assert result["method"] == "eddm"
+        assert isinstance(result["drift_indices"], list)
+
+
+# ---------------------------------------------------------------------------
+# dynamax Linear Gaussian SSM
+# ---------------------------------------------------------------------------
+
+
+class TestDynamaxLGSSM:
+    @pytest.mark.skipif(
+        not (_has_dynamax and _has_jax), reason="dynamax/jax not installed"
+    )
+    def test_returns_expected_keys(self) -> None:
+        from wraquant.regimes.integrations import dynamax_lgssm
+
+        rng = np.random.default_rng(42)
+        observations = rng.normal(0, 1, (100, 1))
+        result = dynamax_lgssm(observations, state_dim=2, n_iters=10)
+        assert "filtered_means" in result
+        assert "filtered_covs" in result
+        assert "smoothed_means" in result
+        assert "params" in result
+        assert "log_likelihoods" in result
+
+    @pytest.mark.skipif(
+        not (_has_dynamax and _has_jax), reason="dynamax/jax not installed"
+    )
+    def test_filtered_means_shape(self) -> None:
+        from wraquant.regimes.integrations import dynamax_lgssm
+
+        T = 80
+        state_dim = 3
+        rng = np.random.default_rng(42)
+        observations = rng.normal(0, 1, (T, 2))
+        result = dynamax_lgssm(
+            observations, state_dim=state_dim, emission_dim=2, n_iters=5
+        )
+        assert result["filtered_means"].shape[0] == T
+        assert result["filtered_means"].shape[1] == state_dim
+
+    @pytest.mark.skipif(
+        not (_has_dynamax and _has_jax), reason="dynamax/jax not installed"
+    )
+    def test_univariate_observations(self) -> None:
+        from wraquant.regimes.integrations import dynamax_lgssm
+
+        rng = np.random.default_rng(42)
+        observations = rng.normal(0, 1, 50)
+        result = dynamax_lgssm(observations, state_dim=2, n_iters=5)
+        assert result["filtered_means"].shape[0] == 50

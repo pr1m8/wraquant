@@ -3,7 +3,7 @@
 Provides conjugate Bayesian regression, Bayesian Sharpe ratio estimation,
 portfolio allocation via posterior sampling, Bayesian VaR, MCMC samplers,
 convergence diagnostics, and wrappers for external Bayesian packages
-(PyMC, ArviZ, NumPyro).
+(PyMC, ArviZ, NumPyro, Bambi, emcee, BlackJAX).
 """
 
 from wraquant.bayes.mcmc import (
@@ -39,3 +39,20 @@ __all__ = [
     "trace_summary",
     "gelman_rubin",
 ]
+
+
+def __getattr__(name: str):
+    """Lazy-load integration functions to avoid importing optional deps at module level."""
+    _integration_names = {
+        "pymc_regression",
+        "arviz_summary",
+        "numpyro_regression",
+        "bambi_regression",
+        "emcee_sample",
+        "blackjax_nuts",
+    }
+    if name in _integration_names:
+        from wraquant.bayes import integrations
+
+        return getattr(integrations, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

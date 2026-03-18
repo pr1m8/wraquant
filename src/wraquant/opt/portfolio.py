@@ -14,6 +14,7 @@ import pandas as pd
 from scipy import optimize
 
 from wraquant.opt.base import OptimizationResult
+from wraquant.risk.portfolio import portfolio_volatility
 
 
 def _portfolio_stats(
@@ -24,9 +25,7 @@ def _portfolio_stats(
 ) -> tuple[float, float, float]:
     """Calculate portfolio return, volatility, and Sharpe ratio."""
     ret = float(np.dot(weights, mean_returns) * periods_per_year)
-    vol = float(
-        np.sqrt(np.dot(weights.T, np.dot(cov_matrix * periods_per_year, weights)))
-    )
+    vol = portfolio_volatility(weights, cov_matrix * periods_per_year)
     sharpe = ret / vol if vol > 0 else 0.0
     return ret, vol, sharpe
 
@@ -67,11 +66,11 @@ def mean_variance(
 
     def neg_sharpe(w: npt.NDArray) -> float:
         ret = np.dot(w, mu) * periods_per_year
-        vol = np.sqrt(np.dot(w.T, np.dot(cov * periods_per_year, w)))
+        vol = portfolio_volatility(w, cov * periods_per_year)
         return -(ret - risk_free) / vol if vol > 0 else 0.0
 
     def portfolio_vol(w: npt.NDArray) -> float:
-        return float(np.sqrt(np.dot(w.T, np.dot(cov * periods_per_year, w))))
+        return portfolio_volatility(w, cov * periods_per_year)
 
     obj = neg_sharpe if target_return is None else portfolio_vol
     x0 = np.ones(n) / n
@@ -114,7 +113,7 @@ def min_volatility(
     assets = list(returns.columns)
 
     def portfolio_vol(w: npt.NDArray) -> float:
-        return float(np.sqrt(np.dot(w.T, np.dot(cov * periods_per_year, w))))
+        return portfolio_volatility(w, cov * periods_per_year)
 
     constraints = [{"type": "eq", "fun": lambda w: np.sum(w) - 1.0}]
     x0 = np.ones(n) / n
@@ -185,8 +184,11 @@ def risk_parity(
 
     target_risk = 1.0 / n
 
+    # NOTE: Could use wraquant.risk.portfolio.risk_contribution here, but
+    # the optimizer hot-loop benefits from inlined math to avoid function
+    # call overhead on each iteration.
     def risk_budget_obj(w: npt.NDArray) -> float:
-        port_vol = np.sqrt(np.dot(w.T, np.dot(cov, w)))
+        port_vol = portfolio_volatility(w, cov)
         if port_vol == 0:
             return 0.0
         marginal_contrib = np.dot(cov, w) / port_vol
@@ -399,7 +401,7 @@ def black_litterman(
         # BL weights via max Sharpe on BL returns
         def neg_sharpe(w: Any) -> float:
             ret = np.dot(w, bl_return)
-            vol = np.sqrt(np.dot(w.T, np.dot(cov * periods_per_year, w)))
+            vol = portfolio_volatility(w, cov * periods_per_year)
             return -(ret - risk_free / periods_per_year) / vol if vol > 0 else 0.0
 
         constraints = [{"type": "eq", "fun": lambda w: np.sum(w) - 1.0}]

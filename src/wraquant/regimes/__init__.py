@@ -7,6 +7,7 @@ change-point detection, and regime labeling.
 from wraquant.regimes.changepoint import online_changepoint
 from wraquant.regimes.hmm import fit_hmm, predict_regime
 from wraquant.regimes.integrations import (
+    dynamax_lgssm,
     filterpy_kalman,
     pomegranate_hmm,
     river_drift_detector,
@@ -29,4 +30,5 @@ __all__ = [
     "pomegranate_hmm",
     "filterpy_kalman",
     "river_drift_detector",
+    "dynamax_lgssm",
 ]

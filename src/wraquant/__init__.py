@@ -132,8 +132,6 @@ _LAZY_SUBMODULES = {
     "math",
     "bayes",
     "io",
-    "flow",
-    "scale",
     "econometrics",
     "experiment",
     "microstructure",

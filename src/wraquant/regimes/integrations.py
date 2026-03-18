@@ -1,7 +1,8 @@
 """Advanced regime detection integrations using optional packages.
 
-Provides wrappers around pomegranate, filterpy, and river for
-Hidden Markov Models, Kalman filtering, and online drift detection.
+Provides wrappers around pomegranate, filterpy, river, and dynamax for
+Hidden Markov Models, Kalman filtering, online drift detection, and
+Linear Gaussian State Space Models.
 """
 
 from __future__ import annotations
@@ -17,6 +18,7 @@ __all__ = [
     "pomegranate_hmm",
     "filterpy_kalman",
     "river_drift_detector",
+    "dynamax_lgssm",
 ]
 
 
@@ -172,6 +174,7 @@ def river_drift_detector(
 
         * ``'adwin'`` -- Adaptive Windowing (ADWIN)
         * ``'ddm'`` -- Drift Detection Method
+        * ``'eddm'`` -- Early Drift Detection Method
         * ``'page_hinkley'`` -- Page-Hinkley test
 
     Returns
@@ -184,17 +187,20 @@ def river_drift_detector(
         * **method** -- drift detection method used.
     """
     from river import drift
+    from river.drift import binary as _binary
 
-    if method == "adwin":
-        detector = drift.ADWIN()
-    elif method == "ddm":
-        detector = drift.DDM()
-    elif method == "page_hinkley":
-        detector = drift.PageHinkley()
-    else:
+    detectors: dict[str, Any] = {
+        "adwin": drift.ADWIN,
+        "ddm": _binary.DDM,
+        "eddm": _binary.EDDM,
+        "page_hinkley": drift.PageHinkley,
+    }
+    detector_cls = detectors.get(method)
+    if detector_cls is None:
         raise ValueError(
-            f"Unknown method: {method!r}. Use 'adwin', 'ddm', or 'page_hinkley'."
+            f"Unknown method: {method!r}. Choose from {list(detectors)}."
         )
+    detector = detector_cls()
 
     values = np.asarray(stream, dtype=np.float64)
     drift_indices: list[int] = []
@@ -208,4 +214,67 @@ def river_drift_detector(
         "drift_indices": drift_indices,
         "n_drifts": len(drift_indices),
         "method": method,
+    }
+
+
+# ---------------------------------------------------------------------------
+# dynamax Linear Gaussian SSM
+# ---------------------------------------------------------------------------
+
+
+@requires_extra("regimes")
+def dynamax_lgssm(
+    observations: np.ndarray | pd.Series,
+    state_dim: int = 2,
+    emission_dim: int | None = None,
+    n_iters: int = 100,
+) -> dict[str, Any]:
+    """Fit a Linear Gaussian State Space Model using dynamax (JAX-based).
+
+    Parameters
+    ----------
+    observations : np.ndarray or pd.Series
+        Observations of shape ``(T, obs_dim)`` or ``(T,)`` for univariate.
+    state_dim : int, default 2
+        Dimensionality of the latent state.
+    emission_dim : int or None
+        Observation dimension. Inferred from *observations* if None.
+    n_iters : int, default 100
+        Number of EM iterations.
+
+    Returns
+    -------
+    dict
+        Dictionary containing:
+
+        * **filtered_means** -- filtered state means, shape ``(T, state_dim)``.
+        * **filtered_covs** -- filtered state covariances.
+        * **smoothed_means** -- smoothed state means.
+        * **params** -- learned model parameters.
+        * **log_likelihoods** -- EM log-likelihood trace.
+    """
+    from dynamax.linear_gaussian_ssm import LinearGaussianSSM
+    import jax.numpy as jnp
+    import jax.random as jr
+
+    obs = jnp.array(np.asarray(observations, dtype=np.float64))
+    if obs.ndim == 1:
+        obs = obs.reshape(-1, 1)
+    obs_dim = obs.shape[1]
+    emission_dim = emission_dim or obs_dim
+
+    model = LinearGaussianSSM(state_dim=state_dim, emission_dim=emission_dim)
+    key = jr.PRNGKey(0)
+    params, props = model.initialize(key)
+    params, log_liks = model.fit_em(params, props, obs, num_iters=n_iters)
+
+    filtered = model.filter(params, obs)
+    smoothed = model.smoother(params, obs)
+
+    return {
+        "filtered_means": np.asarray(filtered.filtered_means),
+        "filtered_covs": np.asarray(filtered.filtered_covariances),
+        "smoothed_means": np.asarray(smoothed.smoothed_means),
+        "params": params,
+        "log_likelihoods": np.asarray(log_liks),
     }

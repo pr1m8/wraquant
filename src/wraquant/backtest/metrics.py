@@ -5,6 +5,12 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
+from wraquant.risk.metrics import (
+    max_drawdown as _risk_max_drawdown,
+    sharpe_ratio as _risk_sharpe,
+    sortino_ratio as _risk_sortino,
+)
+
 
 def performance_summary(
     returns: pd.Series,
@@ -28,22 +34,15 @@ def performance_summary(
     ann_return = float((1 + total_return) ** ann_factor - 1)
     ann_vol = float(returns.std() * np.sqrt(periods_per_year))
 
-    sharpe = (ann_return - risk_free) / ann_vol if ann_vol > 0 else 0.0
+    sharpe = _risk_sharpe(returns, risk_free=risk_free, periods_per_year=periods_per_year)
 
-    # Sortino
-    downside = returns[returns < 0]
-    downside_std = (
-        float(downside.std() * np.sqrt(periods_per_year)) if len(downside) > 0 else 0.0
-    )
-    sortino = (ann_return - risk_free) / downside_std if downside_std > 0 else 0.0
+    sortino = _risk_sortino(returns, risk_free=risk_free, periods_per_year=periods_per_year)
 
-    # Max drawdown
+    # Max drawdown — risk.metrics.max_drawdown expects a price series
     cumulative = (1 + returns).cumprod()
-    peak = cumulative.cummax()
-    drawdown = (cumulative - peak) / peak
-    max_dd = float(drawdown.min())
+    max_dd = _risk_max_drawdown(cumulative)
 
-    # Calmar
+    # Calmar (no canonical implementation in risk module yet)
     calmar = ann_return / abs(max_dd) if max_dd != 0 else 0.0
 
     # Win rate
