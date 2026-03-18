@@ -28,7 +28,12 @@ from wraquant.stats.descriptive import (
 )
 from wraquant.stats.distributions import (
     fit_distribution,
+    fit_stable_distribution,
     hurst_exponent,
+    jarque_bera,
+    kolmogorov_smirnov,
+    qqplot_data,
+    tail_index,
     tail_ratio,
 )
 from wraquant.stats.factor import (
@@ -36,6 +41,16 @@ from wraquant.stats.factor import (
     fama_french_regression,
     information_coefficient,
     quantile_analysis,
+)
+from wraquant.stats.factor_analysis import (
+    common_factors,
+    factor_correlation,
+    factor_loadings,
+    factor_mimicking_portfolios,
+    pca_factors,
+    risk_factor_decomposition,
+    scree_plot_data,
+    varimax_rotation,
 )
 from wraquant.stats.regression import (
     fama_macbeth,
@@ -68,8 +83,13 @@ __all__ = [
     "rolling_correlation",
     # distributions
     "fit_distribution",
+    "fit_stable_distribution",
     "tail_ratio",
+    "tail_index",
     "hurst_exponent",
+    "qqplot_data",
+    "jarque_bera",
+    "kolmogorov_smirnov",
     # cointegration
     "engle_granger",
     "half_life",
@@ -89,4 +109,13 @@ __all__ = [
     "factor_attribution",
     "information_coefficient",
     "quantile_analysis",
+    # factor_analysis
+    "pca_factors",
+    "factor_loadings",
+    "scree_plot_data",
+    "varimax_rotation",
+    "factor_mimicking_portfolios",
+    "risk_factor_decomposition",
+    "factor_correlation",
+    "common_factors",
 ]

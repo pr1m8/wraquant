@@ -134,6 +134,8 @@ _LAZY_SUBMODULES = {
     "io",
     "flow",
     "scale",
+    "econometrics",
+    "experiment",
 }
 
 
