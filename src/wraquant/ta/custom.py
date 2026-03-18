@@ -22,6 +22,12 @@ __all__ = [
     "ehlers_fisher",
     "adaptive_rsi",
     "relative_strength",
+    "linear_regression_forecast",
+    "standard_error_bands",
+    "r_squared_indicator",
+    "polynomial_regression",
+    "raff_regression_channel",
+    "detrended_regression",
 ]
 
 
@@ -789,3 +795,392 @@ def relative_strength(
     result = data / benchmark
     result.name = "relative_strength"
     return result
+
+
+# ---------------------------------------------------------------------------
+# Linear Regression Forecast
+# ---------------------------------------------------------------------------
+
+
+def linear_regression_forecast(
+    data: pd.Series,
+    period: int = 20,
+    forecast_bars: int = 1,
+) -> pd.Series:
+    """Rolling linear regression forecast N bars ahead.
+
+    Fits a linear regression over each rolling window and projects the
+    value *forecast_bars* steps beyond the last observation in the
+    window.
+
+    Parameters
+    ----------
+    data : pd.Series
+        Price series (typically close).
+    period : int, default 20
+        Rolling window length for the regression.
+    forecast_bars : int, default 1
+        Number of bars ahead to forecast.
+
+    Returns
+    -------
+    pd.Series
+        Forecasted values.
+
+    Example
+    -------
+    >>> import pandas as pd, numpy as np
+    >>> close = pd.Series(100 + np.arange(50, dtype=float) * 0.5)
+    >>> linear_regression_forecast(close, period=20, forecast_bars=1)  # doctest: +SKIP
+    """
+    _validate_series(data)
+    _validate_period(period)
+
+    values = data.values.astype(float)
+    n = len(values)
+    result = np.full(n, np.nan)
+
+    x = np.arange(period, dtype=float)
+    x_sum = x.sum()
+    x_sq_sum = np.dot(x, x)
+
+    for i in range(period - 1, n):
+        window = values[i - period + 1 : i + 1]
+        if np.any(np.isnan(window)):
+            continue
+        w_sum = window.sum()
+        slope = (period * np.dot(x, window) - x_sum * w_sum) / (
+            period * x_sq_sum - x_sum**2
+        )
+        intercept = (w_sum - slope * x_sum) / period
+        result[i] = slope * (period - 1 + forecast_bars) + intercept
+
+    return pd.Series(result, index=data.index, name="lr_forecast")
+
+
+# ---------------------------------------------------------------------------
+# Standard Error Bands
+# ---------------------------------------------------------------------------
+
+
+def standard_error_bands(
+    data: pd.Series,
+    period: int = 20,
+    num_bands: int = 3,
+) -> dict[str, pd.Series]:
+    """Linear regression line with standard error bands.
+
+    Fits a rolling linear regression and constructs bands at +-1, +-2,
+    and +-3 standard errors (configurable via *num_bands*).
+
+    Parameters
+    ----------
+    data : pd.Series
+        Price series (typically close).
+    period : int, default 20
+        Rolling window length.
+    num_bands : int, default 3
+        Number of band levels (1, 2, ... *num_bands* standard errors).
+
+    Returns
+    -------
+    dict[str, pd.Series]
+        ``middle`` plus ``upper_N`` and ``lower_N`` for each band
+        level N from 1 to *num_bands*.
+
+    Example
+    -------
+    >>> import pandas as pd, numpy as np
+    >>> close = pd.Series(100 + np.arange(50, dtype=float) * 0.5)
+    >>> result = standard_error_bands(close, period=20)  # doctest: +SKIP
+    """
+    _validate_series(data)
+    _validate_period(period)
+
+    values = data.values.astype(float)
+    n = len(values)
+
+    mid = np.full(n, np.nan)
+    std_err = np.full(n, np.nan)
+
+    x = np.arange(period, dtype=float)
+    x_sum = x.sum()
+    x_sq_sum = np.dot(x, x)
+
+    for i in range(period - 1, n):
+        window = values[i - period + 1 : i + 1]
+        if np.any(np.isnan(window)):
+            continue
+        w_sum = window.sum()
+        slope = (period * np.dot(x, window) - x_sum * w_sum) / (
+            period * x_sq_sum - x_sum**2
+        )
+        intercept = (w_sum - slope * x_sum) / period
+        reg_val = slope * (period - 1) + intercept
+        predicted = slope * x + intercept
+        residuals = window - predicted
+        se = np.std(residuals, ddof=1)
+
+        mid[i] = reg_val
+        std_err[i] = se
+
+    result: dict[str, pd.Series] = {
+        "middle": pd.Series(mid, index=data.index, name="seb_middle"),
+    }
+    for level in range(1, num_bands + 1):
+        result[f"upper_{level}"] = pd.Series(
+            mid + level * std_err, index=data.index, name=f"seb_upper_{level}"
+        )
+        result[f"lower_{level}"] = pd.Series(
+            mid - level * std_err, index=data.index, name=f"seb_lower_{level}"
+        )
+
+    return result
+
+
+# ---------------------------------------------------------------------------
+# R-Squared Indicator
+# ---------------------------------------------------------------------------
+
+
+def r_squared_indicator(
+    data: pd.Series,
+    period: int = 14,
+) -> pd.Series:
+    """Rolling R-squared of linear regression as a trend strength measure.
+
+    An R-squared near 1.0 indicates prices are moving in a strong
+    linear trend; near 0.0 indicates choppy, non-trending movement.
+
+    Parameters
+    ----------
+    data : pd.Series
+        Price series (typically close).
+    period : int, default 14
+        Rolling window length for the regression.
+
+    Returns
+    -------
+    pd.Series
+        R-squared values in [0, 1].
+
+    Example
+    -------
+    >>> import pandas as pd, numpy as np
+    >>> close = pd.Series(100 + np.arange(50, dtype=float) * 0.5)
+    >>> r_squared_indicator(close, period=14)  # doctest: +SKIP
+    """
+    _validate_series(data)
+    _validate_period(period)
+
+    values = data.values.astype(float)
+    n = len(values)
+    result = np.full(n, np.nan)
+
+    x = np.arange(period, dtype=float)
+    x_sum = x.sum()
+    x_sq_sum = np.dot(x, x)
+
+    for i in range(period - 1, n):
+        window = values[i - period + 1 : i + 1]
+        if np.any(np.isnan(window)):
+            continue
+        w_sum = window.sum()
+        slope = (period * np.dot(x, window) - x_sum * w_sum) / (
+            period * x_sq_sum - x_sum**2
+        )
+        intercept = (w_sum - slope * x_sum) / period
+        predicted = slope * x + intercept
+        ss_res = np.sum((window - predicted) ** 2)
+        ss_tot = np.sum((window - np.mean(window)) ** 2)
+        if ss_tot == 0:
+            result[i] = 1.0
+        else:
+            result[i] = 1.0 - ss_res / ss_tot
+
+    return pd.Series(result, index=data.index, name="r_squared")
+
+
+# ---------------------------------------------------------------------------
+# Polynomial Regression
+# ---------------------------------------------------------------------------
+
+
+def polynomial_regression(
+    data: pd.Series,
+    period: int = 20,
+    degree: int = 2,
+) -> pd.Series:
+    """Rolling polynomial regression fitted values.
+
+    Fits a polynomial of the given degree over each rolling window
+    and returns the fitted value at the end of the window.
+
+    Parameters
+    ----------
+    data : pd.Series
+        Price series (typically close).
+    period : int, default 20
+        Rolling window length.
+    degree : int, default 2
+        Polynomial degree (2 = quadratic, 3 = cubic).
+
+    Returns
+    -------
+    pd.Series
+        Fitted polynomial values at the end of each window.
+
+    Example
+    -------
+    >>> import pandas as pd, numpy as np
+    >>> close = pd.Series(100 + np.arange(50, dtype=float) ** 1.5 * 0.01)
+    >>> polynomial_regression(close, period=20, degree=2)  # doctest: +SKIP
+    """
+    _validate_series(data)
+    _validate_period(period)
+    if degree < 1:
+        raise ValueError(f"degree must be >= 1, got {degree}")
+
+    values = data.values.astype(float)
+    n = len(values)
+    result = np.full(n, np.nan)
+
+    for i in range(period - 1, n):
+        window = values[i - period + 1 : i + 1]
+        if np.any(np.isnan(window)):
+            continue
+        x = np.arange(period, dtype=float)
+        coeffs = np.polyfit(x, window, degree)
+        result[i] = np.polyval(coeffs, period - 1)
+
+    return pd.Series(result, index=data.index, name="poly_regression")
+
+
+# ---------------------------------------------------------------------------
+# Raff Regression Channel
+# ---------------------------------------------------------------------------
+
+
+def raff_regression_channel(
+    data: pd.Series,
+    period: int = 50,
+) -> dict[str, pd.Series]:
+    """Raff regression channel using maximum deviation.
+
+    Fits a rolling linear regression and constructs channel lines
+    using the maximum absolute deviation of any point in the window
+    from the regression line.
+
+    Parameters
+    ----------
+    data : pd.Series
+        Price series (typically close).
+    period : int, default 50
+        Rolling window length.
+
+    Returns
+    -------
+    dict[str, pd.Series]
+        ``center`` (regression line), ``upper``, ``lower``.
+
+    Example
+    -------
+    >>> import pandas as pd, numpy as np
+    >>> close = pd.Series(100 + np.arange(80, dtype=float) * 0.5)
+    >>> result = raff_regression_channel(close, period=50)  # doctest: +SKIP
+    """
+    _validate_series(data)
+    _validate_period(period)
+
+    values = data.values.astype(float)
+    n = len(values)
+
+    center = np.full(n, np.nan)
+    upper = np.full(n, np.nan)
+    lower = np.full(n, np.nan)
+
+    x = np.arange(period, dtype=float)
+    x_sum = x.sum()
+    x_sq_sum = np.dot(x, x)
+
+    for i in range(period - 1, n):
+        window = values[i - period + 1 : i + 1]
+        if np.any(np.isnan(window)):
+            continue
+        w_sum = window.sum()
+        slope = (period * np.dot(x, window) - x_sum * w_sum) / (
+            period * x_sq_sum - x_sum**2
+        )
+        intercept = (w_sum - slope * x_sum) / period
+        reg_val = slope * (period - 1) + intercept
+        predicted = slope * x + intercept
+        max_dev = np.max(np.abs(window - predicted))
+
+        center[i] = reg_val
+        upper[i] = reg_val + max_dev
+        lower[i] = reg_val - max_dev
+
+    return {
+        "center": pd.Series(center, index=data.index, name="raff_center"),
+        "upper": pd.Series(upper, index=data.index, name="raff_upper"),
+        "lower": pd.Series(lower, index=data.index, name="raff_lower"),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Detrended Regression
+# ---------------------------------------------------------------------------
+
+
+def detrended_regression(
+    data: pd.Series,
+    period: int = 20,
+) -> pd.Series:
+    """Residuals from rolling linear regression (for mean reversion).
+
+    Fits a rolling linear regression and returns the residual
+    (actual minus predicted) at the end of each window. Positive
+    values indicate price above trend; negative below trend.
+
+    Parameters
+    ----------
+    data : pd.Series
+        Price series (typically close).
+    period : int, default 20
+        Rolling window length.
+
+    Returns
+    -------
+    pd.Series
+        Detrended (residual) values.
+
+    Example
+    -------
+    >>> import pandas as pd, numpy as np
+    >>> close = pd.Series(100 + np.arange(50, dtype=float) * 0.5)
+    >>> detrended_regression(close, period=20)  # doctest: +SKIP
+    """
+    _validate_series(data)
+    _validate_period(period)
+
+    values = data.values.astype(float)
+    n = len(values)
+    result = np.full(n, np.nan)
+
+    x = np.arange(period, dtype=float)
+    x_sum = x.sum()
+    x_sq_sum = np.dot(x, x)
+
+    for i in range(period - 1, n):
+        window = values[i - period + 1 : i + 1]
+        if np.any(np.isnan(window)):
+            continue
+        w_sum = window.sum()
+        slope = (period * np.dot(x, window) - x_sum * w_sum) / (
+            period * x_sq_sum - x_sum**2
+        )
+        intercept = (w_sum - slope * x_sum) / period
+        predicted = slope * (period - 1) + intercept
+        result[i] = window[-1] - predicted
+
+    return pd.Series(result, index=data.index, name="detrended")

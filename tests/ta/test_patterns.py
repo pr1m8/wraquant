@@ -9,26 +9,41 @@ import pytest
 from wraquant.ta.patterns import (
     abandoned_baby,
     belt_hold,
+    closing_marubozu,
+    concealing_baby_swallow,
     dark_cloud_cover,
     doji,
+    dragonfly_doji,
     engulfing,
     evening_star,
+    falling_three_methods,
+    gravestone_doji,
     hammer,
     hanging_man,
     harami,
+    in_neck,
     inverted_hammer,
     kicking,
+    long_legged_doji,
     marubozu,
     morning_star,
+    on_neck,
     piercing_pattern,
+    rickshaw_man,
+    rising_three_methods,
+    separating_lines,
     shooting_star,
     spinning_top,
+    tasuki_gap,
     three_black_crows,
     three_inside_down,
     three_inside_up,
     three_white_soldiers,
+    thrusting,
+    tri_star,
     tweezer_bottom,
     tweezer_top,
+    unique_three_river,
 )
 
 # ---------------------------------------------------------------------------
@@ -403,3 +418,306 @@ class TestBeltHold:
     def test_invalid_type(self) -> None:
         with pytest.raises(TypeError):
             belt_hold([1.0], [2.0], [0.5], [1.5])  # type: ignore[arg-type]
+
+
+# ---------------------------------------------------------------------------
+# Rising Three Methods
+# ---------------------------------------------------------------------------
+
+
+class TestRisingThreeMethods:
+    def test_length(self, ohlc: dict[str, pd.Series]) -> None:
+        result = rising_three_methods(ohlc["open"], ohlc["high"], ohlc["low"], ohlc["close"])
+        assert len(result) == len(ohlc["close"])
+
+    def test_returns_series(self, ohlc: dict[str, pd.Series]) -> None:
+        result = rising_three_methods(ohlc["open"], ohlc["high"], ohlc["low"], ohlc["close"])
+        assert isinstance(result, pd.Series)
+
+    def test_values_range(self, ohlc: dict[str, pd.Series]) -> None:
+        result = rising_three_methods(ohlc["open"], ohlc["high"], ohlc["low"], ohlc["close"])
+        assert set(result.unique()).issubset({0, 1})
+
+
+# ---------------------------------------------------------------------------
+# Falling Three Methods
+# ---------------------------------------------------------------------------
+
+
+class TestFallingThreeMethods:
+    def test_length(self, ohlc: dict[str, pd.Series]) -> None:
+        result = falling_three_methods(ohlc["open"], ohlc["high"], ohlc["low"], ohlc["close"])
+        assert len(result) == len(ohlc["close"])
+
+    def test_returns_series(self, ohlc: dict[str, pd.Series]) -> None:
+        result = falling_three_methods(ohlc["open"], ohlc["high"], ohlc["low"], ohlc["close"])
+        assert isinstance(result, pd.Series)
+
+    def test_values_range(self, ohlc: dict[str, pd.Series]) -> None:
+        result = falling_three_methods(ohlc["open"], ohlc["high"], ohlc["low"], ohlc["close"])
+        assert set(result.unique()).issubset({0, -1})
+
+
+# ---------------------------------------------------------------------------
+# Tasuki Gap
+# ---------------------------------------------------------------------------
+
+
+class TestTasukiGap:
+    def test_length(self, ohlc: dict[str, pd.Series]) -> None:
+        result = tasuki_gap(ohlc["open"], ohlc["high"], ohlc["low"], ohlc["close"])
+        assert len(result) == len(ohlc["close"])
+
+    def test_returns_series(self, ohlc: dict[str, pd.Series]) -> None:
+        result = tasuki_gap(ohlc["open"], ohlc["high"], ohlc["low"], ohlc["close"])
+        assert isinstance(result, pd.Series)
+
+    def test_values_range(self, ohlc: dict[str, pd.Series]) -> None:
+        result = tasuki_gap(ohlc["open"], ohlc["high"], ohlc["low"], ohlc["close"])
+        assert set(result.unique()).issubset({0, 1, -1})
+
+
+# ---------------------------------------------------------------------------
+# On Neck
+# ---------------------------------------------------------------------------
+
+
+class TestOnNeck:
+    def test_length(self, ohlc: dict[str, pd.Series]) -> None:
+        result = on_neck(ohlc["open"], ohlc["high"], ohlc["low"], ohlc["close"])
+        assert len(result) == len(ohlc["close"])
+
+    def test_returns_series(self, ohlc: dict[str, pd.Series]) -> None:
+        result = on_neck(ohlc["open"], ohlc["high"], ohlc["low"], ohlc["close"])
+        assert isinstance(result, pd.Series)
+
+    def test_values_range(self, ohlc: dict[str, pd.Series]) -> None:
+        result = on_neck(ohlc["open"], ohlc["high"], ohlc["low"], ohlc["close"])
+        assert set(result.unique()).issubset({0, -1})
+
+
+# ---------------------------------------------------------------------------
+# In Neck
+# ---------------------------------------------------------------------------
+
+
+class TestInNeck:
+    def test_length(self, ohlc: dict[str, pd.Series]) -> None:
+        result = in_neck(ohlc["open"], ohlc["high"], ohlc["low"], ohlc["close"])
+        assert len(result) == len(ohlc["close"])
+
+    def test_returns_series(self, ohlc: dict[str, pd.Series]) -> None:
+        result = in_neck(ohlc["open"], ohlc["high"], ohlc["low"], ohlc["close"])
+        assert isinstance(result, pd.Series)
+
+    def test_values_range(self, ohlc: dict[str, pd.Series]) -> None:
+        result = in_neck(ohlc["open"], ohlc["high"], ohlc["low"], ohlc["close"])
+        assert set(result.unique()).issubset({0, -1})
+
+
+# ---------------------------------------------------------------------------
+# Thrusting
+# ---------------------------------------------------------------------------
+
+
+class TestThrusting:
+    def test_length(self, ohlc: dict[str, pd.Series]) -> None:
+        result = thrusting(ohlc["open"], ohlc["high"], ohlc["low"], ohlc["close"])
+        assert len(result) == len(ohlc["close"])
+
+    def test_returns_series(self, ohlc: dict[str, pd.Series]) -> None:
+        result = thrusting(ohlc["open"], ohlc["high"], ohlc["low"], ohlc["close"])
+        assert isinstance(result, pd.Series)
+
+    def test_values_range(self, ohlc: dict[str, pd.Series]) -> None:
+        result = thrusting(ohlc["open"], ohlc["high"], ohlc["low"], ohlc["close"])
+        assert set(result.unique()).issubset({0, -1})
+
+
+# ---------------------------------------------------------------------------
+# Separating Lines
+# ---------------------------------------------------------------------------
+
+
+class TestSeparatingLines:
+    def test_length(self, ohlc: dict[str, pd.Series]) -> None:
+        result = separating_lines(ohlc["open"], ohlc["high"], ohlc["low"], ohlc["close"])
+        assert len(result) == len(ohlc["close"])
+
+    def test_returns_series(self, ohlc: dict[str, pd.Series]) -> None:
+        result = separating_lines(ohlc["open"], ohlc["high"], ohlc["low"], ohlc["close"])
+        assert isinstance(result, pd.Series)
+
+    def test_values_range(self, ohlc: dict[str, pd.Series]) -> None:
+        result = separating_lines(ohlc["open"], ohlc["high"], ohlc["low"], ohlc["close"])
+        assert set(result.unique()).issubset({0, 1, -1})
+
+
+# ---------------------------------------------------------------------------
+# Closing Marubozu
+# ---------------------------------------------------------------------------
+
+
+class TestClosingMarubozu:
+    def test_length(self, ohlc: dict[str, pd.Series]) -> None:
+        result = closing_marubozu(ohlc["open"], ohlc["high"], ohlc["low"], ohlc["close"])
+        assert len(result) == len(ohlc["close"])
+
+    def test_returns_series(self, ohlc: dict[str, pd.Series]) -> None:
+        result = closing_marubozu(ohlc["open"], ohlc["high"], ohlc["low"], ohlc["close"])
+        assert isinstance(result, pd.Series)
+
+    def test_values_range(self, ohlc: dict[str, pd.Series]) -> None:
+        result = closing_marubozu(ohlc["open"], ohlc["high"], ohlc["low"], ohlc["close"])
+        assert set(result.unique()).issubset({0, 1, -1})
+
+
+# ---------------------------------------------------------------------------
+# Rickshaw Man
+# ---------------------------------------------------------------------------
+
+
+class TestRickshawMan:
+    def test_length(self, ohlc: dict[str, pd.Series]) -> None:
+        result = rickshaw_man(ohlc["open"], ohlc["high"], ohlc["low"], ohlc["close"])
+        assert len(result) == len(ohlc["close"])
+
+    def test_returns_series(self, ohlc: dict[str, pd.Series]) -> None:
+        result = rickshaw_man(ohlc["open"], ohlc["high"], ohlc["low"], ohlc["close"])
+        assert isinstance(result, pd.Series)
+
+    def test_values_range(self, ohlc: dict[str, pd.Series]) -> None:
+        result = rickshaw_man(ohlc["open"], ohlc["high"], ohlc["low"], ohlc["close"])
+        assert set(result.unique()).issubset({0, 1})
+
+
+# ---------------------------------------------------------------------------
+# Long Legged Doji
+# ---------------------------------------------------------------------------
+
+
+class TestLongLeggedDoji:
+    def test_length(self, ohlc: dict[str, pd.Series]) -> None:
+        result = long_legged_doji(ohlc["open"], ohlc["high"], ohlc["low"], ohlc["close"])
+        assert len(result) == len(ohlc["close"])
+
+    def test_returns_series(self, ohlc: dict[str, pd.Series]) -> None:
+        result = long_legged_doji(ohlc["open"], ohlc["high"], ohlc["low"], ohlc["close"])
+        assert isinstance(result, pd.Series)
+
+    def test_values_range(self, ohlc: dict[str, pd.Series]) -> None:
+        result = long_legged_doji(ohlc["open"], ohlc["high"], ohlc["low"], ohlc["close"])
+        assert set(result.unique()).issubset({0, 1})
+
+
+# ---------------------------------------------------------------------------
+# Dragonfly Doji
+# ---------------------------------------------------------------------------
+
+
+class TestDragonflyDoji:
+    def test_length(self, ohlc: dict[str, pd.Series]) -> None:
+        result = dragonfly_doji(ohlc["open"], ohlc["high"], ohlc["low"], ohlc["close"])
+        assert len(result) == len(ohlc["close"])
+
+    def test_returns_series(self, ohlc: dict[str, pd.Series]) -> None:
+        result = dragonfly_doji(ohlc["open"], ohlc["high"], ohlc["low"], ohlc["close"])
+        assert isinstance(result, pd.Series)
+
+    def test_values_range(self, ohlc: dict[str, pd.Series]) -> None:
+        result = dragonfly_doji(ohlc["open"], ohlc["high"], ohlc["low"], ohlc["close"])
+        assert set(result.unique()).issubset({0, 1})
+
+    def test_manual(self) -> None:
+        """Dragonfly: open=close=high, long lower shadow."""
+        open_ = pd.Series([20.0])
+        high = pd.Series([20.0])
+        low = pd.Series([10.0])
+        close = pd.Series([20.0])
+        result = dragonfly_doji(open_, high, low, close)
+        assert result.iloc[0] == 1
+
+
+# ---------------------------------------------------------------------------
+# Gravestone Doji
+# ---------------------------------------------------------------------------
+
+
+class TestGravestoneDoji:
+    def test_length(self, ohlc: dict[str, pd.Series]) -> None:
+        result = gravestone_doji(ohlc["open"], ohlc["high"], ohlc["low"], ohlc["close"])
+        assert len(result) == len(ohlc["close"])
+
+    def test_returns_series(self, ohlc: dict[str, pd.Series]) -> None:
+        result = gravestone_doji(ohlc["open"], ohlc["high"], ohlc["low"], ohlc["close"])
+        assert isinstance(result, pd.Series)
+
+    def test_values_range(self, ohlc: dict[str, pd.Series]) -> None:
+        result = gravestone_doji(ohlc["open"], ohlc["high"], ohlc["low"], ohlc["close"])
+        assert set(result.unique()).issubset({0, 1})
+
+    def test_manual(self) -> None:
+        """Gravestone: open=close=low, long upper shadow."""
+        open_ = pd.Series([10.0])
+        high = pd.Series([20.0])
+        low = pd.Series([10.0])
+        close = pd.Series([10.0])
+        result = gravestone_doji(open_, high, low, close)
+        assert result.iloc[0] == 1
+
+
+# ---------------------------------------------------------------------------
+# Tri Star
+# ---------------------------------------------------------------------------
+
+
+class TestTriStar:
+    def test_length(self, ohlc: dict[str, pd.Series]) -> None:
+        result = tri_star(ohlc["open"], ohlc["high"], ohlc["low"], ohlc["close"])
+        assert len(result) == len(ohlc["close"])
+
+    def test_returns_series(self, ohlc: dict[str, pd.Series]) -> None:
+        result = tri_star(ohlc["open"], ohlc["high"], ohlc["low"], ohlc["close"])
+        assert isinstance(result, pd.Series)
+
+    def test_values_range(self, ohlc: dict[str, pd.Series]) -> None:
+        result = tri_star(ohlc["open"], ohlc["high"], ohlc["low"], ohlc["close"])
+        assert set(result.unique()).issubset({0, 1, -1})
+
+
+# ---------------------------------------------------------------------------
+# Unique Three River
+# ---------------------------------------------------------------------------
+
+
+class TestUniqueThreeRiver:
+    def test_length(self, ohlc: dict[str, pd.Series]) -> None:
+        result = unique_three_river(ohlc["open"], ohlc["high"], ohlc["low"], ohlc["close"])
+        assert len(result) == len(ohlc["close"])
+
+    def test_returns_series(self, ohlc: dict[str, pd.Series]) -> None:
+        result = unique_three_river(ohlc["open"], ohlc["high"], ohlc["low"], ohlc["close"])
+        assert isinstance(result, pd.Series)
+
+    def test_values_range(self, ohlc: dict[str, pd.Series]) -> None:
+        result = unique_three_river(ohlc["open"], ohlc["high"], ohlc["low"], ohlc["close"])
+        assert set(result.unique()).issubset({0, 1})
+
+
+# ---------------------------------------------------------------------------
+# Concealing Baby Swallow
+# ---------------------------------------------------------------------------
+
+
+class TestConcealingBabySwallow:
+    def test_length(self, ohlc: dict[str, pd.Series]) -> None:
+        result = concealing_baby_swallow(ohlc["open"], ohlc["high"], ohlc["low"], ohlc["close"])
+        assert len(result) == len(ohlc["close"])
+
+    def test_returns_series(self, ohlc: dict[str, pd.Series]) -> None:
+        result = concealing_baby_swallow(ohlc["open"], ohlc["high"], ohlc["low"], ohlc["close"])
+        assert isinstance(result, pd.Series)
+
+    def test_values_range(self, ohlc: dict[str, pd.Series]) -> None:
+        result = concealing_baby_swallow(ohlc["open"], ohlc["high"], ohlc["low"], ohlc["close"])
+        assert set(result.unique()).issubset({0, -1})

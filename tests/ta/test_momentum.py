@@ -11,6 +11,7 @@ from wraquant.ta.momentum import (
     awesome_oscillator,
     balance_of_power,
     cci,
+    center_of_gravity,
     chande_forecast_oscillator,
     cmo,
     connors_rsi,
@@ -18,15 +19,22 @@ from wraquant.ta.momentum import (
     dpo,
     elder_ray,
     fisher_transform,
+    inertia,
+    klinger_oscillator,
     kst,
     macd,
     momentum,
     ppo,
+    price_momentum_oscillator,
+    psychological_line,
     qstick,
     relative_vigor_index,
     roc,
     rsi,
+    schaff_momentum,
+    squeeze_histogram,
     stochastic,
+    stochastic_momentum_index,
     stochastic_rsi,
     tsi,
     ultimate_oscillator,
@@ -593,3 +601,256 @@ class TestRelativeVigorIndex:
         )
         assert result["rvi"].name == "rvi"
         assert result["signal"].name == "rvi_signal"
+
+
+# ---------------------------------------------------------------------------
+# Schaff Momentum
+# ---------------------------------------------------------------------------
+
+
+class TestSchaffMomentum:
+    def test_output_type(self, close_series: pd.Series) -> None:
+        result = schaff_momentum(close_series)
+        assert isinstance(result, pd.Series)
+
+    def test_length(self, close_series: pd.Series) -> None:
+        result = schaff_momentum(close_series)
+        assert len(result) == len(close_series)
+
+    def test_bounds(self, close_series: pd.Series) -> None:
+        """Schaff Momentum should be bounded in [0, 100]."""
+        result = schaff_momentum(close_series)
+        valid = result.dropna()
+        assert (valid >= -1e-10).all()
+        assert (valid <= 100 + 1e-10).all()
+
+    def test_name(self, close_series: pd.Series) -> None:
+        result = schaff_momentum(close_series)
+        assert result.name == "schaff_momentum"
+
+    def test_has_valid_values(self, close_series: pd.Series) -> None:
+        result = schaff_momentum(close_series)
+        assert result.dropna().shape[0] > 0
+
+
+# ---------------------------------------------------------------------------
+# Price Momentum Oscillator
+# ---------------------------------------------------------------------------
+
+
+class TestPriceMomentumOscillator:
+    def test_keys(self, close_series: pd.Series) -> None:
+        result = price_momentum_oscillator(close_series)
+        assert set(result.keys()) == {"pmo", "signal"}
+
+    def test_output_type(self, close_series: pd.Series) -> None:
+        result = price_momentum_oscillator(close_series)
+        assert isinstance(result["pmo"], pd.Series)
+        assert isinstance(result["signal"], pd.Series)
+
+    def test_length(self, close_series: pd.Series) -> None:
+        result = price_momentum_oscillator(close_series)
+        assert len(result["pmo"]) == len(close_series)
+        assert len(result["signal"]) == len(close_series)
+
+    def test_name(self, close_series: pd.Series) -> None:
+        result = price_momentum_oscillator(close_series)
+        assert result["pmo"].name == "pmo"
+        assert result["signal"].name == "pmo_signal"
+
+    def test_has_valid_values(self, close_series: pd.Series) -> None:
+        result = price_momentum_oscillator(close_series)
+        assert result["pmo"].dropna().shape[0] > 0
+
+
+# ---------------------------------------------------------------------------
+# Klinger Oscillator
+# ---------------------------------------------------------------------------
+
+
+class TestKlingerOscillator:
+    def test_keys(self, ohlcv: dict[str, pd.Series]) -> None:
+        result = klinger_oscillator(
+            ohlcv["high"], ohlcv["low"], ohlcv["close"], ohlcv["volume"]
+        )
+        assert set(result.keys()) == {"kvo", "signal"}
+
+    def test_output_type(self, ohlcv: dict[str, pd.Series]) -> None:
+        result = klinger_oscillator(
+            ohlcv["high"], ohlcv["low"], ohlcv["close"], ohlcv["volume"]
+        )
+        assert isinstance(result["kvo"], pd.Series)
+        assert isinstance(result["signal"], pd.Series)
+
+    def test_length(self, ohlcv: dict[str, pd.Series]) -> None:
+        result = klinger_oscillator(
+            ohlcv["high"], ohlcv["low"], ohlcv["close"], ohlcv["volume"]
+        )
+        assert len(result["kvo"]) == len(ohlcv["close"])
+
+    def test_name(self, ohlcv: dict[str, pd.Series]) -> None:
+        result = klinger_oscillator(
+            ohlcv["high"], ohlcv["low"], ohlcv["close"], ohlcv["volume"]
+        )
+        assert result["kvo"].name == "kvo"
+        assert result["signal"].name == "kvo_signal"
+
+
+# ---------------------------------------------------------------------------
+# Stochastic Momentum Index
+# ---------------------------------------------------------------------------
+
+
+class TestStochasticMomentumIndex:
+    def test_keys(self, ohlcv: dict[str, pd.Series]) -> None:
+        result = stochastic_momentum_index(
+            ohlcv["high"], ohlcv["low"], ohlcv["close"]
+        )
+        assert set(result.keys()) == {"smi", "signal"}
+
+    def test_output_type(self, ohlcv: dict[str, pd.Series]) -> None:
+        result = stochastic_momentum_index(
+            ohlcv["high"], ohlcv["low"], ohlcv["close"]
+        )
+        assert isinstance(result["smi"], pd.Series)
+        assert isinstance(result["signal"], pd.Series)
+
+    def test_length(self, ohlcv: dict[str, pd.Series]) -> None:
+        result = stochastic_momentum_index(
+            ohlcv["high"], ohlcv["low"], ohlcv["close"]
+        )
+        assert len(result["smi"]) == len(ohlcv["close"])
+
+    def test_name(self, ohlcv: dict[str, pd.Series]) -> None:
+        result = stochastic_momentum_index(
+            ohlcv["high"], ohlcv["low"], ohlcv["close"]
+        )
+        assert result["smi"].name == "smi"
+        assert result["signal"].name == "smi_signal"
+
+    def test_has_valid_values(self, ohlcv: dict[str, pd.Series]) -> None:
+        result = stochastic_momentum_index(
+            ohlcv["high"], ohlcv["low"], ohlcv["close"]
+        )
+        assert result["smi"].dropna().shape[0] > 0
+
+
+# ---------------------------------------------------------------------------
+# Inertia
+# ---------------------------------------------------------------------------
+
+
+class TestInertia:
+    def test_output_type(self, ohlcv: dict[str, pd.Series]) -> None:
+        result = inertia(ohlcv["close"], ohlcv["high"], ohlcv["low"])
+        assert isinstance(result, pd.Series)
+
+    def test_length(self, ohlcv: dict[str, pd.Series]) -> None:
+        result = inertia(ohlcv["close"], ohlcv["high"], ohlcv["low"])
+        assert len(result) == len(ohlcv["close"])
+
+    def test_name(self, ohlcv: dict[str, pd.Series]) -> None:
+        result = inertia(ohlcv["close"], ohlcv["high"], ohlcv["low"])
+        assert result.name == "inertia"
+
+    def test_has_valid_values(self, ohlcv: dict[str, pd.Series]) -> None:
+        result = inertia(ohlcv["close"], ohlcv["high"], ohlcv["low"])
+        assert result.dropna().shape[0] > 0
+
+
+# ---------------------------------------------------------------------------
+# Squeeze Histogram
+# ---------------------------------------------------------------------------
+
+
+class TestSqueezeHistogram:
+    def test_output_type(self, ohlcv: dict[str, pd.Series]) -> None:
+        result = squeeze_histogram(ohlcv["high"], ohlcv["low"], ohlcv["close"])
+        assert isinstance(result, pd.Series)
+
+    def test_length(self, ohlcv: dict[str, pd.Series]) -> None:
+        result = squeeze_histogram(ohlcv["high"], ohlcv["low"], ohlcv["close"])
+        assert len(result) == len(ohlcv["close"])
+
+    def test_name(self, ohlcv: dict[str, pd.Series]) -> None:
+        result = squeeze_histogram(ohlcv["high"], ohlcv["low"], ohlcv["close"])
+        assert result.name == "squeeze_histogram"
+
+    def test_has_valid_values(self, ohlcv: dict[str, pd.Series]) -> None:
+        result = squeeze_histogram(ohlcv["high"], ohlcv["low"], ohlcv["close"])
+        assert result.dropna().shape[0] > 0
+
+
+# ---------------------------------------------------------------------------
+# Center of Gravity
+# ---------------------------------------------------------------------------
+
+
+class TestCenterOfGravity:
+    def test_output_type(self, close_series: pd.Series) -> None:
+        result = center_of_gravity(close_series, period=10)
+        assert isinstance(result, pd.Series)
+
+    def test_length(self, close_series: pd.Series) -> None:
+        result = center_of_gravity(close_series, period=10)
+        assert len(result) == len(close_series)
+
+    def test_name(self, close_series: pd.Series) -> None:
+        result = center_of_gravity(close_series, period=10)
+        assert result.name == "center_of_gravity"
+
+    def test_has_valid_values(self, close_series: pd.Series) -> None:
+        result = center_of_gravity(close_series, period=10)
+        assert result.dropna().shape[0] > 0
+
+    def test_constant_input(self) -> None:
+        """CoG of constant prices should be a constant value."""
+        data = pd.Series([50.0] * 30)
+        result = center_of_gravity(data, period=5)
+        valid = result.dropna()
+        # All values should be equal (constant input → constant output)
+        assert (valid.diff().dropna().abs() < 1e-10).all()
+
+
+# ---------------------------------------------------------------------------
+# Psychological Line
+# ---------------------------------------------------------------------------
+
+
+class TestPsychologicalLine:
+    def test_output_type(self, close_series: pd.Series) -> None:
+        result = psychological_line(close_series, period=12)
+        assert isinstance(result, pd.Series)
+
+    def test_length(self, close_series: pd.Series) -> None:
+        result = psychological_line(close_series, period=12)
+        assert len(result) == len(close_series)
+
+    def test_bounds(self, close_series: pd.Series) -> None:
+        """Psychological Line should be in [0, 100]."""
+        result = psychological_line(close_series, period=12)
+        valid = result.dropna()
+        assert (valid >= -1e-10).all()
+        assert (valid <= 100 + 1e-10).all()
+
+    def test_name(self, close_series: pd.Series) -> None:
+        result = psychological_line(close_series, period=12)
+        assert result.name == "psychological_line"
+
+    def test_all_up(self) -> None:
+        """All up bars should give 100 after warm-up."""
+        data = pd.Series(np.arange(1.0, 21.0))
+        result = psychological_line(data, period=5)
+        valid = result.dropna()
+        # Skip the first value where diff() NaN at index 0 reduces the count
+        converged = valid.iloc[1:]
+        assert (converged == 100.0).all()
+
+    def test_all_down(self) -> None:
+        """All down bars should give 0 after warm-up."""
+        data = pd.Series(np.arange(20.0, 0.0, -1.0))
+        result = psychological_line(data, period=5)
+        valid = result.dropna()
+        # Skip the first value where diff() NaN at index 0 affects the count
+        converged = valid.iloc[1:]
+        assert (converged.abs() < 1e-10).all()

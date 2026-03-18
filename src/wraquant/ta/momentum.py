@@ -35,6 +35,14 @@ __all__ = [
     "qstick",
     "coppock_curve",
     "relative_vigor_index",
+    "schaff_momentum",
+    "price_momentum_oscillator",
+    "klinger_oscillator",
+    "stochastic_momentum_index",
+    "inertia",
+    "squeeze_histogram",
+    "center_of_gravity",
+    "psychological_line",
 ]
 
 
@@ -1228,3 +1236,510 @@ def relative_vigor_index(
         "rvi": rvi_line.rename("rvi"),
         "signal": signal_line.rename("rvi_signal"),
     }
+
+
+# ---------------------------------------------------------------------------
+# Schaff Momentum
+# ---------------------------------------------------------------------------
+
+
+def schaff_momentum(
+    data: pd.Series,
+    period: int = 10,
+    fast: int = 23,
+    slow: int = 50,
+) -> pd.Series:
+    """Schaff Trend Cycle applied to momentum (Schaff Momentum).
+
+    Applies two rounds of Stochastic smoothing to the difference between
+    fast and slow EMAs, producing a bounded oscillator in [0, 100].
+
+    Parameters
+    ----------
+    data : pd.Series
+        Price series (typically close).
+    period : int, default 10
+        Stochastic look-back period.
+    fast : int, default 23
+        Fast EMA period.
+    slow : int, default 50
+        Slow EMA period.
+
+    Returns
+    -------
+    pd.Series
+        Schaff Momentum values in [0, 100].
+
+    Example
+    -------
+    >>> result = schaff_momentum(close, period=10)
+    """
+    _validate_series(data)
+    _validate_period(period)
+
+    macd_line = _ema(data, fast) - _ema(data, slow)
+
+    # First Stochastic of MACD
+    lowest = macd_line.rolling(window=period, min_periods=period).min()
+    highest = macd_line.rolling(window=period, min_periods=period).max()
+    hl_range = (highest - lowest).replace(0, np.nan)
+    frac1 = ((macd_line - lowest) / hl_range) * 100.0
+
+    # Smooth with EMA-like factor (Schaff uses 0.5)
+    pf = pd.Series(np.nan, index=data.index)
+    for i in range(len(frac1)):
+        if np.isnan(frac1.iloc[i]):
+            continue
+        prev = pf.iloc[i - 1] if i > 0 and not np.isnan(pf.iloc[i - 1]) else frac1.iloc[i]
+        pf.iloc[i] = prev + 0.5 * (frac1.iloc[i] - prev)
+
+    # Second Stochastic of the smoothed result
+    lowest2 = pf.rolling(window=period, min_periods=period).min()
+    highest2 = pf.rolling(window=period, min_periods=period).max()
+    hl_range2 = (highest2 - lowest2).replace(0, np.nan)
+    frac2 = ((pf - lowest2) / hl_range2) * 100.0
+
+    result = pd.Series(np.nan, index=data.index)
+    for i in range(len(frac2)):
+        if np.isnan(frac2.iloc[i]):
+            continue
+        prev = result.iloc[i - 1] if i > 0 and not np.isnan(result.iloc[i - 1]) else frac2.iloc[i]
+        result.iloc[i] = prev + 0.5 * (frac2.iloc[i] - prev)
+
+    result.name = "schaff_momentum"
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Price Momentum Oscillator
+# ---------------------------------------------------------------------------
+
+
+def price_momentum_oscillator(
+    data: pd.Series,
+    short: int = 35,
+    long: int = 20,
+    signal: int = 10,
+) -> dict[str, pd.Series]:
+    """Price Momentum Oscillator (PMO) — double-smoothed ROC.
+
+    ``PMO = EMA(EMA(ROC(1), short), long)``
+
+    Developed by Carl Swenlin, the PMO is a double-smoothed one-bar
+    rate-of-change, scaled by a factor of 10 for visibility.
+
+    Parameters
+    ----------
+    data : pd.Series
+        Price series (typically close).
+    short : int, default 35
+        First smoothing EMA period.
+    long : int, default 20
+        Second smoothing EMA period.
+    signal : int, default 10
+        Signal line EMA period.
+
+    Returns
+    -------
+    dict[str, pd.Series]
+        ``pmo`` and ``signal``.
+
+    Example
+    -------
+    >>> result = price_momentum_oscillator(close)
+    >>> result["pmo"]
+    """
+    _validate_series(data)
+    _validate_period(short, "short")
+    _validate_period(long, "long")
+    _validate_period(signal, "signal")
+
+    roc_1 = ((data - data.shift(1)) / data.shift(1)) * 100.0
+    smoothed_1 = _ema(roc_1 * 10.0, short)
+    pmo_line = _ema(smoothed_1, long)
+    signal_line = _ema(pmo_line, signal)
+
+    return {
+        "pmo": pmo_line.rename("pmo"),
+        "signal": signal_line.rename("pmo_signal"),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Klinger Oscillator (momentum view)
+# ---------------------------------------------------------------------------
+
+
+def klinger_oscillator(
+    high: pd.Series,
+    low: pd.Series,
+    close: pd.Series,
+    volume: pd.Series,
+    fast: int = 34,
+    slow: int = 55,
+    signal: int = 13,
+) -> dict[str, pd.Series]:
+    """Klinger Volume Oscillator — momentum-oriented view.
+
+    Uses the relationship between price trend direction and volume to
+    predict price reversals.
+
+    Parameters
+    ----------
+    high : pd.Series
+        High prices.
+    low : pd.Series
+        Low prices.
+    close : pd.Series
+        Close prices.
+    volume : pd.Series
+        Volume data.
+    fast : int, default 34
+        Fast EMA period.
+    slow : int, default 55
+        Slow EMA period.
+    signal : int, default 13
+        Signal line EMA period.
+
+    Returns
+    -------
+    dict[str, pd.Series]
+        ``kvo`` and ``signal``.
+
+    Example
+    -------
+    >>> result = klinger_oscillator(high, low, close, volume)
+    >>> result["kvo"]
+    """
+    _validate_series(high, "high")
+    _validate_series(low, "low")
+    _validate_series(close, "close")
+    _validate_series(volume, "volume")
+
+    hlc3 = (high + low + close) / 3.0
+    trend = np.sign(hlc3 - hlc3.shift(1))
+    trend.iloc[0] = 0
+
+    dm = high - low
+    dm_arr = dm.values.copy()
+    trend_arr = trend.values
+
+    cm = np.empty(len(dm))
+    cm[0] = dm_arr[0]
+    for i in range(1, len(dm)):
+        if trend_arr[i] == trend_arr[i - 1]:
+            cm[i] = cm[i - 1] + dm_arr[i]
+        else:
+            cm[i] = dm_arr[i]
+
+    cm_series = pd.Series(cm, index=close.index)
+    ratio = pd.Series(
+        np.where(cm_series != 0, 2.0 * dm / cm_series - 1.0, 0.0),
+        index=close.index,
+    )
+    vf = volume * np.abs(ratio) * trend * 100.0
+
+    kvo = _ema(vf, fast) - _ema(vf, slow)
+    signal_line = _ema(kvo, signal)
+
+    return {
+        "kvo": kvo.rename("kvo"),
+        "signal": signal_line.rename("kvo_signal"),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Stochastic Momentum Index
+# ---------------------------------------------------------------------------
+
+
+def stochastic_momentum_index(
+    high: pd.Series,
+    low: pd.Series,
+    close: pd.Series,
+    period: int = 14,
+    smooth_k: int = 3,
+    smooth_d: int = 3,
+) -> dict[str, pd.Series]:
+    """Stochastic Momentum Index (SMI).
+
+    The SMI is a refinement of the Stochastic Oscillator that measures the
+    distance of the close relative to the midpoint of the high-low range,
+    double-smoothed with EMAs.
+
+    Parameters
+    ----------
+    high : pd.Series
+        High prices.
+    low : pd.Series
+        Low prices.
+    close : pd.Series
+        Close prices.
+    period : int, default 14
+        Look-back period.
+    smooth_k : int, default 3
+        First smoothing EMA period.
+    smooth_d : int, default 3
+        Signal line EMA period.
+
+    Returns
+    -------
+    dict[str, pd.Series]
+        ``smi`` and ``signal``.
+
+    Example
+    -------
+    >>> result = stochastic_momentum_index(high, low, close)
+    >>> result["smi"]
+    """
+    _validate_series(high, "high")
+    _validate_series(low, "low")
+    _validate_series(close, "close")
+    _validate_period(period)
+
+    highest_high = high.rolling(window=period, min_periods=period).max()
+    lowest_low = low.rolling(window=period, min_periods=period).min()
+
+    midpoint = (highest_high + lowest_low) / 2.0
+    diff = close - midpoint
+    hl_range = highest_high - lowest_low
+
+    # Double smooth both numerator and denominator
+    smoothed_diff = _ema(_ema(diff, smooth_k), smooth_k)
+    smoothed_range = _ema(_ema(hl_range, smooth_k), smooth_k)
+
+    smi = (smoothed_diff / (smoothed_range / 2.0).replace(0, np.nan)) * 100.0
+    signal_line = _ema(smi, smooth_d)
+
+    return {
+        "smi": smi.rename("smi"),
+        "signal": signal_line.rename("smi_signal"),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Inertia
+# ---------------------------------------------------------------------------
+
+
+def inertia(
+    close: pd.Series,
+    high: pd.Series,
+    low: pd.Series,
+    rvi_period: int = 10,
+    linreg_period: int = 20,
+) -> pd.Series:
+    """Ehlers Inertia Indicator — RVI smoothed by linear regression.
+
+    Applies a linear regression (moving regression value) to the Relative
+    Volatility Index (RVI) to produce a momentum-like indicator.
+
+    Parameters
+    ----------
+    close : pd.Series
+        Close prices.
+    high : pd.Series
+        High prices.
+    low : pd.Series
+        Low prices.
+    rvi_period : int, default 10
+        Period for computing the RVI.
+    linreg_period : int, default 20
+        Linear regression look-back period.
+
+    Returns
+    -------
+    pd.Series
+        Inertia values. Values above 50 are bullish; below 50 are bearish.
+
+    Example
+    -------
+    >>> result = inertia(close, high, low)
+    """
+    _validate_series(close, "close")
+    _validate_series(high, "high")
+    _validate_series(low, "low")
+    _validate_period(rvi_period, "rvi_period")
+    _validate_period(linreg_period, "linreg_period")
+
+    # Compute RVI (relative volatility index) using std dev
+    delta = close.diff()
+    up_vol = pd.Series(
+        np.where(delta > 0, close.rolling(rvi_period).std(), 0.0),
+        index=close.index,
+    )
+    down_vol = pd.Series(
+        np.where(delta <= 0, close.rolling(rvi_period).std(), 0.0),
+        index=close.index,
+    )
+
+    avg_up = _ema(up_vol, rvi_period)
+    avg_down = _ema(down_vol, rvi_period)
+    rvi_values = 100.0 * avg_up / (avg_up + avg_down).replace(0, np.nan)
+
+    # Apply linear regression smoothing
+    def _linreg_value(window: np.ndarray) -> float:
+        n = len(window)
+        x = np.arange(n, dtype=float)
+        slope, intercept = np.polyfit(x, window, 1)
+        return intercept + slope * (n - 1)
+
+    result = rvi_values.rolling(
+        window=linreg_period, min_periods=linreg_period
+    ).apply(_linreg_value, raw=True)
+    result.name = "inertia"
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Squeeze Histogram
+# ---------------------------------------------------------------------------
+
+
+def squeeze_histogram(
+    high: pd.Series,
+    low: pd.Series,
+    close: pd.Series,
+    period: int = 20,
+    linreg_period: int = 20,
+) -> pd.Series:
+    """Squeeze Histogram — momentum component of the TTM Squeeze.
+
+    Computes the linear regression value of ``close - midline`` where
+    midline is the average of the highest high and lowest low over the
+    period, combined with the SMA.
+
+    Parameters
+    ----------
+    high : pd.Series
+        High prices.
+    low : pd.Series
+        Low prices.
+    close : pd.Series
+        Close prices.
+    period : int, default 20
+        Donchian / Bollinger look-back period.
+    linreg_period : int, default 20
+        Linear regression period for the momentum value.
+
+    Returns
+    -------
+    pd.Series
+        Squeeze momentum histogram values.
+
+    Example
+    -------
+    >>> result = squeeze_histogram(high, low, close)
+    """
+    _validate_series(high, "high")
+    _validate_series(low, "low")
+    _validate_series(close, "close")
+    _validate_period(period)
+    _validate_period(linreg_period, "linreg_period")
+
+    highest_high = high.rolling(window=period, min_periods=period).max()
+    lowest_low = low.rolling(window=period, min_periods=period).min()
+    sma = close.rolling(window=period, min_periods=period).mean()
+
+    midline = (highest_high + lowest_low) / 2.0
+    delta = close - (midline + sma) / 2.0
+
+    def _linreg_value(window: np.ndarray) -> float:
+        n = len(window)
+        x = np.arange(n, dtype=float)
+        slope, intercept = np.polyfit(x, window, 1)
+        return intercept + slope * (n - 1)
+
+    result = delta.rolling(
+        window=linreg_period, min_periods=linreg_period
+    ).apply(_linreg_value, raw=True)
+    result.name = "squeeze_histogram"
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Center of Gravity
+# ---------------------------------------------------------------------------
+
+
+def center_of_gravity(
+    data: pd.Series,
+    period: int = 10,
+) -> pd.Series:
+    """Ehlers Center of Gravity Oscillator.
+
+    A weighted sum of recent prices where more recent bars receive higher
+    weight, normalized by a simple sum. This produces a leading oscillator.
+
+    ``CoG = -sum(price[i] * (i+1), i=0..period-1) / sum(price[i], i=0..period-1)``
+
+    Parameters
+    ----------
+    data : pd.Series
+        Price series (typically close).
+    period : int, default 10
+        Look-back period.
+
+    Returns
+    -------
+    pd.Series
+        Center of Gravity values (oscillates around zero).
+
+    Example
+    -------
+    >>> result = center_of_gravity(close, period=10)
+    """
+    _validate_series(data)
+    _validate_period(period)
+
+    weights = np.arange(1, period + 1, dtype=float)
+
+    def _cog(window: np.ndarray) -> float:
+        denom = np.sum(window)
+        if denom == 0:
+            return np.nan
+        return -np.dot(window, weights) / denom
+
+    result = data.rolling(window=period, min_periods=period).apply(_cog, raw=True)
+    result.name = "center_of_gravity"
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Psychological Line
+# ---------------------------------------------------------------------------
+
+
+def psychological_line(
+    data: pd.Series,
+    period: int = 12,
+) -> pd.Series:
+    """Psychological Line — percentage of up days over N periods.
+
+    ``PSY = (number of up bars in period) / period * 100``
+
+    Values above 50 suggest bullish sentiment; below 50 suggest bearish.
+
+    Parameters
+    ----------
+    data : pd.Series
+        Price series (typically close).
+    period : int, default 12
+        Look-back period.
+
+    Returns
+    -------
+    pd.Series
+        Psychological Line values in [0, 100].
+
+    Example
+    -------
+    >>> result = psychological_line(close, period=12)
+    """
+    _validate_series(data)
+    _validate_period(period)
+
+    up = (data.diff() > 0).astype(float)
+    result = up.rolling(window=period, min_periods=period).sum() / period * 100.0
+    result.name = "psychological_line"
+    return result

@@ -9,12 +9,18 @@ import pytest
 from wraquant.ta.custom import (
     adaptive_rsi,
     anchored_vwap,
+    detrended_regression,
     ehlers_fisher,
     linear_regression_channel,
+    linear_regression_forecast,
     market_structure,
     pivot_points,
+    polynomial_regression,
+    r_squared_indicator,
+    raff_regression_channel,
     relative_strength,
     squeeze_momentum,
+    standard_error_bands,
     swing_points,
     volume_weighted_macd,
 )
@@ -312,3 +318,193 @@ class TestRelativeStrength:
         result = relative_strength(data, benchmark)
         assert abs(result.iloc[0] - 2.0) < 1e-10
         assert abs(result.iloc[1] - 2.0) < 1e-10
+
+
+# ---------------------------------------------------------------------------
+# Linear Regression Forecast
+# ---------------------------------------------------------------------------
+
+
+class TestLinearRegressionForecast:
+    def test_output_type(self, close_series: pd.Series) -> None:
+        result = linear_regression_forecast(close_series, period=20)
+        assert isinstance(result, pd.Series)
+
+    def test_output_length(self, close_series: pd.Series) -> None:
+        result = linear_regression_forecast(close_series, period=20)
+        assert len(result) == len(close_series)
+
+    def test_nan_before_period(self, close_series: pd.Series) -> None:
+        period = 20
+        result = linear_regression_forecast(close_series, period=period)
+        assert result.iloc[: period - 1].isna().all()
+
+    def test_perfect_trend(self) -> None:
+        """For a perfect linear series, forecast should be exact."""
+        data = pd.Series(np.arange(50, dtype=float) * 2.0 + 10.0)
+        result = linear_regression_forecast(data, period=10, forecast_bars=1)
+        # At index 9 (end of first window), forecasting 1 bar ahead
+        # should predict the next value in the linear sequence
+        for i in range(9, len(data)):
+            expected = data.iloc[i] + 2.0  # slope is 2.0
+            assert abs(result.iloc[i] - expected) < 1e-8
+
+    def test_type_error(self) -> None:
+        with pytest.raises(TypeError):
+            linear_regression_forecast([1, 2, 3])  # type: ignore[arg-type]
+
+
+# ---------------------------------------------------------------------------
+# Standard Error Bands
+# ---------------------------------------------------------------------------
+
+
+class TestStandardErrorBands:
+    def test_output_keys(self, close_series: pd.Series) -> None:
+        result = standard_error_bands(close_series, period=20, num_bands=3)
+        expected = {"middle", "upper_1", "lower_1", "upper_2", "lower_2", "upper_3", "lower_3"}
+        assert set(result.keys()) == expected
+
+    def test_custom_num_bands(self, close_series: pd.Series) -> None:
+        result = standard_error_bands(close_series, period=20, num_bands=2)
+        expected = {"middle", "upper_1", "lower_1", "upper_2", "lower_2"}
+        assert set(result.keys()) == expected
+
+    def test_upper_above_lower(self, close_series: pd.Series) -> None:
+        result = standard_error_bands(close_series, period=20)
+        valid = result["upper_1"].notna() & result["lower_1"].notna()
+        assert (result["upper_1"][valid] >= result["lower_1"][valid] - 1e-10).all()
+
+    def test_output_length(self, close_series: pd.Series) -> None:
+        result = standard_error_bands(close_series, period=20)
+        assert len(result["middle"]) == len(close_series)
+
+
+# ---------------------------------------------------------------------------
+# R-Squared Indicator
+# ---------------------------------------------------------------------------
+
+
+class TestRSquaredIndicator:
+    def test_output_type(self, close_series: pd.Series) -> None:
+        result = r_squared_indicator(close_series, period=14)
+        assert isinstance(result, pd.Series)
+
+    def test_output_length(self, close_series: pd.Series) -> None:
+        result = r_squared_indicator(close_series, period=14)
+        assert len(result) == len(close_series)
+
+    def test_bounds(self, close_series: pd.Series) -> None:
+        result = r_squared_indicator(close_series, period=14)
+        valid = result.dropna()
+        assert (valid >= -1e-10).all()
+        assert (valid <= 1.0 + 1e-10).all()
+
+    def test_perfect_trend(self) -> None:
+        """R-squared of a perfect linear series should be 1.0."""
+        data = pd.Series(np.arange(50, dtype=float) * 2.0 + 10.0)
+        result = r_squared_indicator(data, period=10)
+        valid = result.dropna()
+        assert (abs(valid - 1.0) < 1e-8).all()
+
+    def test_type_error(self) -> None:
+        with pytest.raises(TypeError):
+            r_squared_indicator([1, 2, 3])  # type: ignore[arg-type]
+
+
+# ---------------------------------------------------------------------------
+# Polynomial Regression
+# ---------------------------------------------------------------------------
+
+
+class TestPolynomialRegression:
+    def test_output_type(self, close_series: pd.Series) -> None:
+        result = polynomial_regression(close_series, period=20, degree=2)
+        assert isinstance(result, pd.Series)
+
+    def test_output_length(self, close_series: pd.Series) -> None:
+        result = polynomial_regression(close_series, period=20, degree=2)
+        assert len(result) == len(close_series)
+
+    def test_nan_before_period(self, close_series: pd.Series) -> None:
+        period = 20
+        result = polynomial_regression(close_series, period=period)
+        assert result.iloc[: period - 1].isna().all()
+
+    def test_linear_matches_degree_1(self) -> None:
+        """Degree 1 polynomial regression should match linear regression."""
+        data = pd.Series(np.arange(30, dtype=float) * 3.0 + 5.0)
+        poly_result = polynomial_regression(data, period=10, degree=1)
+        valid = poly_result.dropna()
+        # For a perfect linear series, the fitted value should be exact
+        for i in range(9, len(data)):
+            assert abs(poly_result.iloc[i] - data.iloc[i]) < 1e-6
+
+    def test_invalid_degree(self) -> None:
+        with pytest.raises(ValueError, match="degree"):
+            polynomial_regression(pd.Series([1.0, 2.0, 3.0]), period=2, degree=0)
+
+
+# ---------------------------------------------------------------------------
+# Raff Regression Channel
+# ---------------------------------------------------------------------------
+
+
+class TestRaffRegressionChannel:
+    def test_output_keys(self, close_series: pd.Series) -> None:
+        result = raff_regression_channel(close_series, period=50)
+        assert set(result.keys()) == {"center", "upper", "lower"}
+
+    def test_upper_above_lower(self, close_series: pd.Series) -> None:
+        result = raff_regression_channel(close_series, period=50)
+        valid = result["upper"].notna() & result["lower"].notna()
+        assert (result["upper"][valid] >= result["lower"][valid] - 1e-10).all()
+
+    def test_output_length(self, close_series: pd.Series) -> None:
+        result = raff_regression_channel(close_series, period=50)
+        assert len(result["center"]) == len(close_series)
+
+    def test_channel_width(self) -> None:
+        """Upper and lower should be equidistant from center."""
+        np.random.seed(42)
+        data = pd.Series(100 + np.cumsum(np.random.randn(100) * 0.5))
+        result = raff_regression_channel(data, period=30)
+        valid = result["center"].notna()
+        upper_dev = result["upper"][valid] - result["center"][valid]
+        lower_dev = result["center"][valid] - result["lower"][valid]
+        pd.testing.assert_series_equal(
+            upper_dev.reset_index(drop=True),
+            lower_dev.reset_index(drop=True),
+            atol=1e-10,
+        )
+
+
+# ---------------------------------------------------------------------------
+# Detrended Regression
+# ---------------------------------------------------------------------------
+
+
+class TestDetrendedRegression:
+    def test_output_type(self, close_series: pd.Series) -> None:
+        result = detrended_regression(close_series, period=20)
+        assert isinstance(result, pd.Series)
+
+    def test_output_length(self, close_series: pd.Series) -> None:
+        result = detrended_regression(close_series, period=20)
+        assert len(result) == len(close_series)
+
+    def test_nan_before_period(self, close_series: pd.Series) -> None:
+        period = 20
+        result = detrended_regression(close_series, period=period)
+        assert result.iloc[: period - 1].isna().all()
+
+    def test_perfect_trend_zero_residual(self) -> None:
+        """For a perfect linear series, detrended values should be 0."""
+        data = pd.Series(np.arange(50, dtype=float) * 2.0 + 10.0)
+        result = detrended_regression(data, period=10)
+        valid = result.dropna()
+        assert (abs(valid) < 1e-8).all()
+
+    def test_type_error(self) -> None:
+        with pytest.raises(TypeError):
+            detrended_regression([1, 2, 3])  # type: ignore[arg-type]

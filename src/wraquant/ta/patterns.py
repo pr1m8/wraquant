@@ -39,6 +39,21 @@ __all__ = [
     "abandoned_baby",
     "kicking",
     "belt_hold",
+    "rising_three_methods",
+    "falling_three_methods",
+    "tasuki_gap",
+    "on_neck",
+    "in_neck",
+    "thrusting",
+    "separating_lines",
+    "closing_marubozu",
+    "rickshaw_man",
+    "long_legged_doji",
+    "dragonfly_doji",
+    "gravestone_doji",
+    "tri_star",
+    "unique_three_river",
+    "concealing_baby_swallow",
 ]
 
 
@@ -1382,3 +1397,877 @@ def belt_hold(
 
     result = np.where(bullish_belt, 1, np.where(bearish_belt, -1, 0))
     return pd.Series(result, index=close.index, name="belt_hold", dtype=int)
+
+
+# ---------------------------------------------------------------------------
+# Rising Three Methods
+# ---------------------------------------------------------------------------
+
+
+def rising_three_methods(
+    open_: pd.Series,
+    high: pd.Series,
+    low: pd.Series,
+    close: pd.Series,
+) -> pd.Series:
+    """Rising Three Methods (bullish continuation).
+
+    A five-candle pattern: a long bullish candle, followed by three small
+    bearish candles that stay within the first candle's range, then a
+    final long bullish candle that closes above the first candle's close.
+
+    Parameters:
+        open_: Open prices.
+        high: High prices.
+        low: Low prices.
+        close: Close prices.
+
+    Returns:
+        1 where the pattern is detected, 0 otherwise.
+
+    Example:
+        >>> signal = rising_three_methods(open_, high, low, close)
+    """
+    _validate_series(open_, "open_")
+    _validate_series(high, "high")
+    _validate_series(low, "low")
+    _validate_series(close, "close")
+
+    result = pd.Series(0, index=close.index, name="rising_three_methods", dtype=int)
+
+    for i in range(4, len(close)):
+        # Day 1 (i-4): long bullish candle
+        d1_open = open_.iloc[i - 4]
+        d1_close = close.iloc[i - 4]
+        d1_high = high.iloc[i - 4]
+        d1_low = low.iloc[i - 4]
+        d1_body = abs(d1_close - d1_open)
+        d1_range = d1_high - d1_low
+        if d1_close <= d1_open or d1_range == 0 or d1_body < d1_range * 0.5:
+            continue
+
+        # Days 2-4 (i-3, i-2, i-1): small candles within Day 1 range
+        middle_ok = True
+        for j in range(i - 3, i):
+            if high.iloc[j] > d1_high or low.iloc[j] < d1_low:
+                middle_ok = False
+                break
+            if close.iloc[j] >= open_.iloc[j]:  # must be bearish or small
+                mid_body = abs(close.iloc[j] - open_.iloc[j])
+                if mid_body > d1_body * 0.5:
+                    middle_ok = False
+                    break
+
+        if not middle_ok:
+            continue
+
+        # Day 5 (i): long bullish candle closing above Day 1 close
+        d5_body = abs(close.iloc[i] - open_.iloc[i])
+        d5_range = high.iloc[i] - low.iloc[i]
+        if (
+            close.iloc[i] > open_.iloc[i]
+            and close.iloc[i] > d1_close
+            and d5_range > 0
+            and d5_body > d5_range * 0.5
+        ):
+            result.iloc[i] = 1
+
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Falling Three Methods
+# ---------------------------------------------------------------------------
+
+
+def falling_three_methods(
+    open_: pd.Series,
+    high: pd.Series,
+    low: pd.Series,
+    close: pd.Series,
+) -> pd.Series:
+    """Falling Three Methods (bearish continuation).
+
+    The bearish counterpart of Rising Three Methods.  A long bearish candle,
+    three small bullish candles inside its range, then a final long bearish
+    candle that closes below the first candle's close.
+
+    Parameters:
+        open_: Open prices.
+        high: High prices.
+        low: Low prices.
+        close: Close prices.
+
+    Returns:
+        -1 where the pattern is detected, 0 otherwise.
+
+    Example:
+        >>> signal = falling_three_methods(open_, high, low, close)
+    """
+    _validate_series(open_, "open_")
+    _validate_series(high, "high")
+    _validate_series(low, "low")
+    _validate_series(close, "close")
+
+    result = pd.Series(0, index=close.index, name="falling_three_methods", dtype=int)
+
+    for i in range(4, len(close)):
+        # Day 1 (i-4): long bearish candle
+        d1_open = open_.iloc[i - 4]
+        d1_close = close.iloc[i - 4]
+        d1_high = high.iloc[i - 4]
+        d1_low = low.iloc[i - 4]
+        d1_body = abs(d1_close - d1_open)
+        d1_range = d1_high - d1_low
+        if d1_close >= d1_open or d1_range == 0 or d1_body < d1_range * 0.5:
+            continue
+
+        # Days 2-4: small candles within Day 1 range
+        middle_ok = True
+        for j in range(i - 3, i):
+            if high.iloc[j] > d1_high or low.iloc[j] < d1_low:
+                middle_ok = False
+                break
+            if close.iloc[j] <= open_.iloc[j]:  # must be bullish or small
+                mid_body = abs(close.iloc[j] - open_.iloc[j])
+                if mid_body > d1_body * 0.5:
+                    middle_ok = False
+                    break
+
+        if not middle_ok:
+            continue
+
+        # Day 5: long bearish candle closing below Day 1 close
+        d5_body = abs(close.iloc[i] - open_.iloc[i])
+        d5_range = high.iloc[i] - low.iloc[i]
+        if (
+            close.iloc[i] < open_.iloc[i]
+            and close.iloc[i] < d1_close
+            and d5_range > 0
+            and d5_body > d5_range * 0.5
+        ):
+            result.iloc[i] = -1
+
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Tasuki Gap
+# ---------------------------------------------------------------------------
+
+
+def tasuki_gap(
+    open_: pd.Series,
+    high: pd.Series,
+    low: pd.Series,
+    close: pd.Series,
+) -> pd.Series:
+    """Upside/Downside Tasuki Gap.
+
+    **Upside** (1): two bullish candles with a gap up, followed by a bearish
+    candle that opens within the second body and closes within the gap but
+    does not fill it.
+
+    **Downside** (-1): two bearish candles with a gap down, followed by a
+    bullish candle that opens within the second body and closes within the
+    gap but does not fill it.
+
+    Parameters:
+        open_: Open prices.
+        high: High prices.
+        low: Low prices.
+        close: Close prices.
+
+    Returns:
+        1 (upside Tasuki gap), -1 (downside Tasuki gap), or 0.
+
+    Example:
+        >>> signal = tasuki_gap(open_, high, low, close)
+    """
+    _validate_series(open_, "open_")
+    _validate_series(high, "high")
+    _validate_series(low, "low")
+    _validate_series(close, "close")
+
+    # Upside Tasuki gap
+    d1_bull = close.shift(2) > open_.shift(2)
+    d2_bull = close.shift(1) > open_.shift(1)
+    gap_up = open_.shift(1) > close.shift(2)  # gap up between d1 and d2
+    d3_bear = close < open_
+    d3_opens_in_d2 = (open_ >= open_.shift(1)) & (open_ <= close.shift(1))
+    d3_closes_in_gap = (close < open_.shift(1)) & (close > close.shift(2))
+
+    upside = d1_bull & d2_bull & gap_up & d3_bear & d3_opens_in_d2 & d3_closes_in_gap
+
+    # Downside Tasuki gap
+    d1_bear = close.shift(2) < open_.shift(2)
+    d2_bear = close.shift(1) < open_.shift(1)
+    gap_down = open_.shift(1) < close.shift(2)  # gap down between d1 and d2
+    d3_bull = close > open_
+    d3_opens_in_d2_dn = (open_ <= open_.shift(1)) & (open_ >= close.shift(1))
+    d3_closes_in_gap_dn = (close > open_.shift(1)) & (close < close.shift(2))
+
+    downside = (
+        d1_bear & d2_bear & gap_down & d3_bull & d3_opens_in_d2_dn & d3_closes_in_gap_dn
+    )
+
+    result = np.where(upside, 1, np.where(downside, -1, 0))
+    return pd.Series(result, index=close.index, name="tasuki_gap", dtype=int)
+
+
+# ---------------------------------------------------------------------------
+# On Neck
+# ---------------------------------------------------------------------------
+
+
+def on_neck(
+    open_: pd.Series,
+    high: pd.Series,
+    low: pd.Series,
+    close: pd.Series,
+    tolerance: float = 0.001,
+) -> pd.Series:
+    """On Neck pattern (bearish continuation).
+
+    A bearish candle followed by a small bullish candle that opens below
+    the previous low and closes at or near the previous low.
+
+    Parameters:
+        open_: Open prices.
+        high: High prices.
+        low: Low prices.
+        close: Close prices.
+        tolerance: Maximum relative difference between close and previous
+            low.
+
+    Returns:
+        -1 where the pattern is detected, 0 otherwise.
+
+    Example:
+        >>> signal = on_neck(open_, high, low, close)
+    """
+    _validate_series(open_, "open_")
+    _validate_series(high, "high")
+    _validate_series(low, "low")
+    _validate_series(close, "close")
+
+    prev_bearish = close.shift(1) < open_.shift(1)
+    curr_bullish = close > open_
+    opens_below = open_ < low.shift(1)
+
+    # Close at or near previous low
+    prev_low = low.shift(1)
+    close_near_prev_low = ((close - prev_low).abs() / prev_low) <= tolerance
+
+    signal = prev_bearish & curr_bullish & opens_below & close_near_prev_low
+    result = np.where(signal, -1, 0)
+    return pd.Series(result, index=close.index, name="on_neck", dtype=int)
+
+
+# ---------------------------------------------------------------------------
+# In Neck
+# ---------------------------------------------------------------------------
+
+
+def in_neck(
+    open_: pd.Series,
+    high: pd.Series,
+    low: pd.Series,
+    close: pd.Series,
+    tolerance: float = 0.003,
+) -> pd.Series:
+    """In Neck pattern (slight bullish variant of On Neck).
+
+    A bearish candle followed by a small bullish candle that opens below
+    the previous low and closes slightly above (but near) the previous
+    close.
+
+    Parameters:
+        open_: Open prices.
+        high: High prices.
+        low: Low prices.
+        close: Close prices.
+        tolerance: Maximum relative distance above the previous close.
+
+    Returns:
+        -1 where the pattern is detected, 0 otherwise.
+
+    Example:
+        >>> signal = in_neck(open_, high, low, close)
+    """
+    _validate_series(open_, "open_")
+    _validate_series(high, "high")
+    _validate_series(low, "low")
+    _validate_series(close, "close")
+
+    prev_bearish = close.shift(1) < open_.shift(1)
+    curr_bullish = close > open_
+    opens_below = open_ < low.shift(1)
+
+    prev_close = close.shift(1)
+    # Close slightly above previous close
+    close_near_prev_close = (close >= prev_close) & (
+        ((close - prev_close) / prev_close) <= tolerance
+    )
+
+    signal = prev_bearish & curr_bullish & opens_below & close_near_prev_close
+    result = np.where(signal, -1, 0)
+    return pd.Series(result, index=close.index, name="in_neck", dtype=int)
+
+
+# ---------------------------------------------------------------------------
+# Thrusting
+# ---------------------------------------------------------------------------
+
+
+def thrusting(
+    open_: pd.Series,
+    high: pd.Series,
+    low: pd.Series,
+    close: pd.Series,
+) -> pd.Series:
+    """Thrusting pattern (moderate bearish continuation).
+
+    A bearish candle followed by a bullish candle that opens below the
+    previous low and closes above the previous close but below the midpoint
+    of the previous body.
+
+    Parameters:
+        open_: Open prices.
+        high: High prices.
+        low: Low prices.
+        close: Close prices.
+
+    Returns:
+        -1 where the pattern is detected, 0 otherwise.
+
+    Example:
+        >>> signal = thrusting(open_, high, low, close)
+    """
+    _validate_series(open_, "open_")
+    _validate_series(high, "high")
+    _validate_series(low, "low")
+    _validate_series(close, "close")
+
+    prev_bearish = close.shift(1) < open_.shift(1)
+    curr_bullish = close > open_
+    opens_below = open_ < low.shift(1)
+
+    prev_midpoint = (open_.shift(1) + close.shift(1)) / 2.0
+    closes_above_prev_close = close > close.shift(1)
+    closes_below_mid = close < prev_midpoint
+
+    signal = prev_bearish & curr_bullish & opens_below & closes_above_prev_close & closes_below_mid
+    result = np.where(signal, -1, 0)
+    return pd.Series(result, index=close.index, name="thrusting", dtype=int)
+
+
+# ---------------------------------------------------------------------------
+# Separating Lines
+# ---------------------------------------------------------------------------
+
+
+def separating_lines(
+    open_: pd.Series,
+    high: pd.Series,
+    low: pd.Series,
+    close: pd.Series,
+    tolerance: float = 0.001,
+) -> pd.Series:
+    """Bullish/Bearish Separating Lines.
+
+    **Bullish** (1): a bearish candle followed by a bullish candle that
+    opens at the same level as the previous open.
+
+    **Bearish** (-1): a bullish candle followed by a bearish candle that
+    opens at the same level as the previous open.
+
+    Parameters:
+        open_: Open prices.
+        high: High prices.
+        low: Low prices.
+        close: Close prices.
+        tolerance: Maximum relative difference between opens.
+
+    Returns:
+        1 (bullish), -1 (bearish), or 0.
+
+    Example:
+        >>> signal = separating_lines(open_, high, low, close)
+    """
+    _validate_series(open_, "open_")
+    _validate_series(high, "high")
+    _validate_series(low, "low")
+    _validate_series(close, "close")
+
+    prev_open = open_.shift(1)
+    same_open = ((open_ - prev_open).abs() / prev_open) <= tolerance
+
+    prev_bearish = close.shift(1) < open_.shift(1)
+    prev_bullish = close.shift(1) > open_.shift(1)
+    curr_bullish = close > open_
+    curr_bearish = close < open_
+
+    bullish = prev_bearish & curr_bullish & same_open
+    bearish = prev_bullish & curr_bearish & same_open
+
+    result = np.where(bullish, 1, np.where(bearish, -1, 0))
+    return pd.Series(result, index=close.index, name="separating_lines", dtype=int)
+
+
+# ---------------------------------------------------------------------------
+# Closing Marubozu
+# ---------------------------------------------------------------------------
+
+
+def closing_marubozu(
+    open_: pd.Series,
+    high: pd.Series,
+    low: pd.Series,
+    close: pd.Series,
+    threshold: float = 0.01,
+) -> pd.Series:
+    """Closing Marubozu — no shadow on the closing side only.
+
+    A **bullish closing marubozu** (1) has no upper shadow (close == high)
+    but may have a lower shadow.  A **bearish closing marubozu** (-1) has
+    no lower shadow (close == low) but may have an upper shadow.
+
+    Parameters:
+        open_: Open prices.
+        high: High prices.
+        low: Low prices.
+        close: Close prices.
+        threshold: Maximum shadow-to-range ratio for the closing side.
+
+    Returns:
+        1 (bullish), -1 (bearish), or 0.
+
+    Example:
+        >>> signal = closing_marubozu(open_, high, low, close)
+    """
+    _validate_series(open_, "open_")
+    _validate_series(high, "high")
+    _validate_series(low, "low")
+    _validate_series(close, "close")
+
+    rng = _range(high, low)
+    upper = _upper_shadow(open_, high, close)
+    lower = _lower_shadow(open_, low, close)
+
+    upper_ratio = pd.Series(np.where(rng != 0, upper / rng, 0.0), index=close.index)
+    lower_ratio = pd.Series(np.where(rng != 0, lower / rng, 0.0), index=close.index)
+
+    body = _body(open_, close)
+    has_body = body > rng * 0.5
+
+    # Bullish: close near high (tiny upper shadow), bullish candle
+    bullish = (close > open_) & (upper_ratio <= threshold) & has_body & (rng > 0)
+
+    # Bearish: close near low (tiny lower shadow), bearish candle
+    bearish = (close < open_) & (lower_ratio <= threshold) & has_body & (rng > 0)
+
+    result = np.where(bullish, 1, np.where(bearish, -1, 0))
+    return pd.Series(result, index=close.index, name="closing_marubozu", dtype=int)
+
+
+# ---------------------------------------------------------------------------
+# Rickshaw Man
+# ---------------------------------------------------------------------------
+
+
+def rickshaw_man(
+    open_: pd.Series,
+    high: pd.Series,
+    low: pd.Series,
+    close: pd.Series,
+    body_threshold: float = 0.05,
+    shadow_threshold: float = 0.3,
+) -> pd.Series:
+    """Rickshaw Man — a Doji with very long shadows and tiny body near center.
+
+    Parameters:
+        open_: Open prices.
+        high: High prices.
+        low: Low prices.
+        close: Close prices.
+        body_threshold: Maximum body-to-range ratio to qualify.
+        shadow_threshold: Minimum shadow-to-range ratio for each shadow.
+
+    Returns:
+        1 where detected, 0 otherwise.
+
+    Example:
+        >>> signal = rickshaw_man(open_, high, low, close)
+    """
+    _validate_series(open_, "open_")
+    _validate_series(high, "high")
+    _validate_series(low, "low")
+    _validate_series(close, "close")
+
+    body = _body(open_, close)
+    rng = _range(high, low)
+    upper = _upper_shadow(open_, high, close)
+    lower = _lower_shadow(open_, low, close)
+
+    body_ratio = pd.Series(np.where(rng != 0, body / rng, 0.0), index=close.index)
+    upper_ratio = pd.Series(np.where(rng != 0, upper / rng, 0.0), index=close.index)
+    lower_ratio = pd.Series(np.where(rng != 0, lower / rng, 0.0), index=close.index)
+
+    # Body near center: midpoint of body near midpoint of range
+    body_mid = (open_ + close) / 2.0
+    range_mid = (high + low) / 2.0
+    near_center = pd.Series(
+        np.where(rng != 0, (body_mid - range_mid).abs() / rng, 0.0),
+        index=close.index,
+    )
+
+    signal = (
+        (body_ratio <= body_threshold)
+        & (upper_ratio >= shadow_threshold)
+        & (lower_ratio >= shadow_threshold)
+        & (near_center <= 0.1)
+        & (rng > 0)
+    )
+    return pd.Series(signal.astype(int), index=close.index, name="rickshaw_man")
+
+
+# ---------------------------------------------------------------------------
+# Long Legged Doji
+# ---------------------------------------------------------------------------
+
+
+def long_legged_doji(
+    open_: pd.Series,
+    high: pd.Series,
+    low: pd.Series,
+    close: pd.Series,
+    body_threshold: float = 0.05,
+    shadow_threshold: float = 0.3,
+) -> pd.Series:
+    """Long Legged Doji — Doji with unusually long upper and lower shadows.
+
+    Parameters:
+        open_: Open prices.
+        high: High prices.
+        low: Low prices.
+        close: Close prices.
+        body_threshold: Maximum body-to-range ratio.
+        shadow_threshold: Minimum shadow-to-range ratio for each shadow.
+
+    Returns:
+        1 where detected, 0 otherwise.
+
+    Example:
+        >>> signal = long_legged_doji(open_, high, low, close)
+    """
+    _validate_series(open_, "open_")
+    _validate_series(high, "high")
+    _validate_series(low, "low")
+    _validate_series(close, "close")
+
+    body = _body(open_, close)
+    rng = _range(high, low)
+    upper = _upper_shadow(open_, high, close)
+    lower = _lower_shadow(open_, low, close)
+
+    body_ratio = pd.Series(np.where(rng != 0, body / rng, 0.0), index=close.index)
+    upper_ratio = pd.Series(np.where(rng != 0, upper / rng, 0.0), index=close.index)
+    lower_ratio = pd.Series(np.where(rng != 0, lower / rng, 0.0), index=close.index)
+
+    signal = (
+        (body_ratio <= body_threshold)
+        & (upper_ratio >= shadow_threshold)
+        & (lower_ratio >= shadow_threshold)
+        & (rng > 0)
+    )
+    return pd.Series(signal.astype(int), index=close.index, name="long_legged_doji")
+
+
+# ---------------------------------------------------------------------------
+# Dragonfly Doji
+# ---------------------------------------------------------------------------
+
+
+def dragonfly_doji(
+    open_: pd.Series,
+    high: pd.Series,
+    low: pd.Series,
+    close: pd.Series,
+    body_threshold: float = 0.05,
+    upper_threshold: float = 0.05,
+    lower_min: float = 0.3,
+) -> pd.Series:
+    """Dragonfly Doji — Doji with a long lower shadow and no upper shadow.
+
+    Parameters:
+        open_: Open prices.
+        high: High prices.
+        low: Low prices.
+        close: Close prices.
+        body_threshold: Maximum body-to-range ratio.
+        upper_threshold: Maximum upper-shadow-to-range ratio.
+        lower_min: Minimum lower-shadow-to-range ratio.
+
+    Returns:
+        1 where detected, 0 otherwise.
+
+    Example:
+        >>> signal = dragonfly_doji(open_, high, low, close)
+    """
+    _validate_series(open_, "open_")
+    _validate_series(high, "high")
+    _validate_series(low, "low")
+    _validate_series(close, "close")
+
+    body = _body(open_, close)
+    rng = _range(high, low)
+    upper = _upper_shadow(open_, high, close)
+    lower = _lower_shadow(open_, low, close)
+
+    body_ratio = pd.Series(np.where(rng != 0, body / rng, 0.0), index=close.index)
+    upper_ratio = pd.Series(np.where(rng != 0, upper / rng, 0.0), index=close.index)
+    lower_ratio = pd.Series(np.where(rng != 0, lower / rng, 0.0), index=close.index)
+
+    signal = (
+        (body_ratio <= body_threshold)
+        & (upper_ratio <= upper_threshold)
+        & (lower_ratio >= lower_min)
+        & (rng > 0)
+    )
+    return pd.Series(signal.astype(int), index=close.index, name="dragonfly_doji")
+
+
+# ---------------------------------------------------------------------------
+# Gravestone Doji
+# ---------------------------------------------------------------------------
+
+
+def gravestone_doji(
+    open_: pd.Series,
+    high: pd.Series,
+    low: pd.Series,
+    close: pd.Series,
+    body_threshold: float = 0.05,
+    lower_threshold: float = 0.05,
+    upper_min: float = 0.3,
+) -> pd.Series:
+    """Gravestone Doji — Doji with a long upper shadow and no lower shadow.
+
+    Parameters:
+        open_: Open prices.
+        high: High prices.
+        low: Low prices.
+        close: Close prices.
+        body_threshold: Maximum body-to-range ratio.
+        lower_threshold: Maximum lower-shadow-to-range ratio.
+        upper_min: Minimum upper-shadow-to-range ratio.
+
+    Returns:
+        1 where detected, 0 otherwise.
+
+    Example:
+        >>> signal = gravestone_doji(open_, high, low, close)
+    """
+    _validate_series(open_, "open_")
+    _validate_series(high, "high")
+    _validate_series(low, "low")
+    _validate_series(close, "close")
+
+    body = _body(open_, close)
+    rng = _range(high, low)
+    upper = _upper_shadow(open_, high, close)
+    lower = _lower_shadow(open_, low, close)
+
+    body_ratio = pd.Series(np.where(rng != 0, body / rng, 0.0), index=close.index)
+    upper_ratio = pd.Series(np.where(rng != 0, upper / rng, 0.0), index=close.index)
+    lower_ratio = pd.Series(np.where(rng != 0, lower / rng, 0.0), index=close.index)
+
+    signal = (
+        (body_ratio <= body_threshold)
+        & (lower_ratio <= lower_threshold)
+        & (upper_ratio >= upper_min)
+        & (rng > 0)
+    )
+    return pd.Series(signal.astype(int), index=close.index, name="gravestone_doji")
+
+
+# ---------------------------------------------------------------------------
+# Tri Star
+# ---------------------------------------------------------------------------
+
+
+def tri_star(
+    open_: pd.Series,
+    high: pd.Series,
+    low: pd.Series,
+    close: pd.Series,
+    doji_threshold: float = 0.05,
+) -> pd.Series:
+    """Tri-Star pattern — three consecutive dojis with gaps.
+
+    **Bullish** (1): three dojis where the middle gaps below the other two.
+    **Bearish** (-1): three dojis where the middle gaps above the other two.
+
+    Parameters:
+        open_: Open prices.
+        high: High prices.
+        low: Low prices.
+        close: Close prices.
+        doji_threshold: Maximum body-to-range ratio for doji qualification.
+
+    Returns:
+        1 (bullish tri-star), -1 (bearish tri-star), or 0.
+
+    Example:
+        >>> signal = tri_star(open_, high, low, close)
+    """
+    _validate_series(open_, "open_")
+    _validate_series(high, "high")
+    _validate_series(low, "low")
+    _validate_series(close, "close")
+
+    body = _body(open_, close)
+    rng = _range(high, low)
+
+    ratio = pd.Series(np.where(rng != 0, body / rng, 0.0), index=close.index)
+
+    is_doji = ratio <= doji_threshold
+    d1_doji = is_doji.shift(2)
+    d2_doji = is_doji.shift(1)
+    d3_doji = is_doji
+
+    # Middle candle gaps
+    d2_mid = (open_.shift(1) + close.shift(1)) / 2.0
+    d1_mid = (open_.shift(2) + close.shift(2)) / 2.0
+    d3_mid = (open_ + close) / 2.0
+
+    bullish = d1_doji & d2_doji & d3_doji & (d2_mid < d1_mid) & (d2_mid < d3_mid)
+    bearish = d1_doji & d2_doji & d3_doji & (d2_mid > d1_mid) & (d2_mid > d3_mid)
+
+    result = np.where(bullish, 1, np.where(bearish, -1, 0))
+    return pd.Series(result, index=close.index, name="tri_star", dtype=int)
+
+
+# ---------------------------------------------------------------------------
+# Unique Three River
+# ---------------------------------------------------------------------------
+
+
+def unique_three_river(
+    open_: pd.Series,
+    high: pd.Series,
+    low: pd.Series,
+    close: pd.Series,
+) -> pd.Series:
+    """Unique Three River Bottom (rare bullish reversal).
+
+    Day 1: long bearish candle.  Day 2: harami-like bearish candle with a
+    lower low.  Day 3: small bullish candle that closes below Day 2's close.
+
+    Parameters:
+        open_: Open prices.
+        high: High prices.
+        low: Low prices.
+        close: Close prices.
+
+    Returns:
+        1 where detected, 0 otherwise.
+
+    Example:
+        >>> signal = unique_three_river(open_, high, low, close)
+    """
+    _validate_series(open_, "open_")
+    _validate_series(high, "high")
+    _validate_series(low, "low")
+    _validate_series(close, "close")
+
+    body = _body(open_, close)
+    rng = _range(high, low)
+
+    # Day 1: long bearish
+    d1_bearish = close.shift(2) < open_.shift(2)
+    d1_body = body.shift(2)
+    d1_range = rng.shift(2)
+    d1_large = d1_body > d1_range * 0.5
+
+    # Day 2: bearish candle inside Day 1 body but with a lower low
+    d2_bearish = close.shift(1) < open_.shift(1)
+    d2_inside = (close.shift(1) >= close.shift(2)) & (open_.shift(1) <= open_.shift(2))
+    d2_lower_low = low.shift(1) < low.shift(2)
+
+    # Day 3: small bullish candle closing below Day 2 close
+    d3_bullish = close > open_
+    d3_small = body < body.shift(1)
+    d3_below_d2 = close < close.shift(1)
+
+    signal = d1_bearish & d1_large & d2_bearish & d2_inside & d2_lower_low & d3_bullish & d3_small & d3_below_d2
+    return pd.Series(signal.astype(int), index=close.index, name="unique_three_river")
+
+
+# ---------------------------------------------------------------------------
+# Concealing Baby Swallow
+# ---------------------------------------------------------------------------
+
+
+def concealing_baby_swallow(
+    open_: pd.Series,
+    high: pd.Series,
+    low: pd.Series,
+    close: pd.Series,
+    marubozu_threshold: float = 0.02,
+) -> pd.Series:
+    """Concealing Baby Swallow (four-candle bearish pattern).
+
+    Four bearish candles: Days 1-2 are bearish marubozus.  Day 3 gaps down,
+    has a long upper shadow into Day 2's body.  Day 4 engulfs Day 3
+    including the shadow.
+
+    Parameters:
+        open_: Open prices.
+        high: High prices.
+        low: Low prices.
+        close: Close prices.
+        marubozu_threshold: Maximum shadow-to-range ratio for marubozu.
+
+    Returns:
+        -1 where detected, 0 otherwise.
+
+    Example:
+        >>> signal = concealing_baby_swallow(open_, high, low, close)
+    """
+    _validate_series(open_, "open_")
+    _validate_series(high, "high")
+    _validate_series(low, "low")
+    _validate_series(close, "close")
+
+    rng = _range(high, low)
+    upper = _upper_shadow(open_, high, close)
+    lower = _lower_shadow(open_, low, close)
+
+    def _is_bear_maru(shift: int) -> pd.Series:
+        s_rng = rng.shift(shift) if shift > 0 else rng
+        s_upper = upper.shift(shift) if shift > 0 else upper
+        s_lower = lower.shift(shift) if shift > 0 else lower
+        s_close = close.shift(shift) if shift > 0 else close
+        s_open = open_.shift(shift) if shift > 0 else open_
+        ur = pd.Series(np.where(s_rng != 0, s_upper / s_rng, 0.0), index=close.index)
+        lr = pd.Series(np.where(s_rng != 0, s_lower / s_rng, 0.0), index=close.index)
+        return (s_close < s_open) & (ur <= marubozu_threshold) & (lr <= marubozu_threshold) & (s_rng > 0)
+
+    # Days 1 and 2: bearish marubozus
+    d1_maru = _is_bear_maru(3)
+    d2_maru = _is_bear_maru(2)
+
+    # Day 3: bearish, gaps down, upper shadow reaches into Day 2 body
+    d3_bearish = close.shift(1) < open_.shift(1)
+    d3_gap_down = open_.shift(1) < close.shift(2)
+    d3_upper_into_d2 = high.shift(1) > close.shift(2)
+
+    # Day 4: bearish, engulfs Day 3 (including shadow)
+    d4_bearish = close < open_
+    d4_engulfs = (open_ >= high.shift(1)) & (close <= low.shift(1))
+
+    signal = d1_maru & d2_maru & d3_bearish & d3_gap_down & d3_upper_into_d2 & d4_bearish & d4_engulfs
+    result = np.where(signal, -1, 0)
+    return pd.Series(result, index=close.index, name="concealing_baby_swallow", dtype=int)

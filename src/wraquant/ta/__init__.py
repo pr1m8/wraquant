@@ -14,6 +14,14 @@ organized into the following sub-modules:
   etc.)
 - **patterns** — Candlestick pattern recognition (Doji, Engulfing,
   Morning Star, etc.)
+- **candles** — Candlestick structural analytics (body size, shadow
+  ratios, inside/outside bars, pin bars, etc.)
+- **price_action** — Price action analysis (swing points, trend bars,
+  gaps, range expansion, reversals, etc.)
+- **smoothing** — Advanced smoothing and filtering (ALMA, JMA,
+  Butterworth, Super Smoother, windowed MAs, etc.)
+- **exotic** — Lesser-known / exotic indicators (Choppiness Index,
+  Random Walk Index, PFE, Ergodic, KAIRI, etc.)
 - **signals** — Signal generation utilities (crossover, crossunder,
   normalize, etc.)
 
@@ -23,22 +31,58 @@ All indicator functions accept ``pd.Series`` inputs and return either a
 
 from __future__ import annotations
 
+# ── Breadth ──────────────────────────────────────────────────────────────
+from wraquant.ta.breadth import (
+    advance_decline_line,
+    advance_decline_ratio,
+    arms_index,
+    bullish_percent,
+    cumulative_volume_index,
+    high_low_index,
+    mcclellan_oscillator,
+    mcclellan_summation,
+    new_highs_lows,
+    percent_above_ma,
+)
+
 # ── Momentum Oscillators ─────────────────────────────────────────────────
 from wraquant.ta.momentum import (
     awesome_oscillator,
     cci,
+    center_of_gravity,
     cmo,
     dpo,
+    inertia,
+    klinger_oscillator,
     macd,
     momentum,
     ppo,
+    price_momentum_oscillator,
+    psychological_line,
     roc,
     rsi,
+    schaff_momentum,
+    squeeze_histogram,
     stochastic,
+    stochastic_momentum_index,
     stochastic_rsi,
     tsi,
     ultimate_oscillator,
     williams_r,
+)
+
+# ── Performance / Comparison ─────────────────────────────────────────────
+from wraquant.ta.performance import (
+    alpha,
+    drawdown,
+    gain_loss_ratio,
+    mansfield_rsi,
+    max_drawdown_rolling,
+    pain_index,
+    profit_factor,
+    relative_performance,
+    tracking_error,
+    up_down_capture,
 )
 
 # ── Overlap / Moving Averages ────────────────────────────────────────────
@@ -57,30 +101,75 @@ from wraquant.ta.overlap import (
     wma,
 )
 
+# ── Candles (structural analytics) ────────────────────────────────────────
+from wraquant.ta.candles import (
+    average_candle_body,
+    body_gap,
+    body_to_range_ratio,
+    candle_body_size,
+    candle_direction,
+    candle_momentum,
+    candle_range,
+    inside_bar,
+    lower_shadow_ratio,
+    outside_bar,
+    pin_bar,
+    upper_shadow_ratio,
+)
+
 # ── Patterns ─────────────────────────────────────────────────────────────
 from wraquant.ta.patterns import (
     abandoned_baby,
     belt_hold,
+    closing_marubozu,
+    concealing_baby_swallow,
     dark_cloud_cover,
     doji,
+    dragonfly_doji,
     engulfing,
     evening_star,
+    falling_three_methods,
+    gravestone_doji,
     hammer,
     hanging_man,
     harami,
+    in_neck,
     inverted_hammer,
     kicking,
+    long_legged_doji,
     marubozu,
     morning_star,
+    on_neck,
     piercing_pattern,
+    rickshaw_man,
+    rising_three_methods,
+    separating_lines,
     shooting_star,
     spinning_top,
+    tasuki_gap,
     three_black_crows,
     three_inside_down,
     three_inside_up,
     three_white_soldiers,
+    thrusting,
+    tri_star,
     tweezer_bottom,
     tweezer_top,
+    unique_three_river,
+)
+
+# ── Price Action ─────────────────────────────────────────────────────────
+from wraquant.ta.price_action import (
+    gap_analysis,
+    higher_highs_lows,
+    key_reversal,
+    narrow_range,
+    pivot_reversal,
+    range_expansion,
+    swing_high,
+    swing_low,
+    trend_bars,
+    wide_range_bar,
 )
 
 # ── Signals ──────────────────────────────────────────────────────────────
@@ -186,14 +275,75 @@ from wraquant.ta.cycles import (
 from wraquant.ta.custom import (
     adaptive_rsi,
     anchored_vwap,
+    detrended_regression,
     ehlers_fisher,
     linear_regression_channel,
+    linear_regression_forecast,
     market_structure,
     pivot_points,
+    polynomial_regression,
+    r_squared_indicator,
+    raff_regression_channel,
     relative_strength,
     squeeze_momentum,
+    standard_error_bands,
     swing_points,
     volume_weighted_macd,
+)
+
+# ── Fibonacci ───────────────────────────────────────────────────────
+from wraquant.ta.fibonacci import (
+    auto_fibonacci,
+    fibonacci_extensions,
+    fibonacci_fans,
+    fibonacci_pivot_points,
+    fibonacci_retracements,
+    fibonacci_time_zones,
+)
+
+# ── Smoothing / Advanced Filters ──────────────────────────────────
+from wraquant.ta.smoothing import (
+    alma,
+    butterworth_filter,
+    gaussian_filter,
+    hamming_window_ma,
+    hann_window_ma,
+    jma,
+    kaufman_efficiency_ratio,
+    lsma,
+    sinema,
+    supersmoother,
+    swma,
+    trima,
+)
+
+# ── Exotic / Lesser-Known ────────────────────────────────────────
+from wraquant.ta.exotic import (
+    choppiness_index,
+    connors_tps,
+    directional_movement_index,
+    efficiency_ratio,
+    elder_thermometer,
+    ergodic_oscillator,
+    gopalakrishnan_range,
+    kairi,
+    market_facilitation_index,
+    polarized_fractal_efficiency,
+    pretty_good_oscillator,
+    price_zone_oscillator,
+    random_walk_index,
+    relative_momentum_index,
+    trend_intensity_index,
+)
+
+# ── Support / Resistance ───────────────────────────────────────────
+from wraquant.ta.support_resistance import (
+    find_support_resistance,
+    fractal_levels,
+    price_clustering,
+    round_number_levels,
+    supply_demand_zones,
+    trendline_detection,
 )
 
 __all__ = [
@@ -210,6 +360,17 @@ __all__ = [
     "bollinger_bands",
     "keltner_channel",
     "donchian_channel",
+    # Breadth
+    "advance_decline_line",
+    "advance_decline_ratio",
+    "mcclellan_oscillator",
+    "mcclellan_summation",
+    "arms_index",
+    "new_highs_lows",
+    "percent_above_ma",
+    "high_low_index",
+    "bullish_percent",
+    "cumulative_volume_index",
     # Momentum
     "rsi",
     "stochastic",
@@ -225,6 +386,25 @@ __all__ = [
     "ultimate_oscillator",
     "cmo",
     "dpo",
+    "schaff_momentum",
+    "price_momentum_oscillator",
+    "klinger_oscillator",
+    "stochastic_momentum_index",
+    "inertia",
+    "squeeze_histogram",
+    "center_of_gravity",
+    "psychological_line",
+    # Performance / Comparison
+    "relative_performance",
+    "mansfield_rsi",
+    "alpha",
+    "tracking_error",
+    "up_down_capture",
+    "drawdown",
+    "max_drawdown_rolling",
+    "pain_index",
+    "gain_loss_ratio",
+    "profit_factor",
     # Volatility
     "atr",
     "true_range",
@@ -274,6 +454,19 @@ __all__ = [
     "vidya",
     "tilson_t3",
     "fractal_adaptive_ma",
+    # Candles (structural analytics)
+    "candle_body_size",
+    "candle_range",
+    "upper_shadow_ratio",
+    "lower_shadow_ratio",
+    "body_to_range_ratio",
+    "candle_direction",
+    "average_candle_body",
+    "candle_momentum",
+    "body_gap",
+    "inside_bar",
+    "outside_bar",
+    "pin_bar",
     # Patterns
     "doji",
     "hammer",
@@ -297,6 +490,32 @@ __all__ = [
     "abandoned_baby",
     "kicking",
     "belt_hold",
+    "rising_three_methods",
+    "falling_three_methods",
+    "tasuki_gap",
+    "on_neck",
+    "in_neck",
+    "thrusting",
+    "separating_lines",
+    "closing_marubozu",
+    "rickshaw_man",
+    "long_legged_doji",
+    "dragonfly_doji",
+    "gravestone_doji",
+    "tri_star",
+    "unique_three_river",
+    "concealing_baby_swallow",
+    # Price Action
+    "higher_highs_lows",
+    "swing_high",
+    "swing_low",
+    "trend_bars",
+    "gap_analysis",
+    "range_expansion",
+    "narrow_range",
+    "wide_range_bar",
+    "key_reversal",
+    "pivot_reversal",
     # Signals
     "crossover",
     "crossunder",
@@ -340,4 +559,53 @@ __all__ = [
     "ehlers_fisher",
     "adaptive_rsi",
     "relative_strength",
+    "linear_regression_forecast",
+    "standard_error_bands",
+    "r_squared_indicator",
+    "polynomial_regression",
+    "raff_regression_channel",
+    "detrended_regression",
+    # Fibonacci
+    "fibonacci_retracements",
+    "fibonacci_extensions",
+    "fibonacci_fans",
+    "fibonacci_time_zones",
+    "fibonacci_pivot_points",
+    "auto_fibonacci",
+    # Smoothing / Advanced Filters
+    "alma",
+    "lsma",
+    "swma",
+    "sinema",
+    "trima",
+    "jma",
+    "gaussian_filter",
+    "butterworth_filter",
+    "supersmoother",
+    "hann_window_ma",
+    "hamming_window_ma",
+    "kaufman_efficiency_ratio",
+    # Exotic / Lesser-Known
+    "choppiness_index",
+    "random_walk_index",
+    "polarized_fractal_efficiency",
+    "price_zone_oscillator",
+    "ergodic_oscillator",
+    "elder_thermometer",
+    "market_facilitation_index",
+    "efficiency_ratio",
+    "trend_intensity_index",
+    "directional_movement_index",
+    "kairi",
+    "gopalakrishnan_range",
+    "pretty_good_oscillator",
+    "connors_tps",
+    "relative_momentum_index",
+    # Support / Resistance
+    "find_support_resistance",
+    "price_clustering",
+    "fractal_levels",
+    "round_number_levels",
+    "supply_demand_zones",
+    "trendline_detection",
 ]
