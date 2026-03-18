@@ -25,6 +25,16 @@ __all__ = [
     "pvi",
     "vpt",
     "adosc",
+    "vwma",
+    "pvt",
+    "vpt_smoothed",
+    "klinger",
+    "taker_buy_ratio",
+    "elder_force",
+    "volume_profile",
+    "accumulation_distribution_oscillator",
+    "volume_roc",
+    "positive_volume_index",
 ]
 
 
@@ -480,4 +490,548 @@ def adosc(
     ad = ad_line(high, low, close, volume)
     result = _ema(ad, fast) - _ema(ad, slow)
     result.name = "adosc"
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Volume Weighted Moving Average (VWMA)
+# ---------------------------------------------------------------------------
+
+
+def vwma(
+    close: pd.Series,
+    volume: pd.Series,
+    period: int = 20,
+) -> pd.Series:
+    """Volume Weighted Moving Average (VWMA).
+
+    A simple moving average weighted by volume.  When volume is uniform this
+    reduces to the standard SMA.
+
+    ``VWMA = SUM(close * volume, period) / SUM(volume, period)``
+
+    Parameters
+    ----------
+    close : pd.Series
+        Close prices.
+    volume : pd.Series
+        Volume data.
+    period : int, default 20
+        Look-back period.
+
+    Returns
+    -------
+    pd.Series
+        VWMA values.
+
+    Example
+    -------
+    >>> import pandas as pd
+    >>> close = pd.Series([10, 11, 12, 13, 14.0])
+    >>> volume = pd.Series([100, 100, 100, 100, 100.0])
+    >>> vwma(close, volume, period=3)  # equals SMA when volume is uniform
+    """
+    _validate_series(close, "close")
+    _validate_series(volume, "volume")
+    _validate_period(period)
+
+    cv = close * volume
+    result = (
+        cv.rolling(window=period, min_periods=period).sum()
+        / volume.rolling(window=period, min_periods=period).sum()
+    )
+    result.name = "vwma"
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Price Volume Trend (PVT)
+# ---------------------------------------------------------------------------
+
+
+def pvt(close: pd.Series, volume: pd.Series) -> pd.Series:
+    """Price Volume Trend (PVT).
+
+    A cumulative indicator that adds a portion of volume proportional to
+    the percentage change in close price.
+
+    ``PVT = cumsum(pct_change(close) * volume)``
+
+    This is functionally equivalent to :func:`vpt` but is provided as the
+    commonly-used *PVT* alias.
+
+    Parameters
+    ----------
+    close : pd.Series
+        Close prices.
+    volume : pd.Series
+        Volume data.
+
+    Returns
+    -------
+    pd.Series
+        PVT values.
+
+    Example
+    -------
+    >>> import pandas as pd
+    >>> close = pd.Series([10, 11, 12.0])
+    >>> volume = pd.Series([100, 200, 300.0])
+    >>> pvt(close, volume)
+    """
+    _validate_series(close, "close")
+    _validate_series(volume, "volume")
+
+    pct = close.pct_change()
+    result = (volume * pct).cumsum()
+    result.name = "pvt"
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Volume Price Trend — Smoothed (VPT Smoothed)
+# ---------------------------------------------------------------------------
+
+
+def vpt_smoothed(
+    close: pd.Series,
+    volume: pd.Series,
+    period: int = 14,
+) -> pd.Series:
+    """Volume Price Trend with EMA smoothing.
+
+    Applies an EMA to the raw VPT line to reduce noise.
+
+    ``VPT_SMOOTHED = EMA(cumsum(pct_change(close) * volume), period)``
+
+    Parameters
+    ----------
+    close : pd.Series
+        Close prices.
+    volume : pd.Series
+        Volume data.
+    period : int, default 14
+        EMA smoothing period.
+
+    Returns
+    -------
+    pd.Series
+        Smoothed VPT values.
+
+    Example
+    -------
+    >>> import pandas as pd
+    >>> close = pd.Series([10, 11, 12, 13, 14.0])
+    >>> volume = pd.Series([100, 200, 300, 400, 500.0])
+    >>> vpt_smoothed(close, volume, period=3)
+    """
+    _validate_series(close, "close")
+    _validate_series(volume, "volume")
+    _validate_period(period)
+
+    raw_vpt = vpt(close, volume)
+    result = _ema(raw_vpt, period)
+    result.name = "vpt_smoothed"
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Klinger Volume Oscillator (KVO)
+# ---------------------------------------------------------------------------
+
+
+def klinger(
+    high: pd.Series,
+    low: pd.Series,
+    close: pd.Series,
+    volume: pd.Series,
+    fast: int = 34,
+    slow: int = 55,
+    signal: int = 13,
+) -> dict[str, pd.Series]:
+    """Klinger Volume Oscillator (KVO).
+
+    Uses the relationship between price trend direction and volume to
+    predict price reversals.
+
+    ``trend = sign(hlc3 - hlc3.shift(1))``
+    ``dm = high - low``
+    ``cm = cumulative dm when trend unchanged, else dm``
+    ``vf = volume * abs(2 * dm / cm - 1) * trend * 100``
+    ``KVO = EMA(vf, fast) - EMA(vf, slow)``
+    ``signal_line = EMA(KVO, signal)``
+
+    Parameters
+    ----------
+    high : pd.Series
+        High prices.
+    low : pd.Series
+        Low prices.
+    close : pd.Series
+        Close prices.
+    volume : pd.Series
+        Volume data.
+    fast : int, default 34
+        Fast EMA period.
+    slow : int, default 55
+        Slow EMA period.
+    signal : int, default 13
+        Signal line EMA period.
+
+    Returns
+    -------
+    dict[str, pd.Series]
+        ``{"kvo": <pd.Series>, "signal": <pd.Series>}``
+
+    Example
+    -------
+    >>> import pandas as pd, numpy as np
+    >>> np.random.seed(0)
+    >>> n = 100
+    >>> close = pd.Series(100 + np.cumsum(np.random.randn(n) * 0.5))
+    >>> high = close + 0.5
+    >>> low = close - 0.5
+    >>> volume = pd.Series(np.random.randint(1000, 5000, n).astype(float))
+    >>> result = klinger(high, low, close, volume)
+    >>> result["kvo"].name
+    'kvo'
+    """
+    _validate_series(high, "high")
+    _validate_series(low, "low")
+    _validate_series(close, "close")
+    _validate_series(volume, "volume")
+    _validate_period(fast, "fast")
+    _validate_period(slow, "slow")
+    _validate_period(signal, "signal")
+
+    hlc3 = (high + low + close) / 3.0
+    trend = np.sign(hlc3 - hlc3.shift(1))
+    trend.iloc[0] = 0
+
+    dm = high - low
+    dm_arr = dm.values.copy()
+    trend_arr = trend.values
+
+    # Cumulative dm resets when trend changes
+    cm = np.empty(len(dm))
+    cm[0] = dm_arr[0]
+    for i in range(1, len(dm)):
+        if trend_arr[i] == trend_arr[i - 1]:
+            cm[i] = cm[i - 1] + dm_arr[i]
+        else:
+            cm[i] = dm_arr[i]
+
+    cm_series = pd.Series(cm, index=close.index)
+
+    # Volume Force
+    ratio = pd.Series(
+        np.where(cm_series != 0, 2.0 * dm / cm_series - 1.0, 0.0),
+        index=close.index,
+    )
+    vf = volume * np.abs(ratio) * trend * 100.0
+
+    kvo = _ema(vf, fast) - _ema(vf, slow)
+    kvo.name = "kvo"
+    sig = _ema(kvo, signal)
+    sig.name = "kvo_signal"
+    return {"kvo": kvo, "signal": sig}
+
+
+# ---------------------------------------------------------------------------
+# Taker Buy Ratio
+# ---------------------------------------------------------------------------
+
+
+def taker_buy_ratio(
+    buy_volume: pd.Series,
+    total_volume: pd.Series,
+) -> pd.Series:
+    """Taker Buy Ratio.
+
+    A helper for exchange-level data that computes the fraction of volume
+    coming from taker buys.
+
+    ``ratio = buy_volume / total_volume``
+
+    Values above 0.5 indicate net buying pressure; below 0.5 indicate net
+    selling pressure.
+
+    Parameters
+    ----------
+    buy_volume : pd.Series
+        Taker buy volume.
+    total_volume : pd.Series
+        Total volume.
+
+    Returns
+    -------
+    pd.Series
+        Ratio in [0, 1] (NaN where total_volume is 0).
+
+    Example
+    -------
+    >>> import pandas as pd
+    >>> buy = pd.Series([50, 60, 40.0])
+    >>> total = pd.Series([100, 100, 100.0])
+    >>> taker_buy_ratio(buy, total)
+    """
+    _validate_series(buy_volume, "buy_volume")
+    _validate_series(total_volume, "total_volume")
+
+    result = buy_volume / total_volume.replace(0, np.nan)
+    result.name = "taker_buy_ratio"
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Elder's Force Index (EMA-smoothed variant)
+# ---------------------------------------------------------------------------
+
+
+def elder_force(
+    close: pd.Series,
+    volume: pd.Series,
+    period: int = 2,
+) -> pd.Series:
+    """Elder's Force Index (EMA-smoothed variant).
+
+    This is Elder's original formulation using a short EMA (default 2).
+    For a longer-term variant, increase *period*.
+
+    ``raw = close.diff() * volume``
+    ``elder_force = EMA(raw, period)``
+
+    Parameters
+    ----------
+    close : pd.Series
+        Close prices.
+    volume : pd.Series
+        Volume data.
+    period : int, default 2
+        EMA smoothing period.
+
+    Returns
+    -------
+    pd.Series
+        Smoothed Elder Force Index.
+
+    Example
+    -------
+    >>> import pandas as pd
+    >>> close = pd.Series([10, 11, 12, 11, 13.0])
+    >>> volume = pd.Series([100, 200, 150, 300, 250.0])
+    >>> elder_force(close, volume, period=2)
+    """
+    _validate_series(close, "close")
+    _validate_series(volume, "volume")
+    _validate_period(period)
+
+    raw = close.diff() * volume
+    result = _ema(raw, period)
+    result.name = "elder_force"
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Volume Profile
+# ---------------------------------------------------------------------------
+
+
+def volume_profile(
+    close: pd.Series,
+    volume: pd.Series,
+    bins: int = 10,
+) -> dict[str, pd.Series]:
+    """Volume Profile (volume at price).
+
+    Distributes volume into *bins* equally-spaced price buckets.  This is
+    useful for identifying high-volume nodes (support/resistance) and
+    low-volume nodes (price gaps).
+
+    Parameters
+    ----------
+    close : pd.Series
+        Close prices (used to assign volume to price levels).
+    volume : pd.Series
+        Volume data.
+    bins : int, default 10
+        Number of price bins.
+
+    Returns
+    -------
+    dict[str, pd.Series]
+        ``{"price_bins": <pd.Series of bin labels>, "volume": <pd.Series of aggregated volume>}``
+
+    Example
+    -------
+    >>> import pandas as pd
+    >>> close = pd.Series([10, 11, 12, 11, 10.0])
+    >>> volume = pd.Series([100, 200, 300, 200, 100.0])
+    >>> vp = volume_profile(close, volume, bins=3)
+    >>> len(vp["volume"])
+    3
+    """
+    _validate_series(close, "close")
+    _validate_series(volume, "volume")
+    if bins < 1:
+        raise ValueError(f"bins must be >= 1, got {bins}")
+
+    price_min = close.min()
+    price_max = close.max()
+
+    # Handle the edge case where all prices are identical
+    if price_min == price_max:
+        bin_labels = pd.Series([price_min], name="price_bins")
+        vol_agg = pd.Series([volume.sum()], name="volume")
+        return {"price_bins": bin_labels, "volume": vol_agg}
+
+    edges = np.linspace(price_min, price_max, bins + 1)
+    bin_indices = np.digitize(close.values, edges) - 1
+    # Clip so that the max value falls into the last bin
+    bin_indices = np.clip(bin_indices, 0, bins - 1)
+
+    vol_by_bin = np.zeros(bins)
+    for i, idx in enumerate(bin_indices):
+        vol_by_bin[idx] += volume.values[i]
+
+    bin_centers = (edges[:-1] + edges[1:]) / 2.0
+    return {
+        "price_bins": pd.Series(bin_centers, name="price_bins"),
+        "volume": pd.Series(vol_by_bin, name="volume"),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Accumulation/Distribution Oscillator (fast/slow EMA of AD line)
+# ---------------------------------------------------------------------------
+
+
+def accumulation_distribution_oscillator(
+    high: pd.Series,
+    low: pd.Series,
+    close: pd.Series,
+    volume: pd.Series,
+    fast: int = 3,
+    slow: int = 10,
+) -> pd.Series:
+    """Accumulation/Distribution Oscillator.
+
+    Computes the difference between a fast and slow EMA of the
+    Accumulation/Distribution line.  This is equivalent to the Chaikin
+    Oscillator (:func:`adosc`) but provided under its full descriptive name.
+
+    ``AD_OSC = EMA(AD, fast) - EMA(AD, slow)``
+
+    Parameters
+    ----------
+    high : pd.Series
+        High prices.
+    low : pd.Series
+        Low prices.
+    close : pd.Series
+        Close prices.
+    volume : pd.Series
+        Volume data.
+    fast : int, default 3
+        Fast EMA period.
+    slow : int, default 10
+        Slow EMA period.
+
+    Returns
+    -------
+    pd.Series
+        Oscillator values.
+
+    Example
+    -------
+    >>> import pandas as pd, numpy as np
+    >>> np.random.seed(0)
+    >>> n = 50
+    >>> close = pd.Series(100 + np.cumsum(np.random.randn(n) * 0.5))
+    >>> high = close + 0.5
+    >>> low = close - 0.5
+    >>> volume = pd.Series(np.random.randint(1000, 5000, n).astype(float))
+    >>> accumulation_distribution_oscillator(high, low, close, volume)
+    """
+    ad = ad_line(high, low, close, volume)
+    result = _ema(ad, fast) - _ema(ad, slow)
+    result.name = "ad_oscillator"
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Volume Rate of Change (Volume ROC)
+# ---------------------------------------------------------------------------
+
+
+def volume_roc(
+    volume: pd.Series,
+    period: int = 14,
+) -> pd.Series:
+    """Volume Rate of Change (Volume ROC).
+
+    Measures the percentage change in volume over a given period.
+
+    ``volume_roc = (volume - volume.shift(period)) / volume.shift(period) * 100``
+
+    Parameters
+    ----------
+    volume : pd.Series
+        Volume data.
+    period : int, default 14
+        Look-back period.
+
+    Returns
+    -------
+    pd.Series
+        Volume ROC as a percentage.
+
+    Example
+    -------
+    >>> import pandas as pd
+    >>> volume = pd.Series([100, 120, 110, 130, 140.0])
+    >>> volume_roc(volume, period=2)
+    """
+    _validate_series(volume, "volume")
+    _validate_period(period)
+
+    shifted = volume.shift(period)
+    result = (volume - shifted) / shifted * 100.0
+    result.name = "volume_roc"
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Positive Volume Index (descriptive alias)
+# ---------------------------------------------------------------------------
+
+
+def positive_volume_index(close: pd.Series, volume: pd.Series) -> pd.Series:
+    """Positive Volume Index (PVI).
+
+    A descriptive-name alias for :func:`pvi`.  PVI focuses on days when
+    volume increases relative to the prior day.
+
+    Parameters
+    ----------
+    close : pd.Series
+        Close prices.
+    volume : pd.Series
+        Volume data.
+
+    Returns
+    -------
+    pd.Series
+        PVI values (starts at 1000).
+
+    Example
+    -------
+    >>> import pandas as pd
+    >>> close = pd.Series([10, 11, 10, 12, 11.0])
+    >>> volume = pd.Series([100, 200, 150, 300, 100.0])
+    >>> positive_volume_index(close, volume).iloc[0]
+    1000.0
+    """
+    result = pvi(close, volume)
+    result.name = "positive_volume_index"
     return result

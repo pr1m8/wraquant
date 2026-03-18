@@ -25,6 +25,16 @@ __all__ = [
     "ultimate_oscillator",
     "cmo",
     "dpo",
+    "kst",
+    "connors_rsi",
+    "fisher_transform",
+    "elder_ray",
+    "aroon_oscillator",
+    "chande_forecast_oscillator",
+    "balance_of_power",
+    "qstick",
+    "coppock_curve",
+    "relative_vigor_index",
 ]
 
 
@@ -633,3 +643,588 @@ def dpo(data: pd.Series, period: int = 20) -> pd.Series:
     result = data - sma_val.shift(shift_amt)
     result.name = "dpo"
     return result
+
+
+# ---------------------------------------------------------------------------
+# KST (Know Sure Thing)
+# ---------------------------------------------------------------------------
+
+
+def kst(
+    data: pd.Series,
+    roc1: int = 10,
+    roc2: int = 15,
+    roc3: int = 20,
+    roc4: int = 30,
+    sma1: int = 10,
+    sma2: int = 10,
+    sma3: int = 10,
+    sma4: int = 15,
+    signal_period: int = 9,
+) -> dict[str, pd.Series]:
+    """Know Sure Thing (KST) oscillator.
+
+    Weighted sum of four smoothed rate-of-change values with weights 1, 2, 3, 4.
+
+    Parameters
+    ----------
+    data : pd.Series
+        Price series (typically close).
+    roc1 : int, default 10
+        First ROC period.
+    roc2 : int, default 15
+        Second ROC period.
+    roc3 : int, default 20
+        Third ROC period.
+    roc4 : int, default 30
+        Fourth ROC period.
+    sma1 : int, default 10
+        SMA smoothing for first ROC.
+    sma2 : int, default 10
+        SMA smoothing for second ROC.
+    sma3 : int, default 10
+        SMA smoothing for third ROC.
+    sma4 : int, default 15
+        SMA smoothing for fourth ROC.
+    signal_period : int, default 9
+        SMA period for the signal line.
+
+    Returns
+    -------
+    dict[str, pd.Series]
+        ``kst`` and ``signal``.
+
+    Example
+    -------
+    >>> result = kst(close)
+    >>> result["kst"]
+    """
+    _validate_series(data)
+
+    r1 = data.pct_change(periods=roc1) * 100.0
+    r2 = data.pct_change(periods=roc2) * 100.0
+    r3 = data.pct_change(periods=roc3) * 100.0
+    r4 = data.pct_change(periods=roc4) * 100.0
+
+    s1 = r1.rolling(window=sma1, min_periods=sma1).mean()
+    s2 = r2.rolling(window=sma2, min_periods=sma2).mean()
+    s3 = r3.rolling(window=sma3, min_periods=sma3).mean()
+    s4 = r4.rolling(window=sma4, min_periods=sma4).mean()
+
+    kst_line = 1.0 * s1 + 2.0 * s2 + 3.0 * s3 + 4.0 * s4
+    signal_line = kst_line.rolling(window=signal_period, min_periods=signal_period).mean()
+
+    return {
+        "kst": kst_line.rename("kst"),
+        "signal": signal_line.rename("kst_signal"),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Connors RSI
+# ---------------------------------------------------------------------------
+
+
+def connors_rsi(
+    data: pd.Series,
+    rsi_period: int = 3,
+    streak_period: int = 2,
+    rank_period: int = 100,
+) -> pd.Series:
+    """Connors RSI — composite of RSI, up/down streak RSI, and percentile rank.
+
+    ``ConnorsRSI = (RSI(close, rsi_period) + RSI(streak, streak_period)
+    + PercentRank(pct_change, rank_period)) / 3``
+
+    Parameters
+    ----------
+    data : pd.Series
+        Price series (typically close).
+    rsi_period : int, default 3
+        Look-back for the standard RSI component.
+    streak_period : int, default 2
+        Look-back for the streak RSI component.
+    rank_period : int, default 100
+        Look-back for the percentile rank of the one-bar ROC.
+
+    Returns
+    -------
+    pd.Series
+        Connors RSI values in [0, 100].
+
+    Example
+    -------
+    >>> result = connors_rsi(close)
+    """
+    _validate_series(data)
+    _validate_period(rsi_period, "rsi_period")
+    _validate_period(streak_period, "streak_period")
+    _validate_period(rank_period, "rank_period")
+
+    # Component 1: standard RSI
+    rsi_component = rsi(data, rsi_period)
+
+    # Component 2: streak RSI
+    # Build up/down streak series
+    diff = data.diff()
+    streak = pd.Series(0.0, index=data.index)
+    for i in range(1, len(data)):
+        if diff.iloc[i] > 0:
+            streak.iloc[i] = max(streak.iloc[i - 1], 0) + 1
+        elif diff.iloc[i] < 0:
+            streak.iloc[i] = min(streak.iloc[i - 1], 0) - 1
+        else:
+            streak.iloc[i] = 0.0
+    streak_rsi_component = rsi(streak, streak_period)
+
+    # Component 3: percentile rank of one-bar ROC
+    pct_chg = data.pct_change() * 100.0
+    pct_rank = pct_chg.rolling(window=rank_period, min_periods=rank_period).apply(
+        lambda x: np.sum(x[-1] >= x[:-1]) / (len(x) - 1) * 100.0, raw=True
+    )
+
+    result = (rsi_component + streak_rsi_component + pct_rank) / 3.0
+    result.name = "connors_rsi"
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Fisher Transform
+# ---------------------------------------------------------------------------
+
+
+def fisher_transform(
+    high: pd.Series,
+    low: pd.Series,
+    period: int = 9,
+) -> dict[str, pd.Series]:
+    """Fisher Transform — normalizes prices to a Gaussian distribution.
+
+    Uses the midpoint ``(high + low) / 2``, normalizes to [-1, 1] over the
+    look-back window, then applies the inverse hyperbolic tangent (Fisher
+    Transform).
+
+    Parameters
+    ----------
+    high : pd.Series
+        High prices.
+    low : pd.Series
+        Low prices.
+    period : int, default 9
+        Look-back period for normalization.
+
+    Returns
+    -------
+    dict[str, pd.Series]
+        ``fisher`` (current value) and ``signal`` (one-bar lag).
+
+    Example
+    -------
+    >>> result = fisher_transform(high, low)
+    >>> result["fisher"]
+    """
+    _validate_series(high, "high")
+    _validate_series(low, "low")
+    _validate_period(period)
+
+    midpoint = (high + low) / 2.0
+    lowest = midpoint.rolling(window=period, min_periods=period).min()
+    highest = midpoint.rolling(window=period, min_periods=period).max()
+
+    # Normalize to [-1, 1], clamp to avoid atanh domain errors
+    raw = 2.0 * (midpoint - lowest) / (highest - lowest) - 1.0
+    raw = raw.clip(lower=-0.999, upper=0.999)
+
+    # Iterative EMA-style smoothing (Ehlers uses 0.5 factor)
+    value = pd.Series(0.0, index=high.index)
+    for i in range(len(raw)):
+        if np.isnan(raw.iloc[i]):
+            value.iloc[i] = np.nan
+        else:
+            prev = 0.0 if i == 0 or np.isnan(value.iloc[i - 1]) else value.iloc[i - 1]
+            value.iloc[i] = 0.5 * raw.iloc[i] + 0.5 * prev
+
+    fisher_line = pd.Series(np.nan, index=high.index)
+    for i in range(len(value)):
+        if not np.isnan(value.iloc[i]):
+            fisher_line.iloc[i] = np.log((1.0 + value.iloc[i]) / (1.0 - value.iloc[i]))
+
+    signal_line = fisher_line.shift(1)
+
+    return {
+        "fisher": fisher_line.rename("fisher"),
+        "signal": signal_line.rename("fisher_signal"),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Elder Ray
+# ---------------------------------------------------------------------------
+
+
+def elder_ray(
+    high: pd.Series,
+    low: pd.Series,
+    close: pd.Series,
+    period: int = 13,
+) -> dict[str, pd.Series]:
+    """Elder Ray Index — bull power and bear power.
+
+    ``bull_power = high - EMA(close, period)``
+    ``bear_power = low - EMA(close, period)``
+
+    Parameters
+    ----------
+    high : pd.Series
+        High prices.
+    low : pd.Series
+        Low prices.
+    close : pd.Series
+        Close prices.
+    period : int, default 13
+        EMA period.
+
+    Returns
+    -------
+    dict[str, pd.Series]
+        ``bull_power`` and ``bear_power``.
+
+    Example
+    -------
+    >>> result = elder_ray(high, low, close)
+    >>> result["bull_power"]
+    """
+    _validate_series(high, "high")
+    _validate_series(low, "low")
+    _validate_series(close, "close")
+    _validate_period(period)
+
+    ema_close = _ema(close, period)
+    bull = high - ema_close
+    bear = low - ema_close
+
+    return {
+        "bull_power": bull.rename("bull_power"),
+        "bear_power": bear.rename("bear_power"),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Aroon Oscillator
+# ---------------------------------------------------------------------------
+
+
+def aroon_oscillator(
+    high: pd.Series,
+    low: pd.Series,
+    period: int = 25,
+) -> pd.Series:
+    """Aroon Oscillator — difference between Aroon Up and Aroon Down.
+
+    ``Aroon Up = 100 * (period - bars_since_high) / period``
+    ``Aroon Down = 100 * (period - bars_since_low) / period``
+    ``Aroon Oscillator = Aroon Up - Aroon Down``
+
+    Parameters
+    ----------
+    high : pd.Series
+        High prices.
+    low : pd.Series
+        Low prices.
+    period : int, default 25
+        Look-back period.
+
+    Returns
+    -------
+    pd.Series
+        Aroon Oscillator values in [-100, 100].
+
+    Example
+    -------
+    >>> result = aroon_oscillator(high, low, period=25)
+    """
+    _validate_series(high, "high")
+    _validate_series(low, "low")
+    _validate_period(period)
+
+    aroon_up = high.rolling(window=period + 1, min_periods=period + 1).apply(
+        lambda x: 100.0 * (period - (period - np.argmax(x))) / period, raw=True
+    )
+    aroon_down = low.rolling(window=period + 1, min_periods=period + 1).apply(
+        lambda x: 100.0 * (period - (period - np.argmin(x))) / period, raw=True
+    )
+
+    result = aroon_up - aroon_down
+    result.name = "aroon_oscillator"
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Chande Forecast Oscillator
+# ---------------------------------------------------------------------------
+
+
+def chande_forecast_oscillator(
+    data: pd.Series,
+    period: int = 14,
+) -> pd.Series:
+    """Chande Forecast Oscillator (CFO).
+
+    Percentage difference between the close and the *period*-bar linear
+    regression forecast value.
+
+    ``CFO = ((close - linreg_forecast) / close) * 100``
+
+    Parameters
+    ----------
+    data : pd.Series
+        Price series (typically close).
+    period : int, default 14
+        Linear regression look-back period.
+
+    Returns
+    -------
+    pd.Series
+        CFO values (percentage, unbounded).
+
+    Example
+    -------
+    >>> result = chande_forecast_oscillator(close, period=14)
+    """
+    _validate_series(data)
+    _validate_period(period)
+
+    def _linreg_forecast(window: np.ndarray) -> float:
+        """Return the linear-regression value at the end of *window*."""
+        n = len(window)
+        x = np.arange(n, dtype=float)
+        slope, intercept = np.polyfit(x, window, 1)
+        return intercept + slope * (n - 1)
+
+    forecast = data.rolling(window=period, min_periods=period).apply(
+        _linreg_forecast, raw=True
+    )
+    result = ((data - forecast) / data) * 100.0
+    result.name = "cfo"
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Balance of Power
+# ---------------------------------------------------------------------------
+
+
+def balance_of_power(
+    open_: pd.Series,
+    high: pd.Series,
+    low: pd.Series,
+    close: pd.Series,
+    period: int = 14,
+) -> pd.Series:
+    """Balance of Power (BOP).
+
+    ``BOP = SMA((close - open) / (high - low), period)``
+
+    Parameters
+    ----------
+    open_ : pd.Series
+        Open prices.
+    high : pd.Series
+        High prices.
+    low : pd.Series
+        Low prices.
+    close : pd.Series
+        Close prices.
+    period : int, default 14
+        SMA smoothing period.
+
+    Returns
+    -------
+    pd.Series
+        BOP values in [-1, 1] (when smoothed, may slightly exceed bounds).
+
+    Example
+    -------
+    >>> result = balance_of_power(open_, high, low, close)
+    """
+    _validate_series(open_, "open_")
+    _validate_series(high, "high")
+    _validate_series(low, "low")
+    _validate_series(close, "close")
+    _validate_period(period)
+
+    hl_range = high - low
+    raw_bop = (close - open_) / hl_range.replace(0, np.nan)
+    result = raw_bop.rolling(window=period, min_periods=period).mean()
+    result.name = "bop"
+    return result
+
+
+# ---------------------------------------------------------------------------
+# QStick
+# ---------------------------------------------------------------------------
+
+
+def qstick(
+    open_: pd.Series,
+    close: pd.Series,
+    period: int = 14,
+) -> pd.Series:
+    """QStick indicator — moving average of ``(close - open)``.
+
+    A positive QStick indicates more bullish bars; a negative value indicates
+    more bearish bars.
+
+    Parameters
+    ----------
+    open_ : pd.Series
+        Open prices.
+    close : pd.Series
+        Close prices.
+    period : int, default 14
+        SMA period.
+
+    Returns
+    -------
+    pd.Series
+        QStick values.
+
+    Example
+    -------
+    >>> result = qstick(open_, close, period=14)
+    """
+    _validate_series(open_, "open_")
+    _validate_series(close, "close")
+    _validate_period(period)
+
+    co_diff = close - open_
+    result = co_diff.rolling(window=period, min_periods=period).mean()
+    result.name = "qstick"
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Coppock Curve
+# ---------------------------------------------------------------------------
+
+
+def coppock_curve(
+    data: pd.Series,
+    wma_period: int = 10,
+    long_roc: int = 14,
+    short_roc: int = 11,
+) -> pd.Series:
+    """Coppock Curve — weighted moving average of the sum of two ROCs.
+
+    ``Coppock = WMA(ROC(long_roc) + ROC(short_roc), wma_period)``
+
+    Parameters
+    ----------
+    data : pd.Series
+        Price series (typically close).
+    wma_period : int, default 10
+        Weighted moving average period.
+    long_roc : int, default 14
+        Long rate-of-change period.
+    short_roc : int, default 11
+        Short rate-of-change period.
+
+    Returns
+    -------
+    pd.Series
+        Coppock Curve values (unbounded).
+
+    Example
+    -------
+    >>> result = coppock_curve(close)
+    """
+    _validate_series(data)
+    _validate_period(wma_period, "wma_period")
+    _validate_period(long_roc, "long_roc")
+    _validate_period(short_roc, "short_roc")
+
+    roc_long = data.pct_change(periods=long_roc) * 100.0
+    roc_short = data.pct_change(periods=short_roc) * 100.0
+    roc_sum = roc_long + roc_short
+
+    # Weighted moving average (linearly weighted)
+    weights = np.arange(1, wma_period + 1, dtype=float)
+    result = roc_sum.rolling(window=wma_period, min_periods=wma_period).apply(
+        lambda x: np.dot(x, weights) / weights.sum(), raw=True
+    )
+    result.name = "coppock"
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Relative Vigor Index
+# ---------------------------------------------------------------------------
+
+
+def relative_vigor_index(
+    open_: pd.Series,
+    high: pd.Series,
+    low: pd.Series,
+    close: pd.Series,
+    period: int = 10,
+) -> dict[str, pd.Series]:
+    """Relative Vigor Index (RVI).
+
+    Measures the conviction of a recent price move by comparing the close-open
+    range to the high-low range, smoothed with a symmetric-weighted moving
+    average and then a simple moving average.
+
+    Parameters
+    ----------
+    open_ : pd.Series
+        Open prices.
+    high : pd.Series
+        High prices.
+    low : pd.Series
+        Low prices.
+    close : pd.Series
+        Close prices.
+    period : int, default 10
+        SMA smoothing period.
+
+    Returns
+    -------
+    dict[str, pd.Series]
+        ``rvi`` and ``signal``.
+
+    Example
+    -------
+    >>> result = relative_vigor_index(open_, high, low, close)
+    >>> result["rvi"]
+    """
+    _validate_series(open_, "open_")
+    _validate_series(high, "high")
+    _validate_series(low, "low")
+    _validate_series(close, "close")
+    _validate_period(period)
+
+    co = close - open_
+    hl = high - low
+
+    # Symmetric weighted moving average (SWMA) with weights [1, 2, 2, 1] / 6
+    def _swma(s: pd.Series) -> pd.Series:
+        return (
+            s + 2.0 * s.shift(1) + 2.0 * s.shift(2) + s.shift(3)
+        ) / 6.0
+
+    co_swma = _swma(co)
+    hl_swma = _swma(hl)
+
+    # Smooth numerator and denominator separately with SMA
+    num = co_swma.rolling(window=period, min_periods=period).sum()
+    den = hl_swma.rolling(window=period, min_periods=period).sum()
+
+    rvi_line = num / den.replace(0, np.nan)
+
+    # Signal line: SWMA of RVI
+    signal_line = _swma(rvi_line)
+
+    return {
+        "rvi": rvi_line.rename("rvi"),
+        "signal": signal_line.rename("rvi_signal"),
+    }
