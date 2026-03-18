@@ -262,7 +262,8 @@ def vine_copula(
     ])
 
     controls = pv.FitControlsVinecop(family_set=[pv.BicopFamily.gaussian])
-    cop = pv.Vinecop(u, controls=controls)
+    cop = pv.Vinecop(u.shape[1])
+    cop.select(u, controls=controls)
 
     return {
         "vinecop": cop,

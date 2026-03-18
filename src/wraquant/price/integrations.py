@@ -410,6 +410,21 @@ def vollib_implied_vol(
         * **option_type** -- the option type used.
         * **price** -- the input option price.
     """
+    # Patch py_lets_be_rational.constants for Python 3.13+ (_testcapi removed)
+    import sys
+
+    if not hasattr(sys, "_testcapi_patched"):
+        try:
+            import py_lets_be_rational.constants  # noqa: F401
+        except ModuleNotFoundError:
+            import types
+
+            _fake = types.ModuleType("_testcapi")
+            _fake.DBL_MIN = sys.float_info.min
+            _fake.DBL_MAX = sys.float_info.max
+            sys.modules["_testcapi"] = _fake
+        sys._testcapi_patched = True  # type: ignore[attr-defined]
+
     from py_vollib.black_scholes.implied_volatility import implied_volatility
 
     flag = "c" if option_type.lower() == "call" else "p"

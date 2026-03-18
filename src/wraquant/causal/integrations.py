@@ -21,6 +21,24 @@ __all__ = [
 ]
 
 
+def _extract_p_value(estimate: Any) -> float | None:
+    """Safely extract p-value from a DoWhy estimate object."""
+    sig = getattr(estimate, "test_stat_significance", None)
+    if sig is None:
+        return None
+    if callable(sig):
+        try:
+            result = sig()
+            if isinstance(result, dict):
+                return result.get("p_value")
+        except Exception:
+            pass
+        return None
+    if isinstance(sig, dict):
+        return sig.get("p_value")
+    return None
+
+
 # ---------------------------------------------------------------------------
 # DoWhy
 # ---------------------------------------------------------------------------
@@ -83,7 +101,7 @@ def dowhy_causal_model(
 
     return {
         "estimate": float(estimate.value),
-        "p_value": getattr(estimate, "test_stat_significance", {}).get("p_value"),
+        "p_value": _extract_p_value(estimate),
         "method": method,
         "model": model,
         "identified_estimand": identified_estimand,
