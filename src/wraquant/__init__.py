@@ -111,6 +111,10 @@ __all__ = [
     "rolling_std",
     "ewm_mean",
     "resample",
+    # Convenience functions
+    "detect_regimes",
+    "forecast",
+    "backtest",
 ]
 
 # Lazy-loaded submodules — only imported when first accessed
@@ -146,3 +150,29 @@ def __getattr__(name: str) -> Any:
 
         return importlib.import_module(f"wraquant.{name}")
     raise AttributeError(f"module 'wraquant' has no attribute {name!r}")
+
+
+# ---------------------------------------------------------------------------
+# Top-level convenience functions
+# ---------------------------------------------------------------------------
+
+
+def detect_regimes(returns, method="hmm", n_regimes=2, **kwargs):
+    """Detect market regimes. See wraquant.regimes.detect_regimes."""
+    from wraquant.regimes.base import detect_regimes as _detect
+
+    return _detect(returns, method=method, n_regimes=n_regimes, **kwargs)
+
+
+def forecast(data, method="auto", horizon=10, **kwargs):
+    """Forecast time series. See wraquant.ts.forecasting."""
+    from wraquant.ts.forecasting import auto_forecast
+
+    return auto_forecast(data, h=horizon, **kwargs)
+
+
+def backtest(strategy_fn, prices, **kwargs):
+    """Run a backtest. See wraquant.backtest.engine."""
+    from wraquant.backtest.engine import Backtest
+
+    return Backtest(strategy_fn).run(prices, **kwargs)

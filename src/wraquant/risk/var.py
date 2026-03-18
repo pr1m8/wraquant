@@ -13,6 +13,8 @@ for smooth risk surfaces (rates), parametric is often sufficient.
 
 from __future__ import annotations
 
+from typing import Any
+
 import numpy as np
 import pandas as pd
 from scipy import stats as sp_stats
@@ -199,3 +201,136 @@ def conditional_var(
         raise ValueError(msg)
 
     return cvar
+
+
+def garch_var(
+    returns: pd.Series | np.ndarray,
+    alpha: float = 0.05,
+    vol_model: str = "GARCH",
+    p: int = 1,
+    q: int = 1,
+    dist: str = "normal",
+    horizon: int = 1,
+) -> dict[str, Any]:
+    """Value at Risk using GARCH conditional volatility.
+
+    Combines GARCH volatility forecasting with parametric VaR,
+    producing time-varying risk estimates that adapt to current
+    market conditions. Superior to static VaR in volatile markets.
+
+    The conditional VaR at time t is:
+        VaR_t = -mu + sigma_t * z_alpha
+
+    where sigma_t is the GARCH-forecasted volatility and z_alpha
+    is the quantile of the fitted error distribution.
+
+    Parameters:
+        returns: Return series.
+        alpha: Significance level (0.05 = 95% VaR).
+        vol_model: GARCH variant ("GARCH", "EGARCH", "GJR").
+        p: GARCH lag order.
+        q: ARCH lag order.
+        dist: Error distribution ("normal", "t", "skewt").
+        horizon: Forecast horizon in periods.
+
+    Returns:
+        Dictionary containing:
+        - **var** (*pd.Series*) -- Time-varying VaR series.
+        - **cvar** (*pd.Series*) -- Time-varying CVaR/ES series.
+        - **conditional_vol** (*pd.Series*) -- GARCH conditional volatility.
+        - **breaches** (*pd.Series*) -- Boolean where actual loss exceeded VaR.
+        - **breach_rate** (*float*) -- Fraction of breaches (should be ~alpha).
+        - **garch_params** (*dict*) -- Fitted GARCH parameters.
+
+    Example:
+        >>> from wraquant.risk.var import garch_var
+        >>> result = garch_var(returns, alpha=0.05, vol_model="GJR", dist="t")
+        >>> print(f"Breach rate: {result['breach_rate']:.3f} (target: 0.050)")
+    """
+    from wraquant.vol.models import garch_fit, egarch_fit, gjr_garch_fit
+
+    # Fit the appropriate GARCH variant
+    _fit_funcs = {
+        "GARCH": garch_fit,
+        "EGARCH": egarch_fit,
+        "GJR": gjr_garch_fit,
+    }
+    fit_fn = _fit_funcs.get(vol_model.upper())
+    if fit_fn is None:
+        msg = f"Unknown vol_model: {vol_model!r}. Choose from {list(_fit_funcs)}"
+        raise ValueError(msg)
+
+    fit_result = fit_fn(returns, p=p, q=q, dist=dist)
+
+    cond_vol = fit_result["conditional_volatility"]
+    std_resid = fit_result["standardized_residuals"]
+    params = fit_result["params"]
+
+    # Compute mean return
+    ret_arr = np.asarray(returns, dtype=np.float64).ravel()
+    mu = float(np.nanmean(ret_arr))
+
+    # Scale conditional vol for multi-period horizon
+    cond_vol_h = cond_vol * np.sqrt(horizon)
+
+    # Determine z_alpha based on distribution
+    if dist == "normal":
+        z_alpha = sp_stats.norm.ppf(alpha)
+        # CVaR multiplier: E[Z | Z < z_alpha] for standard normal
+        cvar_mult = -sp_stats.norm.pdf(z_alpha) / alpha
+    elif dist == "t":
+        nu = params.get("nu", 5.0)
+        z_alpha = sp_stats.t.ppf(alpha, df=nu)
+        cvar_mult = -sp_stats.t.pdf(z_alpha, df=nu) / alpha * (
+            (nu + z_alpha**2) / (nu - 1)
+        )
+    elif dist == "skewt":
+        # For skewed-t, fall back to empirical quantile of standardized residuals
+        valid_resid = std_resid[np.isfinite(std_resid)]
+        z_alpha = float(np.percentile(valid_resid, alpha * 100))
+        tail = valid_resid[valid_resid <= z_alpha]
+        cvar_mult = float(np.mean(tail)) if len(tail) > 0 else z_alpha
+    else:
+        z_alpha = sp_stats.norm.ppf(alpha)
+        cvar_mult = -sp_stats.norm.pdf(z_alpha) / alpha
+
+    # Compute time-varying VaR and CVaR
+    var_series = -(mu * horizon) + cond_vol_h * (-z_alpha)
+    if dist == "skewt":
+        cvar_series = -(mu * horizon) + cond_vol_h * (-cvar_mult)
+    else:
+        cvar_series = -(mu * horizon) + cond_vol_h * (-cvar_mult)
+
+    # Make sure we have pandas Series output
+    if isinstance(cond_vol, pd.Series):
+        var_series = pd.Series(
+            var_series, index=cond_vol.index, name="garch_var"
+        )
+        cvar_series = pd.Series(
+            cvar_series, index=cond_vol.index, name="garch_cvar"
+        )
+
+    # Compute breaches: actual loss exceeded VaR
+    # Align lengths (returns may be longer/shorter than cond_vol)
+    n = min(len(ret_arr), len(var_series))
+    actual_losses = -ret_arr[-n:]
+    var_values = np.asarray(var_series)[-n:]
+
+    breaches_arr = actual_losses > var_values
+    if isinstance(var_series, pd.Series):
+        breaches = pd.Series(
+            breaches_arr, index=var_series.index[-n:], name="breach"
+        )
+    else:
+        breaches = pd.Series(breaches_arr, name="breach")
+
+    breach_rate = float(np.mean(breaches_arr))
+
+    return {
+        "var": var_series,
+        "cvar": cvar_series,
+        "conditional_vol": cond_vol,
+        "breaches": breaches,
+        "breach_rate": breach_rate,
+        "garch_params": params,
+    }

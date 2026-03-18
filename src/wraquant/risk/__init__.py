@@ -206,7 +206,7 @@ from wraquant.risk.survival import (
     nelson_aalen,
     weibull_survival,
 )
-from wraquant.risk.var import conditional_var, value_at_risk
+from wraquant.risk.var import conditional_var, garch_var, value_at_risk
 
 __all__ = [
     # metrics
@@ -218,6 +218,7 @@ __all__ = [
     # var
     "value_at_risk",
     "conditional_var",
+    "garch_var",
     # portfolio
     "portfolio_volatility",
     "risk_contribution",

@@ -218,7 +218,11 @@ class TestRebalanceThreshold:
 # risk_parity_position
 # ------------------------------------------------------------------
 
-from wraquant.backtest.position import risk_parity_position, regime_conditional_sizing
+from wraquant.backtest.position import (
+    regime_conditional_sizing,
+    regime_signal_filter,
+    risk_parity_position,
+)
 
 
 class TestRiskParityPosition:
@@ -303,3 +307,77 @@ class TestRegimeConditionalSizing:
         adj = regime_conditional_sizing(base, probs, mults)
         expected = np.array([0.4, 0.24, 0.16])
         np.testing.assert_allclose(adj, expected, atol=1e-10)
+
+
+# ------------------------------------------------------------------
+# regime_signal_filter
+# ------------------------------------------------------------------
+
+class TestRegimeSignalFilter:
+    def test_filters_low_prob_signals(self) -> None:
+        signals = pd.Series([1, -1, 1, -1, 1], dtype=float)
+        # Regime 0 has high prob for first 3, low for last 2
+        regime_probs = np.array([
+            [0.8, 0.2],
+            [0.7, 0.3],
+            [0.9, 0.1],
+            [0.3, 0.7],
+            [0.2, 0.8],
+        ])
+        filtered = regime_signal_filter(signals, regime_probs, active_regime=0, min_prob=0.6)
+        # First 3 signals should be preserved, last 2 zeroed
+        assert filtered.iloc[0] == 1.0
+        assert filtered.iloc[1] == -1.0
+        assert filtered.iloc[2] == 1.0
+        assert filtered.iloc[3] == 0.0
+        assert filtered.iloc[4] == 0.0
+
+    def test_all_active(self) -> None:
+        signals = np.array([1.0, -1.0, 1.0])
+        regime_probs = np.array([
+            [0.9, 0.1],
+            [0.8, 0.2],
+            [0.7, 0.3],
+        ])
+        filtered = regime_signal_filter(signals, regime_probs, active_regime=0, min_prob=0.5)
+        np.testing.assert_array_equal(filtered.values, signals)
+
+    def test_all_filtered(self) -> None:
+        signals = np.array([1.0, -1.0, 1.0])
+        regime_probs = np.array([
+            [0.1, 0.9],
+            [0.2, 0.8],
+            [0.3, 0.7],
+        ])
+        filtered = regime_signal_filter(signals, regime_probs, active_regime=0, min_prob=0.6)
+        np.testing.assert_array_equal(filtered.values, np.zeros(3))
+
+    def test_different_active_regime(self) -> None:
+        signals = pd.Series([1.0, 1.0, 1.0])
+        regime_probs = np.array([
+            [0.1, 0.9],
+            [0.8, 0.2],
+            [0.3, 0.7],
+        ])
+        # Use regime 1 as active
+        filtered = regime_signal_filter(signals, regime_probs, active_regime=1, min_prob=0.6)
+        assert filtered.iloc[0] == 1.0  # regime 1 prob=0.9 >= 0.6
+        assert filtered.iloc[1] == 0.0  # regime 1 prob=0.2 < 0.6
+        assert filtered.iloc[2] == 1.0  # regime 1 prob=0.7 >= 0.6
+
+    def test_invalid_probs_shape_raises(self) -> None:
+        signals = np.array([1.0, -1.0])
+        regime_probs = np.array([0.8, 0.2])  # 1-D, invalid
+        with pytest.raises(ValueError, match="2-D"):
+            regime_signal_filter(signals, regime_probs)
+
+    def test_preserves_series_index(self) -> None:
+        idx = pd.date_range("2020-01-01", periods=3, freq="D")
+        signals = pd.Series([1.0, -1.0, 1.0], index=idx, name="sig")
+        regime_probs = np.array([
+            [0.8, 0.2],
+            [0.3, 0.7],
+            [0.9, 0.1],
+        ])
+        filtered = regime_signal_filter(signals, regime_probs, min_prob=0.6)
+        pd.testing.assert_index_equal(filtered.index, idx)

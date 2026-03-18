@@ -17,6 +17,7 @@ __all__ = [
     "invert_signal",
     "clip_weights",
     "rebalance_threshold",
+    "regime_signal_filter",
 ]
 
 
@@ -416,3 +417,53 @@ def regime_conditional_sizing(
     )
     arr = np.asarray(base_weights, dtype=float)
     return arr * effective_mult
+
+
+def regime_signal_filter(
+    signals: pd.Series | np.ndarray,
+    regime_probs: np.ndarray,
+    active_regime: int = 0,
+    min_prob: float = 0.6,
+) -> pd.Series:
+    """Filter trading signals to only trade in favorable regimes.
+
+    Zeros out signals when the probability of the active regime
+    is below min_prob. Useful for avoiding trades during crisis
+    regimes or only trading during trending markets.
+
+    Parameters:
+        signals: Raw trading signals (1=long, -1=short, 0=flat).
+        regime_probs: Regime probability matrix (T, K) from detect_regimes().
+        active_regime: Which regime to trade in (0=low vol by convention).
+        min_prob: Minimum probability threshold to allow trading.
+
+    Returns:
+        Filtered signals (same shape, zeros where regime inactive).
+
+    Example:
+        >>> from wraquant.regimes import detect_regimes
+        >>> from wraquant.backtest.position import regime_signal_filter
+        >>> regimes = detect_regimes(returns, method="hmm", n_regimes=2)
+        >>> filtered = regime_signal_filter(signals, regimes.probabilities,
+        ...                                 active_regime=0, min_prob=0.6)
+    """
+    sig_arr = np.asarray(signals, dtype=float).ravel()
+    probs = np.asarray(regime_probs)
+
+    if probs.ndim != 2:
+        msg = "regime_probs must be a 2-D array of shape (T, K)"
+        raise ValueError(msg)
+
+    n = min(len(sig_arr), probs.shape[0])
+    sig_out = sig_arr[-n:].copy()
+    active_probs = probs[-n:, active_regime]
+
+    # Zero out signals where the active regime probability is below threshold
+    mask = active_probs < min_prob
+    sig_out[mask] = 0.0
+
+    if isinstance(signals, pd.Series):
+        return pd.Series(
+            sig_out, index=signals.index[-n:], name=signals.name
+        )
+    return pd.Series(sig_out, name="filtered_signal")

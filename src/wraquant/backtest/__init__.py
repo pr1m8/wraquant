@@ -44,6 +44,7 @@ from wraquant.backtest.position import (
     invert_signal,
     rebalance_threshold,
     regime_conditional_sizing,
+    regime_signal_filter,
     risk_parity_position,
 )
 from wraquant.backtest.strategy import Strategy
@@ -94,6 +95,7 @@ __all__ = [
     "rebalance_threshold",
     "risk_parity_position",
     "regime_conditional_sizing",
+    "regime_signal_filter",
     # tearsheet
     "comprehensive_tearsheet",
     "drawdown_table",

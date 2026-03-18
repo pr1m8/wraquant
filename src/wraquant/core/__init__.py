@@ -10,6 +10,7 @@ from wraquant.core.exceptions import (
     ValidationError,
     WQError,
 )
+from wraquant.core.results import BacktestResult, ForecastResult, GARCHResult
 from wraquant.core.types import (
     AssetClass,
     Currency,
@@ -41,4 +42,8 @@ __all__ = [
     "requires_extra",
     "cache_result",
     "validate_input",
+    # Results
+    "GARCHResult",
+    "BacktestResult",
+    "ForecastResult",
 ]
