@@ -65,11 +65,15 @@ class _MissingModule:
 
 # Mapping from optional dependency group names to their key module
 _EXTRA_TO_MODULES: dict[str, list[str]] = {
+    "accelerate": ["polars", "numba"],
+    "symbolic": ["sympy"],
+    "logging": ["loguru", "rich"],
+    "ml": ["sklearn"],
     "market-data": ["yfinance", "fredapi", "nasdaqdatalink"],
     "timeseries": ["pmdarima", "arch", "ruptures"],
     "cleaning": ["janitor", "rapidfuzz"],
     "validation": ["pandera"],
-    "etl": ["dlt", "ibis"],
+    "etl": ["sqlalchemy", "connectorx"],
     "ingestion": ["httpx", "aiohttp"],
     "workflow": ["prefect"],
     "optimization": ["cvxpy", "pymoo"],
@@ -78,11 +82,11 @@ _EXTRA_TO_MODULES: dict[str, list[str]] = {
     "risk": ["pypfopt", "riskfolio"],
     "pricing": ["QuantLib", "financepy"],
     "stochastic": ["sdepy", "sdeint"],
-    "ml": ["sklearn"],
     "viz": ["matplotlib", "plotly"],
     "bayes": ["pymc", "arviz"],
     "quant-math": ["jax"],
     "scale": ["dask", "ray"],
+    "causal": ["dowhy", "econml"],
 }
 
 
