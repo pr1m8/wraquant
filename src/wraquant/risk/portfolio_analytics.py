@@ -33,6 +33,9 @@ import pandas as pd
 from scipy import optimize
 from scipy import stats as sp_stats
 
+from wraquant.risk.metrics import max_drawdown as _max_drawdown
+from wraquant.risk.portfolio import portfolio_volatility as _portfolio_volatility
+
 
 def component_var(
     weights: np.ndarray,
@@ -87,11 +90,9 @@ def component_var(
     cov = returns.cov().values
     z = sp_stats.norm.ppf(alpha)
 
-    port_vol = float(np.sqrt(weights @ cov @ weights))
+    port_vol = _portfolio_volatility(weights, cov)
     if port_vol == 0:
         return pd.Series(np.zeros(len(weights)), index=returns.columns)
-
-    -z * port_vol
 
     # Marginal contribution
     marginal = cov @ weights / port_vol
@@ -278,7 +279,7 @@ def risk_budgeting(
 
     def objective(w: np.ndarray) -> float:
         """Sum of squared deviations from target risk contributions."""
-        port_vol = np.sqrt(w @ cov @ w)
+        port_vol = _portfolio_volatility(w, cov)
         if port_vol < 1e-15:
             return 1e10
         marginal = cov @ w / port_vol
@@ -304,7 +305,7 @@ def risk_budgeting(
     )
 
     weights = result.x
-    port_vol = float(np.sqrt(weights @ cov @ weights))
+    port_vol = _portfolio_volatility(weights, cov)
     if port_vol > 0:
         marginal = cov @ weights / port_vol
         rc = weights * marginal
@@ -368,7 +369,7 @@ def diversification_ratio(
     """
     individual_vols = np.sqrt(np.diag(cov))
     weighted_avg_vol = float(weights @ individual_vols)
-    port_vol = float(np.sqrt(weights @ cov @ weights))
+    port_vol = _portfolio_volatility(weights, cov)
     if port_vol == 0:
         return 1.0
     return weighted_avg_vol / port_vol
@@ -417,7 +418,7 @@ def concentration_ratio(
     See Also:
         diversification_ratio: Alternative diversification metric.
     """
-    port_vol = float(np.sqrt(weights @ cov @ weights))
+    port_vol = _portfolio_volatility(weights, cov)
     if port_vol == 0:
         return 1.0
 
@@ -486,11 +487,9 @@ def tracking_error(
 
     ir = active_mean_annual / te_annual if te_annual > 0 else 0.0
 
-    # Max active drawdown
+    # Max active drawdown via shared metrics
     cum_active = (1 + active_clean).cumprod()
-    running_max = cum_active.cummax()
-    dd = (cum_active - running_max) / running_max
-    max_active_dd = float(dd.min())
+    max_active_dd = _max_drawdown(cum_active)
 
     return {
         "tracking_error": te_annual,

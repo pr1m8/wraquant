@@ -13,10 +13,7 @@ import pandas as pd
 from scipy import stats as sp_stats
 from statsmodels.stats.diagnostic import (
     acorr_breusch_godfrey,
-    het_breuschpagan,
-    het_white,
 )
-from statsmodels.stats.stattools import durbin_watson as _sm_durbin_watson
 
 
 def durbin_watson(residuals: np.ndarray | pd.Series) -> float:
@@ -26,14 +23,19 @@ def durbin_watson(residuals: np.ndarray | pd.Series) -> float:
     first-order autocorrelation, values near 0 indicate positive
     autocorrelation, and values near 4 indicate negative autocorrelation.
 
+    Delegates to ``wraquant.stats.tests.durbin_watson`` for the core
+    computation.
+
     Parameters:
         residuals: OLS residuals.
 
     Returns:
         Durbin-Watson statistic (float in [0, 4]).
     """
-    resid = np.asarray(residuals).ravel()
-    return float(_sm_durbin_watson(resid))
+    from wraquant.stats.tests import durbin_watson as _stats_dw
+
+    result = _stats_dw(residuals)
+    return result["statistic"]
 
 
 def breusch_godfrey(
@@ -88,7 +90,8 @@ def breusch_pagan(
     """Breusch-Pagan test for heteroskedasticity.
 
     Tests whether the variance of the residuals depends on the regressors.
-    The null hypothesis is homoskedasticity.
+    The null hypothesis is homoskedasticity.  Delegates to
+    ``wraquant.stats.tests.breusch_pagan`` for the core computation.
 
     Parameters:
         residuals: OLS residuals.
@@ -98,17 +101,15 @@ def breusch_pagan(
         Dictionary with ``lm_statistic``, ``lm_p_value``, ``f_statistic``,
         ``f_p_value``, and ``is_heteroskedastic`` (at 5 % level).
     """
-    resid = np.asarray(residuals).ravel()
-    X_arr = np.asarray(X)
+    from wraquant.stats.tests import breusch_pagan as _stats_bp
 
-    lm_stat, lm_p, f_stat, f_p = het_breuschpagan(resid, X_arr)
-
+    result = _stats_bp(residuals, X)
     return {
-        "lm_statistic": float(lm_stat),
-        "lm_p_value": float(lm_p),
-        "f_statistic": float(f_stat),
-        "f_p_value": float(f_p),
-        "is_heteroskedastic": bool(lm_p < 0.05),
+        "lm_statistic": result["lm_stat"],
+        "lm_p_value": result["p_value"],
+        "f_statistic": result["f_stat"],
+        "f_p_value": result["f_p_value"],
+        "is_heteroskedastic": result["is_heteroskedastic"],
     }
 
 
@@ -120,6 +121,8 @@ def white_test(
 
     Includes cross-product terms and squared regressors, making it more
     general than Breusch-Pagan.  The null hypothesis is homoskedasticity.
+    Delegates to ``wraquant.stats.tests.white_test`` for the core
+    computation.
 
     Parameters:
         residuals: OLS residuals.
@@ -129,17 +132,15 @@ def white_test(
         Dictionary with ``lm_statistic``, ``lm_p_value``, ``f_statistic``,
         ``f_p_value``, and ``is_heteroskedastic`` (at 5 % level).
     """
-    resid = np.asarray(residuals).ravel()
-    X_arr = np.asarray(X)
+    from wraquant.stats.tests import white_test as _stats_white
 
-    lm_stat, lm_p, f_stat, f_p = het_white(resid, X_arr)
-
+    result = _stats_white(residuals, X)
     return {
-        "lm_statistic": float(lm_stat),
-        "lm_p_value": float(lm_p),
-        "f_statistic": float(f_stat),
-        "f_p_value": float(f_p),
-        "is_heteroskedastic": bool(lm_p < 0.05),
+        "lm_statistic": result["lm_stat"],
+        "lm_p_value": result["p_value"],
+        "f_statistic": result["f_stat"],
+        "f_p_value": result["f_p_value"],
+        "is_heteroskedastic": result["is_heteroskedastic"],
     }
 
 
@@ -149,6 +150,8 @@ def jarque_bera(
     """Jarque-Bera test for normality of residuals.
 
     The null hypothesis is that the residuals are normally distributed.
+    Delegates to ``wraquant.stats.tests.test_normality`` for the core
+    computation.
 
     Parameters:
         residuals: Model residuals.
@@ -157,15 +160,18 @@ def jarque_bera(
         Dictionary with ``statistic``, ``p_value``, ``skewness``,
         ``kurtosis``, and ``is_normal`` (at 5 % level).
     """
-    resid = np.asarray(residuals).ravel()
-    stat, p = sp_stats.jarque_bera(resid)
+    from wraquant.stats.tests import test_normality as _test_normality
 
+    resid_series = pd.Series(np.asarray(residuals).ravel())
+    result = _test_normality(resid_series, method="jarque_bera")
+
+    resid_clean = resid_series.dropna().values
     return {
-        "statistic": float(stat),
-        "p_value": float(p),
-        "skewness": float(sp_stats.skew(resid)),
-        "kurtosis": float(sp_stats.kurtosis(resid, fisher=True)),
-        "is_normal": bool(p > 0.05),
+        "statistic": result["statistic"],
+        "p_value": result["p_value"],
+        "skewness": float(sp_stats.skew(resid_clean)),
+        "kurtosis": float(sp_stats.kurtosis(resid_clean, fisher=True)),
+        "is_normal": result["is_normal"],
     }
 
 

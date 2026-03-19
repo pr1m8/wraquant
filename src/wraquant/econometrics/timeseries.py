@@ -325,32 +325,15 @@ def structural_break_test(
             msg = "break_point must be specified for method='chow'"
             raise ValueError(msg)
 
-        # Full-sample regression
-        ols_full = sm.OLS(y_arr, X_arr).fit()
-        ssr_full = np.sum(ols_full.resid**2)
+        # Delegate to stats/tests.chow_test (single source of truth)
+        from wraquant.stats.tests import chow_test as _chow_test
 
-        # Sub-sample regressions
-        y1, X1 = y_arr[:break_point], X_arr[:break_point]
-        y2, X2 = y_arr[break_point:], X_arr[break_point:]
-
-        ols1 = sm.OLS(y1, X1).fit()
-        ols2 = sm.OLS(y2, X2).fit()
-
-        ssr1 = np.sum(ols1.resid**2)
-        ssr2 = np.sum(ols2.resid**2)
-        ssr_sub = ssr1 + ssr2
-
-        df_num = k
-        df_denom = T - 2 * k
-
-        f_stat = ((ssr_full - ssr_sub) / df_num) / (ssr_sub / max(df_denom, 1))
-        p_value = 1.0 - sp_stats.f.cdf(f_stat, df_num, max(df_denom, 1))
-
+        chow_result = _chow_test(y_arr, X_arr, break_point=break_point, add_constant=False)
         return {
-            "f_statistic": float(f_stat),
-            "p_value": float(p_value),
+            "f_statistic": chow_result["f_stat"],
+            "p_value": chow_result["p_value"],
             "break_point": break_point,
-            "is_break": bool(p_value < 0.05),
+            "is_break": chow_result["break_detected"],
         }
 
     elif method == "sup_f":

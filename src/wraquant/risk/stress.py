@@ -219,11 +219,11 @@ def historical_stress_test(
             continue
 
         periods_found.append(name)
+        from wraquant.risk.metrics import max_drawdown as _max_drawdown
+
         cum_return = float(np.prod(1 + subset.values) - 1)
-        cum_prices = np.cumprod(1 + subset.values)
-        running_max = np.maximum.accumulate(cum_prices)
-        drawdowns = (cum_prices - running_max) / running_max
-        max_dd = float(np.min(drawdowns))
+        cum_prices = pd.Series(np.cumprod(1 + subset.values))
+        max_dd = _max_drawdown(cum_prices)
 
         crisis_results[name] = {
             "cumulative_return": cum_return,
@@ -467,6 +467,8 @@ def sensitivity_ladder(
         shock_range = np.linspace(-0.10, 0.10, 21)
     shock_range = np.asarray(shock_range)
 
+    from wraquant.stats.regression import ols as _ols
+
     # Align and clean
     aligned = pd.concat(
         [portfolio_returns.rename("port"), factor_returns.rename("factor")],
@@ -475,8 +477,11 @@ def sensitivity_ladder(
     y = aligned["port"].values
     x = aligned["factor"].values
 
-    # OLS regression
-    slope, intercept, r_value, _p_value, _std_err = sp_stats.linregress(x, y)
+    # OLS regression via shared module
+    ols_result = _ols(y, x, add_constant=True)
+    intercept = float(ols_result["coefficients"][0])
+    slope = float(ols_result["coefficients"][1])
+    r_value_sq = ols_result["r_squared"]
 
     ladder: dict[float, float] = {}
     for shock in shock_range:
@@ -486,7 +491,7 @@ def sensitivity_ladder(
         "ladder": ladder,
         "beta": float(slope),
         "alpha": float(intercept),
-        "r_squared": float(r_value**2),
+        "r_squared": float(r_value_sq),
     }
 
 
@@ -851,6 +856,8 @@ def correlation_stress(
     if shock_levels is None:
         shock_levels = [0.0, 0.25, 0.5, 0.75, 1.0]
 
+    from wraquant.risk.portfolio import portfolio_volatility as _portfolio_vol
+
     clean = returns.dropna()
     n_assets = clean.shape[1]
     vols = clean.std().values
@@ -869,7 +876,7 @@ def correlation_stress(
         D = np.diag(vols)
         stressed_cov = D @ stressed_corr @ D
 
-        port_vol = float(np.sqrt(eq_weights @ stressed_cov @ eq_weights))
+        port_vol = _portfolio_vol(eq_weights, stressed_cov)
         if level == 0.0:
             base_vol = port_vol
 
@@ -1116,11 +1123,13 @@ def scenario_library(
     if scenarios is None:
         scenarios = list(_SCENARIO_LIBRARY.keys())
 
+    from wraquant.risk.portfolio import portfolio_volatility as _portfolio_volatility
+
     clean = returns.dropna()
     n_assets = clean.shape[1]
     eq_weights = np.ones(n_assets) / n_assets
 
-    base_vol = float(np.sqrt(eq_weights @ clean.cov().values @ eq_weights))
+    base_vol = _portfolio_volatility(eq_weights, clean.cov().values)
 
     results: dict[str, dict[str, Any]] = {}
 

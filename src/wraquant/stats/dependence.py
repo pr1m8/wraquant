@@ -240,8 +240,11 @@ def copula_selection(
     u = sp_stats.rankdata(x_arr) / (n + 1)
     v = sp_stats.rankdata(y_arr) / (n + 1)
 
-    # Kendall's tau for parameter estimation
-    tau, _ = sp_stats.kendalltau(x_arr, y_arr)
+    # Kendall's tau for parameter estimation via shared module
+    from wraquant.stats.correlation import kendall_tau as _kendall_tau
+
+    _tau_result = _kendall_tau(x_arr, y_arr)
+    tau = _tau_result["tau"]
     tau = float(np.clip(tau, -0.99, 0.99))
 
     rows: list[dict] = []
@@ -446,7 +449,9 @@ def rank_correlation_matrix(
         correlation_matrix: Pearson correlation matrix.
         partial_correlation: Partial correlation controlling for others.
     """
-    return data.corr(method=method)
+    from wraquant.stats.correlation import correlation_matrix as _correlation_matrix
+
+    return _correlation_matrix(data, method=method)
 
 
 # ---------------------------------------------------------------------------

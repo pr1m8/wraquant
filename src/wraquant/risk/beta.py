@@ -275,19 +275,13 @@ def dimson_beta(
     X = X[valid]
     y = y[valid]
 
-    # Add intercept
-    X_int = np.column_stack([np.ones(len(X)), X])
+    # OLS via shared regression module
+    from wraquant.stats.regression import ols as _ols
 
-    # OLS: (X'X)^{-1} X'y
-    coeffs = np.linalg.lstsq(X_int, y, rcond=None)[0]
-    alpha = float(coeffs[0])
-    lag_betas = [float(c) for c in coeffs[1:]]
-
-    # R-squared
-    y_hat = X_int @ coeffs
-    ss_res = np.sum((y - y_hat) ** 2)
-    ss_tot = np.sum((y - np.mean(y)) ** 2)
-    r_squared = float(1.0 - ss_res / ss_tot) if ss_tot > 0 else 0.0
+    ols_result = _ols(y, X, add_constant=True)
+    alpha = float(ols_result["coefficients"][0])
+    lag_betas = [float(c) for c in ols_result["coefficients"][1:]]
+    r_squared = ols_result["r_squared"]
 
     return {
         "total_beta": sum(lag_betas),

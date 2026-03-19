@@ -124,6 +124,8 @@ def factor_loadings(
         - ``r_squared``: ndarray ``(N,)`` of regression R-squared values.
         - ``residuals``: ndarray ``(T, N)`` of regression residuals.
     """
+    from wraquant.stats.regression import ols as _ols
+
     Y = np.asarray(returns, dtype=float)
     F = np.asarray(factors, dtype=float)
     T, N = Y.shape
@@ -131,23 +133,18 @@ def factor_loadings(
     if F.ndim == 1:
         F = F.reshape(-1, 1)
 
-    # Add constant column for intercept
-    F_const = np.column_stack([np.ones(T), F])  # (T, K+1)
+    # Regress each asset on the factors via the shared OLS module
+    loadings_arr = np.zeros((N, K))
+    alphas = np.zeros(N)
+    r_squared = np.zeros(N)
+    residuals = np.zeros((T, N))
 
-    # OLS: beta = (F'F)^{-1} F'Y
-    FtF_inv = np.linalg.inv(F_const.T @ F_const)
-    betas = FtF_inv @ (F_const.T @ Y)  # (K+1, N)
-
-    Y_hat = F_const @ betas
-    residuals = Y - Y_hat
-
-    alphas = betas[0, :]  # intercepts
-    loadings_arr = betas[1:, :].T  # (N, K)
-
-    # R-squared for each asset
-    ss_res = np.sum(residuals ** 2, axis=0)
-    ss_tot = np.sum((Y - Y.mean(axis=0)) ** 2, axis=0)
-    r_squared = np.where(ss_tot > 0, 1.0 - ss_res / ss_tot, 0.0)
+    for i in range(N):
+        result = _ols(Y[:, i], F, add_constant=True)
+        alphas[i] = result["coefficients"][0]
+        loadings_arr[i, :] = result["coefficients"][1:]
+        r_squared[i] = result["r_squared"]
+        residuals[:, i] = result["residuals"]
 
     return {
         "loadings": loadings_arr,
@@ -385,21 +382,19 @@ def risk_factor_decomposition(
         - ``factor_marginal_contributions``: variance contribution of
           each factor.
     """
+    from wraquant.stats.regression import ols as _ols
+
     y = np.asarray(portfolio_returns, dtype=float).ravel()
     F = np.asarray(factor_returns, dtype=float)
     if F.ndim == 1:
         F = F.reshape(-1, 1)
 
-    T, K = F.shape
-    F_const = np.column_stack([np.ones(T), F])
+    K = F.shape[1]
 
-    # OLS
-    FtF_inv = np.linalg.inv(F_const.T @ F_const)
-    params = FtF_inv @ (F_const.T @ y)
-    betas = params[1:]  # factor betas
-
-    y_hat = F_const @ params
-    residuals = y - y_hat
+    # OLS via shared regression module
+    ols_result = _ols(y, F, add_constant=True)
+    betas = ols_result["coefficients"][1:]  # factor betas
+    residuals = ols_result["residuals"]
 
     total_var = float(np.var(y, ddof=1))
     idio_var = float(np.var(residuals, ddof=1))

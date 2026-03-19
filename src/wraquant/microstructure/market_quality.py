@@ -520,13 +520,12 @@ def price_impact_regression(
     y = data["dp"].values
     X = data[[f"v_lag{i}" for i in range(lags + 1)]].values
 
-    # Add intercept
-    X = np.column_stack([np.ones(len(y)), X])
+    # OLS via shared regression module
+    from wraquant.stats.regression import ols as _ols
 
-    # OLS
     try:
-        beta = np.linalg.lstsq(X, y, rcond=None)[0]
-    except np.linalg.LinAlgError:
+        ols_result = _ols(y, X, add_constant=True)
+    except (np.linalg.LinAlgError, ValueError):
         return {
             "permanent_impact": np.nan,
             "temporary_impact": np.nan,
@@ -534,10 +533,8 @@ def price_impact_regression(
             "r_squared": np.nan,
         }
 
-    y_hat = X @ beta
-    ss_res = np.sum((y - y_hat) ** 2)
-    ss_tot = np.sum((y - np.mean(y)) ** 2)
-    r_sq = 1.0 - ss_res / ss_tot if ss_tot > 0 else 0.0
+    beta = ols_result["coefficients"]
+    r_sq = ols_result["r_squared"]
 
     # beta[0] is intercept, beta[1] is contemporaneous, beta[2:] are lags
     beta_0 = beta[1]

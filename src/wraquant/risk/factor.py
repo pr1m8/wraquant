@@ -115,20 +115,15 @@ def factor_risk_model(
     factor_names = [c for c in aligned.columns if c != "y"]
     X = aligned[factor_names].values
 
-    # OLS with intercept
-    X_int = np.column_stack([np.ones(len(X)), X])
-    coeffs = np.linalg.lstsq(X_int, y_vals, rcond=None)[0]
+    # OLS via shared regression module
+    from wraquant.stats.regression import ols as _ols
+
+    ols_result = _ols(y_vals, X, add_constant=True)
+    coeffs = ols_result["coefficients"]
     alpha_val = float(coeffs[0])
     betas = {name: float(coeffs[i + 1]) for i, name in enumerate(factor_names)}
-
-    # Residuals
-    y_hat = X_int @ coeffs
-    residuals = y_vals - y_hat
-
-    # R-squared
-    ss_res = np.sum(residuals**2)
-    ss_tot = np.sum((y_vals - np.mean(y_vals)) ** 2)
-    r_squared = float(1.0 - ss_res / ss_tot) if ss_tot > 0 else 0.0
+    residuals = ols_result["residuals"]
+    r_squared = ols_result["r_squared"]
 
     # Risk decomposition
     total_var = float(np.var(y_vals, ddof=1))
@@ -329,37 +324,17 @@ def fama_french_regression(
     y = aligned["y"].values
     factor_names = [c for c in aligned.columns if c != "y"]
     X = aligned[factor_names].values
-    n, k = X.shape
 
-    # OLS with intercept
-    X_int = np.column_stack([np.ones(n), X])
-    coeffs = np.linalg.lstsq(X_int, y, rcond=None)[0]
+    # OLS via shared regression module
+    from wraquant.stats.regression import ols as _ols
 
-    # Residuals and standard errors
-    y_hat = X_int @ coeffs
-    residuals = y - y_hat
-    ss_res = np.sum(residuals**2)
-    ss_tot = np.sum((y - np.mean(y)) ** 2)
-    r_squared = float(1.0 - ss_res / ss_tot) if ss_tot > 0 else 0.0
-
-    dof = n - k - 1
-    adj_r_squared = float(1.0 - (1.0 - r_squared) * (n - 1) / dof) if dof > 0 else 0.0
-
-    mse = ss_res / dof if dof > 0 else 0.0
-    # Covariance of coefficients
-    try:
-        cov_coeffs = mse * np.linalg.inv(X_int.T @ X_int)
-        se = np.sqrt(np.diag(cov_coeffs))
-    except np.linalg.LinAlgError:
-        se = np.full(k + 1, float("nan"))
-
-    t_stats_arr = coeffs / se
-    p_values_arr = np.array(
-        [
-            float(2 * (1 - sp_stats.t.cdf(abs(t), df=dof))) if dof > 0 else float("nan")
-            for t in t_stats_arr
-        ]
-    )
+    ols_result = _ols(y, X, add_constant=True)
+    coeffs = ols_result["coefficients"]
+    t_stats_arr = ols_result["t_stats"]
+    p_values_arr = ols_result["p_values"]
+    residuals = ols_result["residuals"]
+    r_squared = ols_result["r_squared"]
+    adj_r_squared = ols_result["adj_r_squared"]
 
     alpha_val = float(coeffs[0])
     betas = {name: float(coeffs[i + 1]) for i, name in enumerate(factor_names)}

@@ -27,6 +27,8 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from wraquant.risk.metrics import max_drawdown as _max_drawdown
+
 
 def crisis_drawdowns(
     returns: pd.Series,
