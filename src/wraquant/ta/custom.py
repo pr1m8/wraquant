@@ -36,16 +36,8 @@ __all__ = [
 # ---------------------------------------------------------------------------
 
 
-def _validate_series(data: pd.Series, name: str = "data") -> pd.Series:
-    if not isinstance(data, pd.Series):
-        raise TypeError(f"{name} must be a pd.Series, got {type(data).__name__}")
-    return data
-
-
-def _validate_period(period: int, name: str = "period") -> int:
-    if period < 1:
-        raise ValueError(f"{name} must be >= 1, got {period}")
-    return period
+from wraquant.ta._validators import validate_period as _validate_period
+from wraquant.ta._validators import validate_series as _validate_series
 
 
 def _ema(data: pd.Series, period: int) -> pd.Series:
@@ -575,9 +567,10 @@ def volume_weighted_macd(
 
     def _vwma(price: pd.Series, vol: pd.Series, period: int) -> pd.Series:
         pv = price * vol
-        return pv.rolling(window=period, min_periods=period).sum() / vol.rolling(
-            window=period, min_periods=period
-        ).sum()
+        return (
+            pv.rolling(window=period, min_periods=period).sum()
+            / vol.rolling(window=period, min_periods=period).sum()
+        )
 
     fast_vwma = _vwma(close, volume, fast)
     slow_vwma = _vwma(close, volume, slow)
@@ -657,15 +650,14 @@ def ehlers_fisher(
             continue
         val[i] = 0.5 * raw.iloc[i] + 0.5 * val[i - 1] if i > 0 else 0.5 * raw.iloc[i]
         val[i] = np.clip(val[i], -0.999, 0.999)
-        fisher_out[i] = (
-            0.5 * np.log((1 + val[i]) / (1 - val[i]))
-            + 0.5 * (fisher_out[i - 1] if i > 0 else 0.0)
+        fisher_out[i] = 0.5 * np.log((1 + val[i]) / (1 - val[i])) + 0.5 * (
+            fisher_out[i - 1] if i > 0 else 0.0
         )
         trigger_out[i] = fisher_out[i - 1] if i > 0 else np.nan
 
     # Set pre-warmup to NaN
     fisher_out[: period - 1] = np.nan
-    trigger_out[: period] = np.nan
+    trigger_out[:period] = np.nan
 
     return {
         "fisher": pd.Series(fisher_out, index=high.index, name="fisher"),
@@ -731,9 +723,9 @@ def adaptive_rsi(
     vol_norm = vol_norm.fillna(0.5)
 
     # Adaptive period: high vol -> short period, low vol -> long period
-    adaptive_period = (
-        max_period - vol_norm * (max_period - min_period)
-    ).clip(min_period, max_period)
+    adaptive_period = (max_period - vol_norm * (max_period - min_period)).clip(
+        min_period, max_period
+    )
 
     result = np.full(n, np.nan)
     delta = data.diff()

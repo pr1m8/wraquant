@@ -32,19 +32,31 @@ def read_csv(
     """Read a CSV file with financial defaults.
 
     By default, parses a ``Date`` column and sets it as the index, which
-    matches the most common layout for financial time-series CSVs.
+    matches the most common layout for financial time-series CSVs
+    (Yahoo Finance downloads, FRED exports, etc.).  Pass
+    ``parse_dates=False`` to disable automatic date parsing.
 
     Parameters:
-        path: Path to the CSV file.
-        date_column: Name of the date column to parse and set as index.
-            Ignored when *parse_dates* is ``False``.
-        parse_dates: If ``True``, parse *date_column* as datetime and use
-            it as the DataFrame index.
+        path (str | Path): Path to the CSV file.
+        date_column (str): Name of the date column to parse and set as
+            index (default ``'Date'``).  Ignored when *parse_dates* is
+            ``False``.
+        parse_dates (bool): If ``True``, parse *date_column* as
+            datetime and use it as the DataFrame index.
         **kwargs: Additional keyword arguments forwarded to
             :func:`pandas.read_csv`.
 
     Returns:
-        DataFrame with the CSV contents, optionally date-indexed.
+        pd.DataFrame: DataFrame with the CSV contents, optionally
+            date-indexed.
+
+    Example:
+        >>> df = read_csv("prices.csv")  # doctest: +SKIP
+        >>> df = read_csv("data.csv", parse_dates=False)  # doctest: +SKIP
+
+    See Also:
+        write_csv: Write a DataFrame to CSV.
+        read_parquet: Faster columnar format for large datasets.
     """
     path = Path(path)
 
@@ -62,11 +74,19 @@ def write_csv(
 ) -> None:
     """Write a DataFrame or Series to CSV.
 
+    Creates parent directories automatically if they do not exist.
+
     Parameters:
-        data: Data to write.
-        path: Destination file path.
+        data (pd.DataFrame | pd.Series): Data to write.
+        path (str | Path): Destination file path.
         **kwargs: Additional keyword arguments forwarded to
             :meth:`pandas.DataFrame.to_csv`.
+
+    Example:
+        >>> write_csv(df, "output/prices.csv")  # doctest: +SKIP
+
+    See Also:
+        read_csv: Read a CSV file with financial defaults.
     """
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -80,14 +100,27 @@ def read_parquet(
 ) -> pd.DataFrame:
     """Read a Parquet file.
 
+    Parquet is the recommended format for large financial datasets: it
+    is columnar, compressed, and preserves dtypes (including datetime
+    indices) without the ambiguity of CSV parsing.
+
     Parameters:
-        path: Path to the Parquet file.
-        columns: Subset of columns to read. ``None`` reads all columns.
+        path (str | Path): Path to the Parquet file.
+        columns (list[str] | None): Subset of columns to read.
+            ``None`` reads all columns.  Selecting a subset is much
+            faster for wide datasets.
         **kwargs: Additional keyword arguments forwarded to
             :func:`pandas.read_parquet`.
 
     Returns:
-        DataFrame with the Parquet contents.
+        pd.DataFrame: DataFrame with the Parquet contents.
+
+    Example:
+        >>> df = read_parquet("prices.parquet")  # doctest: +SKIP
+        >>> df = read_parquet("prices.parquet", columns=["close", "volume"])  # doctest: +SKIP
+
+    See Also:
+        write_parquet: Write a DataFrame to Parquet.
     """
     path = Path(path)
     return pd.read_parquet(path, columns=columns, **kwargs)
@@ -100,11 +133,21 @@ def write_parquet(
 ) -> None:
     """Write a DataFrame to Parquet format.
 
+    Creates parent directories automatically.  Parquet preserves dtypes
+    exactly and is significantly faster to read/write than CSV for
+    large datasets.
+
     Parameters:
-        data: DataFrame to write.
-        path: Destination file path.
+        data (pd.DataFrame): DataFrame to write.
+        path (str | Path): Destination file path.
         **kwargs: Additional keyword arguments forwarded to
             :meth:`pandas.DataFrame.to_parquet`.
+
+    Example:
+        >>> write_parquet(df, "output/prices.parquet")  # doctest: +SKIP
+
+    See Also:
+        read_parquet: Read a Parquet file.
     """
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)

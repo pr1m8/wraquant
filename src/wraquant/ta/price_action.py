@@ -30,17 +30,8 @@ __all__ = [
 # ---------------------------------------------------------------------------
 
 
-def _validate_series(data: pd.Series, name: str = "data") -> pd.Series:
-    if not isinstance(data, pd.Series):
-        raise TypeError(f"{name} must be a pd.Series, got {type(data).__name__}")
-    return data
-
-
-def _validate_period(period: int, name: str = "period") -> int:
-    if period < 1:
-        raise ValueError(f"{name} must be >= 1, got {period}")
-    return period
-
+from wraquant.ta._validators import validate_period as _validate_period
+from wraquant.ta._validators import validate_series as _validate_series
 
 # ---------------------------------------------------------------------------
 # higher_highs_lows
@@ -81,9 +72,9 @@ def higher_highs_lows(
     curr_low = low.rolling(window=period, min_periods=period).min()
 
     hh = curr_high > prev_high  # higher high
-    hl = curr_low > prev_low    # higher low
+    hl = curr_low > prev_low  # higher low
     lh = curr_high < prev_high  # lower high
-    ll = curr_low < prev_low    # lower low
+    ll = curr_low < prev_low  # lower low
 
     uptrend = hh & hl
     downtrend = lh & ll
@@ -205,10 +196,10 @@ def trend_bars(
     for i in range(1, len(close)):
         if diff.iloc[i] > 0:
             prev = result.iloc[i - 1]
-            result.iloc[i] = (max(prev, 0) + 1)
+            result.iloc[i] = max(prev, 0) + 1
         elif diff.iloc[i] < 0:
             prev = result.iloc[i - 1]
-            result.iloc[i] = (min(prev, 0) - 1)
+            result.iloc[i] = min(prev, 0) - 1
         else:
             result.iloc[i] = 0
 
@@ -277,24 +268,30 @@ def gap_analysis(
     gap_size = gap_size.abs()
 
     direction = np.where(gap_up, 1, np.where(gap_down, -1, 0))
-    gap_direction = pd.Series(direction, index=close.index, name="gap_direction", dtype=int)
+    gap_direction = pd.Series(
+        direction, index=close.index, name="gap_direction", dtype=int
+    )
 
-    avg_range = (high - low).rolling(
+    avg_range = (
+        (high - low)
+        .rolling(window=avg_range_period, min_periods=avg_range_period)
+        .mean()
+    )
+
+    sma_close = close.rolling(
         window=avg_range_period, min_periods=avg_range_period
     ).mean()
-
-    sma_close = close.rolling(window=avg_range_period, min_periods=avg_range_period).mean()
 
     has_gap = gap_up | gap_down
 
     # Exhaustion: gap in direction of sustained move (close far from SMA)
     sustained_up = close.shift(1) > sma_close.shift(1)
     sustained_down = close.shift(1) < sma_close.shift(1)
-    is_exhaustion = has_gap & (
-        (gap_up & sustained_up) | (gap_down & sustained_down)
-    )
+    is_exhaustion = has_gap & ((gap_up & sustained_up) | (gap_down & sustained_down))
 
-    is_breakaway = has_gap & (gap_size > breakaway_threshold * avg_range) & ~is_exhaustion
+    is_breakaway = (
+        has_gap & (gap_size > breakaway_threshold * avg_range) & ~is_exhaustion
+    )
 
     gap_type = pd.Series("", index=close.index, name="gap_type")
     gap_type = gap_type.where(~has_gap, "common")

@@ -46,22 +46,41 @@ def delta(
     sigma: float,
     option_type: str | OptionType = "call",
 ) -> np.float64:
-    """Compute the Black-Scholes delta (sensitivity to underlying price).
+    r"""Compute the Black-Scholes delta (sensitivity to underlying price).
+
+    Delta measures how much the option price changes for a one-unit
+    change in the underlying price.  It is the first derivative of
+    the option price with respect to S and also represents the
+    hedge ratio (number of shares to hold per option to be
+    delta-neutral).
+
+    .. math::
+
+        \Delta_{\text{call}} = \Phi(d_1), \quad
+        \Delta_{\text{put}} = \Phi(d_1) - 1
 
     Parameters:
-        S: Current underlying price.
-        K: Strike price.
-        T: Time to expiration in years.
-        r: Risk-free interest rate (annualized).
-        sigma: Volatility of the underlying (annualized).
-        option_type: 'call' or 'put'.
+        S (float): Current underlying price.
+        K (float): Strike price.
+        T (float): Time to expiration in years.
+        r (float): Risk-free interest rate (annualized).
+        sigma (float): Volatility of the underlying (annualized).
+        option_type (str | OptionType): ``'call'`` or ``'put'``.
 
     Returns:
-        Delta value. Call delta in [0, 1], put delta in [-1, 0].
+        np.float64: Delta value.  Call delta is in [0, 1]; put delta
+            is in [-1, 0].  At-the-money forward options have delta
+            near 0.5 (call) or -0.5 (put).
 
     Example:
         >>> delta(100, 100, 1.0, 0.05, 0.2, 'call')
         0.636...
+        >>> delta(100, 100, 1.0, 0.05, 0.2, 'put')
+        -0.363...
+
+    See Also:
+        gamma: Rate of change of delta.
+        all_greeks: Compute all Greeks in a single call.
     """
     otype = _parse_option_type(option_type)
     d1_val = _d1(S, K, T, r, sigma)
@@ -78,23 +97,37 @@ def gamma(
     r: float,
     sigma: float,
 ) -> np.float64:
-    """Compute the Black-Scholes gamma (rate of change of delta).
+    r"""Compute the Black-Scholes gamma (rate of change of delta).
 
-    Gamma is the same for both calls and puts.
+    Gamma is the second derivative of option price with respect to S.
+    It measures the convexity of the option position and is identical
+    for calls and puts.  High gamma means the hedge ratio changes
+    rapidly, requiring frequent rebalancing.
+
+    .. math::
+
+        \Gamma = \frac{\phi(d_1)}{S\,\sigma\,\sqrt{T}}
+
+    Gamma is highest for at-the-money options near expiry.
 
     Parameters:
-        S: Current underlying price.
-        K: Strike price.
-        T: Time to expiration in years.
-        r: Risk-free interest rate (annualized).
-        sigma: Volatility of the underlying (annualized).
+        S (float): Current underlying price.
+        K (float): Strike price.
+        T (float): Time to expiration in years.
+        r (float): Risk-free interest rate (annualized).
+        sigma (float): Volatility of the underlying (annualized).
 
     Returns:
-        Gamma value (always non-negative).
+        np.float64: Gamma value (always non-negative).  Expressed in
+            price units per unit squared move in the underlying.
 
     Example:
         >>> gamma(100, 100, 1.0, 0.05, 0.2)
         0.018...
+
+    See Also:
+        delta: First-order sensitivity to the underlying.
+        all_greeks: Compute all Greeks in a single call.
     """
     d1_val = _d1(S, K, T, r, sigma)
     return np.float64(norm.pdf(d1_val) / (S * sigma * np.sqrt(T)))
@@ -108,22 +141,33 @@ def theta(
     sigma: float,
     option_type: str | OptionType = "call",
 ) -> np.float64:
-    """Compute the Black-Scholes theta (time decay per year).
+    r"""Compute the Black-Scholes theta (time decay per year).
+
+    Theta measures the rate at which the option loses value as time
+    passes, holding all else constant.  It is typically negative for
+    long option positions (time works against the holder).  Divide by
+    252 to get the approximate daily time decay.
 
     Parameters:
-        S: Current underlying price.
-        K: Strike price.
-        T: Time to expiration in years.
-        r: Risk-free interest rate (annualized).
-        sigma: Volatility of the underlying (annualized).
-        option_type: 'call' or 'put'.
+        S (float): Current underlying price.
+        K (float): Strike price.
+        T (float): Time to expiration in years.
+        r (float): Risk-free interest rate (annualized).
+        sigma (float): Volatility of the underlying (annualized).
+        option_type (str | OptionType): ``'call'`` or ``'put'``.
 
     Returns:
-        Theta value (typically negative, representing value decay per year).
+        np.float64: Theta value per year.  Typically negative for long
+            options.  For daily theta, divide by 252 (or 365 for
+            calendar days).
 
     Example:
         >>> theta(100, 100, 1.0, 0.05, 0.2, 'call')
         -6.41...
+
+    See Also:
+        vega: Sensitivity to volatility.
+        all_greeks: Compute all Greeks in a single call.
     """
     otype = _parse_option_type(option_type)
     d1_val = _d1(S, K, T, r, sigma)
@@ -146,24 +190,37 @@ def vega(
     r: float,
     sigma: float,
 ) -> np.float64:
-    """Compute the Black-Scholes vega (sensitivity to volatility).
+    r"""Compute the Black-Scholes vega (sensitivity to volatility).
 
-    Vega is the same for both calls and puts. Returned per unit change
-    in sigma (i.e., multiply by 0.01 for a 1% vol move).
+    Vega measures how much the option price changes for a one-unit
+    (100 percentage point) change in implied volatility.  It is
+    identical for calls and puts and is always non-negative.  To get
+    the price change for a 1 percentage point vol move, multiply the
+    result by 0.01.
+
+    .. math::
+
+        \mathcal{V} = S\,\phi(d_1)\,\sqrt{T}
 
     Parameters:
-        S: Current underlying price.
-        K: Strike price.
-        T: Time to expiration in years.
-        r: Risk-free interest rate (annualized).
-        sigma: Volatility of the underlying (annualized).
+        S (float): Current underlying price.
+        K (float): Strike price.
+        T (float): Time to expiration in years.
+        r (float): Risk-free interest rate (annualized).
+        sigma (float): Volatility of the underlying (annualized).
 
     Returns:
-        Vega value (always non-negative).
+        np.float64: Vega per unit change in sigma (always non-negative).
+            Multiply by 0.01 for the price change per 1% vol move.
 
     Example:
         >>> vega(100, 100, 1.0, 0.05, 0.2)
         37.52...
+
+    See Also:
+        implied_volatility: Invert the BS formula using vega as the
+            Newton-Raphson derivative.
+        all_greeks: Compute all Greeks in a single call.
     """
     d1_val = _d1(S, K, T, r, sigma)
     return np.float64(S * norm.pdf(d1_val) * np.sqrt(T))
@@ -177,22 +234,32 @@ def rho(
     sigma: float,
     option_type: str | OptionType = "call",
 ) -> np.float64:
-    """Compute the Black-Scholes rho (sensitivity to interest rate).
+    r"""Compute the Black-Scholes rho (sensitivity to interest rate).
+
+    Rho measures how much the option price changes for a one-unit
+    (100 percentage point) change in the risk-free rate.  Multiply
+    by 0.01 for the price change per 1% rate move.  Rho is typically
+    the smallest of the Greeks for short-dated equity options but
+    becomes significant for long-dated or fixed-income options.
 
     Parameters:
-        S: Current underlying price.
-        K: Strike price.
-        T: Time to expiration in years.
-        r: Risk-free interest rate (annualized).
-        sigma: Volatility of the underlying (annualized).
-        option_type: 'call' or 'put'.
+        S (float): Current underlying price.
+        K (float): Strike price.
+        T (float): Time to expiration in years.
+        r (float): Risk-free interest rate (annualized).
+        sigma (float): Volatility of the underlying (annualized).
+        option_type (str | OptionType): ``'call'`` or ``'put'``.
 
     Returns:
-        Rho value per unit change in r.
+        np.float64: Rho per unit change in r.  Positive for calls,
+            negative for puts.
 
     Example:
         >>> rho(100, 100, 1.0, 0.05, 0.2, 'call')
         53.23...
+
+    See Also:
+        all_greeks: Compute all Greeks in a single call.
     """
     otype = _parse_option_type(option_type)
     d2_val = _d2(S, K, T, r, sigma)
@@ -210,23 +277,34 @@ def all_greeks(
     sigma: float,
     option_type: str | OptionType = "call",
 ) -> dict[str, np.float64]:
-    """Compute all Black-Scholes Greeks at once.
+    """Compute all Black-Scholes Greeks in a single efficient call.
+
+    Computes d1 and d2 once and derives all five Greeks, avoiding the
+    redundant computation that would occur when calling each Greek
+    function individually.  Use this when you need a full risk profile
+    for a position.
 
     Parameters:
-        S: Current underlying price.
-        K: Strike price.
-        T: Time to expiration in years.
-        r: Risk-free interest rate (annualized).
-        sigma: Volatility of the underlying (annualized).
-        option_type: 'call' or 'put'.
+        S (float): Current underlying price.
+        K (float): Strike price.
+        T (float): Time to expiration in years.
+        r (float): Risk-free interest rate (annualized).
+        sigma (float): Volatility of the underlying (annualized).
+        option_type (str | OptionType): ``'call'`` or ``'put'``.
 
     Returns:
-        Dictionary with keys 'delta', 'gamma', 'theta', 'vega', 'rho'.
+        dict[str, np.float64]: Dictionary with keys ``'delta'``,
+            ``'gamma'``, ``'theta'``, ``'vega'``, ``'rho'``.  See
+            the individual Greek functions for interpretation of each
+            value.
 
     Example:
         >>> greeks = all_greeks(100, 100, 1.0, 0.05, 0.2, 'call')
         >>> sorted(greeks.keys())
         ['delta', 'gamma', 'rho', 'theta', 'vega']
+
+    See Also:
+        delta, gamma, theta, vega, rho: Individual Greek computations.
     """
     otype = _parse_option_type(option_type)
 

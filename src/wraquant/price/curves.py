@@ -27,16 +27,29 @@ def bootstrap_zero_curve(
 ) -> npt.NDArray[np.float64]:
     """Bootstrap zero (spot) rates from par coupon rates.
 
-    Assumes par bonds (price = 100) and iteratively strips coupons
-    to derive the zero curve.
+    Bootstrapping is the standard technique for constructing a
+    zero-coupon yield curve from observed par bond yields.  Starting
+    from the shortest maturity, each successive zero rate is extracted
+    by stripping previously bootstrapped discount factors from the
+    coupon payments.
+
+    The resulting zero rates can be used to discount arbitrary cash
+    flows, compute forward rates, or price swaps and bonds.
 
     Parameters:
-        maturities: Array of maturities in years (must be evenly spaced at 1/freq).
-        par_rates: Array of par coupon rates (annualized) for each maturity.
-        freq: Coupon payments per year (default 2 for semiannual).
+        maturities (Sequence[float] | ndarray): Array of maturities in
+            years, evenly spaced at ``1/freq`` (e.g., 0.5, 1.0, 1.5
+            for semiannual).
+        par_rates (Sequence[float] | ndarray): Array of par coupon rates
+            (annualized) for each maturity.
+        freq (int): Coupon payments per year (default 2 for semiannual).
 
     Returns:
-        Array of continuously compounded zero rates corresponding to each maturity.
+        ndarray: Array of continuously compounded zero rates
+            corresponding to each maturity.
+
+    Raises:
+        ValueError: If *maturities* and *par_rates* differ in length.
 
     Example:
         >>> mats = [0.5, 1.0, 1.5, 2.0]
@@ -44,6 +57,10 @@ def bootstrap_zero_curve(
         >>> zeros = bootstrap_zero_curve(mats, pars, freq=2)
         >>> len(zeros)
         4
+
+    See Also:
+        forward_rate: Derive forward rates from zero rates.
+        discount_factor: Convert a zero rate to a discount factor.
     """
     maturities_arr = np.asarray(maturities, dtype=np.float64)
     par_rates_arr = np.asarray(par_rates, dtype=np.float64)
@@ -101,20 +118,40 @@ def interpolate_curve(
 ) -> npt.NDArray[np.float64]:
     """Interpolate a yield curve at target maturities.
 
+    Yield curves are observed at discrete maturities but often needed
+    at arbitrary points.  This function supports three interpolation
+    strategies, each with different smoothness and no-arbitrage
+    properties.
+
     Parameters:
-        maturities: Known maturities (sorted, ascending).
-        rates: Known rates at those maturities.
-        target_maturities: Maturities at which to interpolate.
-        method: Interpolation method. One of 'linear', 'cubic', 'flat_forward'.
+        maturities (Sequence[float] | ndarray): Known maturities
+            (sorted ascending).
+        rates (Sequence[float] | ndarray): Known rates at those
+            maturities.
+        target_maturities (Sequence[float] | ndarray): Maturities at
+            which to interpolate.
+        method (str): Interpolation method:
+
+            - ``'linear'`` -- piecewise linear (fast, may have kinks).
+            - ``'cubic'`` -- natural cubic spline (smooth, default).
+            - ``'flat_forward'`` -- constant forward rate between knots
+              (no-arbitrage, standard in fixed income).
 
     Returns:
-        Interpolated rates at target maturities.
+        ndarray: Interpolated rates at target maturities.
+
+    Raises:
+        ValueError: If *method* is not recognised.
 
     Example:
         >>> mats = [0.5, 1.0, 2.0, 5.0]
         >>> rates = [0.03, 0.035, 0.04, 0.045]
         >>> interpolate_curve(mats, rates, [0.75, 1.5, 3.0])
         array([...])
+
+    See Also:
+        bootstrap_zero_curve: Build the curve from par rates.
+        forward_rate: Extract a forward rate from the curve.
     """
     mats_arr = np.asarray(maturities, dtype=np.float64)
     rates_arr = np.asarray(rates, dtype=np.float64)
@@ -170,23 +207,40 @@ def forward_rate(
     t1: float,
     t2: float,
 ) -> np.float64:
-    """Compute the forward rate between two future dates.
+    r"""Compute the forward rate between two future dates.
 
-    Uses continuously compounded zero rates to compute:
-    f(t1, t2) = [r2 * t2 - r1 * t1] / (t2 - t1)
+    The forward rate is the rate that can be locked in today for
+    borrowing or lending between two future dates.  Under no-arbitrage:
+
+    .. math::
+
+        f(t_1, t_2) = \frac{r_2\,t_2 - r_1\,t_1}{t_2 - t_1}
+
+    Uses cubic spline interpolation to obtain zero rates at *t1* and
+    *t2* from the provided curve.
 
     Parameters:
-        zero_rates: Array of zero rates.
-        maturities: Corresponding maturities.
-        t1: Start of the forward period.
-        t2: End of the forward period.
+        zero_rates (Sequence[float] | ndarray): Array of continuously
+            compounded zero rates.
+        maturities (Sequence[float] | ndarray): Corresponding
+            maturities.
+        t1 (float): Start of the forward period (years).
+        t2 (float): End of the forward period (years).
 
     Returns:
-        Continuously compounded forward rate between t1 and t2.
+        np.float64: Continuously compounded forward rate between *t1*
+            and *t2*.
+
+    Raises:
+        ValueError: If ``t2 <= t1``.
 
     Example:
         >>> forward_rate([0.04, 0.045], [1.0, 2.0], 1.0, 2.0)
         0.05
+
+    See Also:
+        bootstrap_zero_curve: Build the zero curve from par rates.
+        discount_factor: Convert a rate to a discount factor.
     """
     if t2 <= t1:
         raise ValueError("t2 must be greater than t1.")
@@ -207,19 +261,33 @@ def discount_factor(
     rate: float,
     maturity: float,
 ) -> np.float64:
-    """Compute the discount factor from a continuously compounded rate.
+    r"""Compute the discount factor from a continuously compounded rate.
 
-    DF = exp(-rate * maturity)
+    The discount factor is the present value of one unit of currency
+    received at a future date:
+
+    .. math::
+
+        DF = e^{-r \cdot T}
+
+    Discount factors are the fundamental building blocks for pricing
+    any fixed-income instrument.
 
     Parameters:
-        rate: Continuously compounded interest rate.
-        maturity: Time to maturity in years.
+        rate (float): Continuously compounded interest rate.
+        maturity (float): Time to maturity in years.
 
     Returns:
-        Discount factor.
+        np.float64: Discount factor in (0, 1] for positive rates.
 
     Example:
         >>> discount_factor(0.05, 1.0)
         0.9512...
+        >>> discount_factor(0.0, 5.0)
+        1.0
+
+    See Also:
+        zero_rate: Extract a rate from a zero-coupon bond price.
+        bootstrap_zero_curve: Build a full discount factor curve.
     """
     return np.float64(np.exp(-rate * maturity))

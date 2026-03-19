@@ -24,6 +24,10 @@ def solve_lp(
 ) -> dict[str, Any]:
     """Solve a linear program via :func:`scipy.optimize.linprog`.
 
+    Use LP for problems with a linear objective and linear constraints,
+    such as transaction cost minimisation, portfolio rebalancing with
+    turnover constraints, or resource allocation.
+
     Solves::
 
         min  c' x
@@ -42,8 +46,25 @@ def solve_lp(
         method: LP solver method (default ``'highs'``).
 
     Returns:
-        Dict with keys ``x`` (solution), ``objective`` (optimal value),
-        ``status`` (solver status string), and ``success`` (bool).
+        Dict with keys ``x`` (optimal solution vector), ``objective``
+        (optimal value of c'x), ``status`` (``'optimal'`` or error),
+        and ``success`` (bool).
+
+    Example:
+        >>> import numpy as np
+        >>> # Minimise -x1 - 2*x2 s.t. x1 + x2 <= 4, x1, x2 >= 0
+        >>> c = np.array([-1, -2], dtype=float)
+        >>> A_ub = np.array([[1, 1]], dtype=float)
+        >>> b_ub = np.array([4.0])
+        >>> result = solve_lp(c, A_ub=A_ub, b_ub=b_ub, bounds=[(0, None), (0, None)])
+        >>> result['success']
+        True
+        >>> np.isclose(result['objective'], -8.0)
+        True
+
+    See Also:
+        solve_milp: Mixed-integer LP (handles integer constraints).
+        wraquant.opt.convex.solve_qp: Quadratic programming.
     """
     c = np.asarray(c, dtype=float)
 
@@ -76,6 +97,10 @@ def solve_milp(
 ) -> dict[str, Any]:
     """Solve a mixed-integer linear program via :func:`scipy.optimize.milp`.
 
+    Use MILP when some decision variables must be integers, such as
+    selecting a discrete number of assets to hold, binary buy/sell
+    decisions, or lot-size-constrained portfolio construction.
+
     Parameters:
         c: Objective coefficient vector ``(n,)``.
         A_ub: Inequality constraint matrix ``(m_ub, n)``.
@@ -88,7 +113,25 @@ def solve_milp(
             are continuous (equivalent to an LP).
 
     Returns:
-        Dict with keys ``x``, ``objective``, ``status``, and ``success``.
+        Dict with keys ``x`` (solution -- integer variables will be
+        rounded), ``objective``, ``status``, and ``success``.
+
+    Example:
+        >>> import numpy as np
+        >>> # Select 2 assets from 4 (binary selection)
+        >>> c = np.array([-3, -5, -2, -4], dtype=float)
+        >>> A_eq = np.ones((1, 4))
+        >>> b_eq = np.array([2.0])
+        >>> result = solve_milp(c, A_eq=A_eq, b_eq=b_eq,
+        ...                    bounds=[(0, 1)] * 4,
+        ...                    integrality=[1, 1, 1, 1])
+        >>> result['success']
+        True
+        >>> int(sum(result['x']))  # exactly 2 assets selected
+        2
+
+    See Also:
+        solve_lp: Continuous LP (faster, no integer constraints).
     """
     c = np.asarray(c, dtype=float)
 

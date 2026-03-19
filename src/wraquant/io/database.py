@@ -28,15 +28,26 @@ def read_sql(
 ) -> pd.DataFrame:
     """Read data from a SQL database using SQLAlchemy.
 
+    Connects to any SQLAlchemy-supported database (PostgreSQL, MySQL,
+    SQLite, etc.), executes the query, and returns the result as a
+    DataFrame.  The connection is automatically closed after the read.
+
     Parameters:
-        query: SQL query string or table name.
-        connection_string: SQLAlchemy-compatible connection URI
+        query (str): SQL query string or table name.
+        connection_string (str): SQLAlchemy-compatible connection URI
             (e.g., ``"postgresql://user:pass@host/db"``).
         **kwargs: Additional keyword arguments forwarded to
             :func:`pandas.read_sql`.
 
     Returns:
-        DataFrame with the query results.
+        pd.DataFrame: DataFrame with the query results.
+
+    Example:
+        >>> df = read_sql("SELECT * FROM prices", "sqlite:///data.db")  # doctest: +SKIP
+
+    See Also:
+        write_sql: Write a DataFrame to a SQL table.
+        read_sql_fast: Faster alternative using connectorx.
     """
     import sqlalchemy
 
@@ -55,14 +66,25 @@ def write_sql(
 ) -> None:
     """Write a DataFrame to a SQL database table.
 
+    Inserts the DataFrame rows into the specified table, with
+    configurable behavior when the table already exists.  The
+    transaction is committed automatically.
+
     Parameters:
-        data: DataFrame to write.
-        table_name: Destination table name.
-        connection_string: SQLAlchemy-compatible connection URI.
-        if_exists: Behavior when the table already exists. One of
-            ``'fail'``, ``'replace'``, or ``'append'`` (default).
+        data (pd.DataFrame): DataFrame to write.
+        table_name (str): Destination table name.
+        connection_string (str): SQLAlchemy-compatible connection URI.
+        if_exists (str): Behavior when the table already exists:
+            ``'fail'`` (raise), ``'replace'`` (drop and recreate),
+            or ``'append'`` (insert rows, default).
         **kwargs: Additional keyword arguments forwarded to
             :meth:`pandas.DataFrame.to_sql`.
+
+    Example:
+        >>> write_sql(df, "prices", "sqlite:///data.db")  # doctest: +SKIP
+
+    See Also:
+        read_sql: Read data from a SQL database.
     """
     import sqlalchemy
 
@@ -102,17 +124,24 @@ def read_sql_fast(
 ) -> pd.DataFrame:
     """Read from a SQL database using connectorx for speed, with pandas fallback.
 
-    Attempts to use `connectorx <https://github.com/sfu-db/connector-x>`_
-    for significantly faster reads.  Falls back to the standard
-    :func:`pandas.read_sql` path via SQLAlchemy if connectorx is not
-    available or raises an error.
+    connectorx can be 5--10x faster than pandas+SQLAlchemy for large
+    result sets because it uses native database drivers and avoids
+    Python-level row iteration.  If connectorx is not installed or
+    encounters an unsupported driver, the function transparently falls
+    back to the standard SQLAlchemy path.
 
     Parameters:
-        query: SQL query string.
-        connection_string: Database connection URI.
+        query (str): SQL query string.
+        connection_string (str): Database connection URI.
 
     Returns:
-        DataFrame with the query results.
+        pd.DataFrame: DataFrame with the query results.
+
+    Example:
+        >>> df = read_sql_fast("SELECT * FROM ticks", "postgresql://user:pw@host/db")  # doctest: +SKIP
+
+    See Also:
+        read_sql: Standard SQLAlchemy-based reader.
     """
     try:
         import connectorx as cx

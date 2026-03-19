@@ -31,18 +31,34 @@ def fetch_prices(
 ) -> pd.Series:
     """Fetch closing prices for a symbol.
 
+    Retrieves a daily close price series from the specified data
+    provider.  The default provider is determined by the registry
+    (typically Yahoo Finance for equities).
+
     Parameters:
-        symbol: Ticker symbol (e.g., 'AAPL', 'EURUSD=X').
-        start: Start date.
-        end: End date.
-        source: Provider name (e.g., 'yahoo', 'fred'). None uses default.
+        symbol (str): Ticker symbol (e.g., ``'AAPL'``, ``'EURUSD=X'``,
+            ``'BTC-USD'``).
+        start (DateLike | None): Start date (string, datetime, or
+            pandas Timestamp).  ``None`` fetches from the earliest
+            available date.
+        end (DateLike | None): End date.  ``None`` fetches up to today.
+        source (str | None): Provider name (e.g., ``'yahoo'``,
+            ``'fred'``).  ``None`` uses the default provider.
+        **kwargs: Additional keyword arguments forwarded to the
+            provider's ``fetch_prices`` method.
 
     Returns:
-        Price series with DatetimeIndex.
+        pd.Series: Price series with a DatetimeIndex.
+
+    Raises:
+        DataFetchError: If the provider fails to fetch the data.
 
     Example:
-        >>> from wraquant.data import fetch_prices
         >>> prices = fetch_prices("AAPL", start="2020-01-01")  # doctest: +SKIP
+
+    See Also:
+        fetch_ohlcv: Fetch full OHLCV data.
+        fetch_macro: Fetch macroeconomic series from FRED.
     """
     _ensure_providers_loaded()
     provider = registry.get(source)
@@ -59,20 +75,34 @@ def fetch_ohlcv(
     source: str | None = None,
     **kwargs: Any,
 ) -> pd.DataFrame:
-    """Fetch OHLCV data for a symbol.
+    """Fetch OHLCV (Open, High, Low, Close, Volume) data for a symbol.
+
+    Returns a DataFrame with standard column names suitable for
+    backtesting, technical analysis, and charting.
 
     Parameters:
-        symbol: Ticker symbol.
-        start: Start date.
-        end: End date.
-        source: Provider name. None uses default.
+        symbol (str): Ticker symbol (e.g., ``'AAPL'``).
+        start (DateLike | None): Start date.  ``None`` fetches from the
+            earliest available date.
+        end (DateLike | None): End date.  ``None`` fetches up to today.
+        source (str | None): Provider name.  ``None`` uses the default
+            provider.
+        **kwargs: Additional keyword arguments forwarded to the
+            provider.
 
     Returns:
-        DataFrame with open, high, low, close, volume columns.
+        pd.DataFrame: DataFrame with columns ``open``, ``high``,
+            ``low``, ``close``, ``volume`` and a DatetimeIndex.
+
+    Raises:
+        DataFetchError: If the provider fails to fetch the data.
 
     Example:
-        >>> from wraquant.data import fetch_ohlcv
         >>> df = fetch_ohlcv("AAPL", start="2020-01-01")  # doctest: +SKIP
+
+    See Also:
+        fetch_prices: Fetch close prices only (lighter weight).
+        fetch_macro: Fetch macroeconomic series.
     """
     _ensure_providers_loaded()
     provider = registry.get(source)
@@ -91,18 +121,34 @@ def fetch_macro(
 ) -> pd.Series:
     """Fetch macroeconomic data series.
 
+    Retrieves economic indicators from FRED (Federal Reserve Economic
+    Data) or other macro data providers.  Common series include GDP,
+    unemployment rate (UNRATE), federal funds rate (DFF), CPI, and
+    Treasury yields.
+
     Parameters:
-        series_id: Series identifier (e.g., 'GDP', 'UNRATE', 'DFF').
-        start: Start date.
-        end: End date.
-        source: Provider name. Defaults to 'fred'.
+        series_id (str): Series identifier (e.g., ``'GDP'``,
+            ``'UNRATE'``, ``'DFF'``, ``'T10Y2Y'``).
+        start (DateLike | None): Start date.  ``None`` fetches the
+            full history.
+        end (DateLike | None): End date.  ``None`` fetches up to the
+            latest available release.
+        source (str): Provider name (default ``'fred'``).
+        **kwargs: Additional keyword arguments forwarded to the
+            provider.
 
     Returns:
-        Macro data series with DatetimeIndex.
+        pd.Series: Macro data series with a DatetimeIndex.
+
+    Raises:
+        DataFetchError: If the provider fails to fetch the data.
 
     Example:
-        >>> from wraquant.data import fetch_macro
         >>> gdp = fetch_macro("GDP", source="fred")  # doctest: +SKIP
+
+    See Also:
+        fetch_prices: Fetch asset prices.
+        fetch_ohlcv: Fetch OHLCV bar data.
     """
     _ensure_providers_loaded()
     provider = registry.get(source)
@@ -115,8 +161,17 @@ def fetch_macro(
 def list_providers() -> list[str]:
     """List all available data providers.
 
+    Returns the names of all registered providers (e.g., ``'yahoo'``,
+    ``'fred'``, ``'nasdaq'``, ``'csv'``).  The list depends on which
+    optional dependencies are installed.
+
     Returns:
-        List of registered provider names.
+        list[str]: List of registered provider names.
+
+    Example:
+        >>> providers = list_providers()  # doctest: +SKIP
+        >>> "yahoo" in providers  # doctest: +SKIP
+        True
     """
     _ensure_providers_loaded()
     return registry.list_providers()

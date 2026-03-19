@@ -62,10 +62,7 @@ __all__ = [
 # ---------------------------------------------------------------------------
 
 
-def _validate_series(data: pd.Series, name: str = "data") -> pd.Series:
-    if not isinstance(data, pd.Series):
-        raise TypeError(f"{name} must be a pd.Series, got {type(data).__name__}")
-    return data
+from wraquant.ta._validators import validate_series as _validate_series
 
 
 def _body(open_: pd.Series, close: pd.Series) -> pd.Series:
@@ -700,7 +697,9 @@ def piercing_pattern(
     # Does not close above previous open (otherwise it's engulfing)
     not_engulfing = close < open_.shift(1)
 
-    signal = prev_bearish & curr_bullish & opens_below & closes_above_mid & not_engulfing
+    signal = (
+        prev_bearish & curr_bullish & opens_below & closes_above_mid & not_engulfing
+    )
     return pd.Series(signal.astype(int), index=close.index, name="piercing_pattern")
 
 
@@ -759,7 +758,9 @@ def dark_cloud_cover(
     # Does not close below previous open (otherwise it's engulfing)
     not_engulfing = close > open_.shift(1)
 
-    signal = prev_bullish & curr_bearish & opens_above & closes_below_mid & not_engulfing
+    signal = (
+        prev_bullish & curr_bearish & opens_above & closes_below_mid & not_engulfing
+    )
     result = np.where(signal, -1, 0)
     return pd.Series(result, index=close.index, name="dark_cloud_cover", dtype=int)
 
@@ -988,7 +989,7 @@ def tweezer_top(
     curr_bearish = close < open_
 
     # Same highs (within tolerance)
-    high_diff = ((high - high.shift(1)).abs() / high.shift(1))
+    high_diff = (high - high.shift(1)).abs() / high.shift(1)
     same_highs = high_diff <= tolerance
 
     signal = prev_bullish & curr_bearish & same_highs
@@ -1044,7 +1045,7 @@ def tweezer_bottom(
     curr_bullish = close > open_
 
     # Same lows (within tolerance)
-    low_diff = ((low - low.shift(1)).abs() / low.shift(1))
+    low_diff = (low - low.shift(1)).abs() / low.shift(1)
     same_lows = low_diff <= tolerance
 
     signal = prev_bearish & curr_bullish & same_lows
@@ -1298,7 +1299,9 @@ def kicking(
     curr_lower_ratio = pd.Series(
         np.where(rng != 0, lower / rng, 0.0), index=close.index
     )
-    curr_maru = (curr_upper_ratio <= threshold) & (curr_lower_ratio <= threshold) & (rng > 0)
+    curr_maru = (
+        (curr_upper_ratio <= threshold) & (curr_lower_ratio <= threshold) & (rng > 0)
+    )
 
     # Previous candle is marubozu
     prev_upper_ratio = pd.Series(
@@ -1307,7 +1310,11 @@ def kicking(
     prev_lower_ratio = pd.Series(
         np.where(prev_rng != 0, prev_lower / prev_rng, 0.0), index=close.index
     )
-    prev_maru = (prev_upper_ratio <= threshold) & (prev_lower_ratio <= threshold) & (prev_rng > 0)
+    prev_maru = (
+        (prev_upper_ratio <= threshold)
+        & (prev_lower_ratio <= threshold)
+        & (prev_rng > 0)
+    )
 
     # Bullish kicking: prev bearish marubozu, curr bullish marubozu with gap up
     prev_bear = close.shift(1) < open_.shift(1)
@@ -1375,12 +1382,8 @@ def belt_hold(
     lower = _lower_shadow(open_, low, close)
     upper = _upper_shadow(open_, high, close)
 
-    lower_ratio = pd.Series(
-        np.where(rng != 0, lower / rng, 0.0), index=close.index
-    )
-    upper_ratio = pd.Series(
-        np.where(rng != 0, upper / rng, 0.0), index=close.index
-    )
+    lower_ratio = pd.Series(np.where(rng != 0, lower / rng, 0.0), index=close.index)
+    upper_ratio = pd.Series(np.where(rng != 0, upper / rng, 0.0), index=close.index)
 
     body = _body(open_, close)
     large_body = body > rng * 0.6
@@ -1388,12 +1391,16 @@ def belt_hold(
     # Bullish belt hold: gaps down, opens at low (tiny lower shadow), bullish
     curr_bullish = close > open_
     gap_down = open_ < close.shift(1)
-    bullish_belt = curr_bullish & gap_down & (lower_ratio <= threshold) & large_body & (rng > 0)
+    bullish_belt = (
+        curr_bullish & gap_down & (lower_ratio <= threshold) & large_body & (rng > 0)
+    )
 
     # Bearish belt hold: gaps up, opens at high (tiny upper shadow), bearish
     curr_bearish = close < open_
     gap_up = open_ > close.shift(1)
-    bearish_belt = curr_bearish & gap_up & (upper_ratio <= threshold) & large_body & (rng > 0)
+    bearish_belt = (
+        curr_bearish & gap_up & (upper_ratio <= threshold) & large_body & (rng > 0)
+    )
 
     result = np.where(bullish_belt, 1, np.where(bearish_belt, -1, 0))
     return pd.Series(result, index=close.index, name="belt_hold", dtype=int)
@@ -1757,7 +1764,13 @@ def thrusting(
     closes_above_prev_close = close > close.shift(1)
     closes_below_mid = close < prev_midpoint
 
-    signal = prev_bearish & curr_bullish & opens_below & closes_above_prev_close & closes_below_mid
+    signal = (
+        prev_bearish
+        & curr_bullish
+        & opens_below
+        & closes_above_prev_close
+        & closes_below_mid
+    )
     result = np.where(signal, -1, 0)
     return pd.Series(result, index=close.index, name="thrusting", dtype=int)
 
@@ -2201,7 +2214,16 @@ def unique_three_river(
     d3_small = body < body.shift(1)
     d3_below_d2 = close < close.shift(1)
 
-    signal = d1_bearish & d1_large & d2_bearish & d2_inside & d2_lower_low & d3_bullish & d3_small & d3_below_d2
+    signal = (
+        d1_bearish
+        & d1_large
+        & d2_bearish
+        & d2_inside
+        & d2_lower_low
+        & d3_bullish
+        & d3_small
+        & d3_below_d2
+    )
     return pd.Series(signal.astype(int), index=close.index, name="unique_three_river")
 
 
@@ -2253,7 +2275,12 @@ def concealing_baby_swallow(
         s_open = open_.shift(shift) if shift > 0 else open_
         ur = pd.Series(np.where(s_rng != 0, s_upper / s_rng, 0.0), index=close.index)
         lr = pd.Series(np.where(s_rng != 0, s_lower / s_rng, 0.0), index=close.index)
-        return (s_close < s_open) & (ur <= marubozu_threshold) & (lr <= marubozu_threshold) & (s_rng > 0)
+        return (
+            (s_close < s_open)
+            & (ur <= marubozu_threshold)
+            & (lr <= marubozu_threshold)
+            & (s_rng > 0)
+        )
 
     # Days 1 and 2: bearish marubozus
     d1_maru = _is_bear_maru(3)
@@ -2268,6 +2295,16 @@ def concealing_baby_swallow(
     d4_bearish = close < open_
     d4_engulfs = (open_ >= high.shift(1)) & (close <= low.shift(1))
 
-    signal = d1_maru & d2_maru & d3_bearish & d3_gap_down & d3_upper_into_d2 & d4_bearish & d4_engulfs
+    signal = (
+        d1_maru
+        & d2_maru
+        & d3_bearish
+        & d3_gap_down
+        & d3_upper_into_d2
+        & d4_bearish
+        & d4_engulfs
+    )
     result = np.where(signal, -1, 0)
-    return pd.Series(result, index=close.index, name="concealing_baby_swallow", dtype=int)
+    return pd.Series(
+        result, index=close.index, name="concealing_baby_swallow", dtype=int
+    )

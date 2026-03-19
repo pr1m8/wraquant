@@ -86,12 +86,22 @@ def cross_rate(
     pair2_rate: float,
     method: str = "divide",
 ) -> float:
-    """Calculate a cross rate from two pairs.
+    """Calculate a cross rate from two pairs sharing a common currency.
+
+    Use cross rates to derive the exchange rate for a currency pair that
+    is not directly quoted.  For example, EUR/JPY can be derived from
+    EUR/USD and USD/JPY.
+
+    The method depends on how the pairs share a common currency:
+
+    - ``'multiply'``: when pair1 = A/B and pair2 = B/C, result = A/C.
+    - ``'divide'``: when pair1 = A/B and pair2 = C/B, result = A/C.
 
     Parameters:
         pair1_rate: Rate for first pair.
         pair2_rate: Rate for second pair.
-        method: 'divide' (pair1/pair2) or 'multiply' (pair1*pair2).
+        method: ``'divide'`` (pair1/pair2) or ``'multiply'``
+            (pair1 * pair2).
 
     Returns:
         Cross rate.
@@ -99,6 +109,11 @@ def cross_rate(
     Example:
         >>> cross_rate(1.1000, 110.00, method="multiply")  # EURJPY from EURUSD * USDJPY
         121.0
+        >>> cross_rate(1.1000, 1.3000, method="divide")  # EURGBP from EURUSD / GBPUSD
+        0.8461538461538461
+
+    See Also:
+        CurrencyPair: Currency pair representation.
     """
     if method == "multiply":
         return pair1_rate * pair2_rate

@@ -38,16 +38,8 @@ __all__ = [
 # ---------------------------------------------------------------------------
 
 
-def _validate_series(data: pd.Series, name: str = "data") -> pd.Series:
-    if not isinstance(data, pd.Series):
-        raise TypeError(f"{name} must be a pd.Series, got {type(data).__name__}")
-    return data
-
-
-def _validate_period(period: int, name: str = "period") -> int:
-    if period < 1:
-        raise ValueError(f"{name} must be >= 1, got {period}")
-    return period
+from wraquant.ta._validators import validate_period as _validate_period
+from wraquant.ta._validators import validate_series as _validate_series
 
 
 def _ema(data: pd.Series, period: int) -> pd.Series:
@@ -62,9 +54,7 @@ def _wma(data: pd.Series, period: int) -> pd.Series:
     def _apply_wma(window: np.ndarray) -> float:
         return np.dot(window, weights) / weights.sum()
 
-    return data.rolling(window=period, min_periods=period).apply(
-        _apply_wma, raw=True
-    )
+    return data.rolling(window=period, min_periods=period).apply(_apply_wma, raw=True)
 
 
 def _wilder_smooth(data: pd.Series, period: int) -> pd.Series:
@@ -698,7 +688,7 @@ def mcginley_dynamic(
             result[i] = values[i]
             continue
         ratio = values[i] / prev
-        denom = period * (ratio ** 4)
+        denom = period * (ratio**4)
         result[i] = prev + (values[i] - prev) / denom
 
     return pd.Series(result, index=data.index, name="mcginley_dynamic")
@@ -1060,7 +1050,7 @@ def tilson_t3(
     _validate_period(period)
 
     vf = volume_factor
-    c1 = -(vf ** 3)
+    c1 = -(vf**3)
     c2 = 3 * vf**2 + 3 * vf**3
     c3 = -6 * vf**2 - 3 * vf - 3 * vf**3
     c4 = 1 + 3 * vf + vf**3 + 3 * vf**2

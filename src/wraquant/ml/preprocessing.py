@@ -36,6 +36,12 @@ def purged_kfold(
 ) -> Generator[tuple[np.ndarray, np.ndarray], None, None]:
     """Purged K-Fold cross-validation.
 
+    Use purged K-fold instead of standard K-fold whenever your labels
+    overlap in time (e.g., forward returns computed over a window).
+    Standard K-fold leaks future information because a training sample's
+    label may depend on prices that appear in the test set.  Purging
+    removes an embargo zone after each test fold to break this leakage.
+
     Ensures that training observations that immediately follow a test
     observation are removed (embargo) so that information cannot leak
     through overlapping labels.
@@ -50,11 +56,34 @@ def purged_kfold(
         Number of folds.
     embargo_pct : float
         Fraction of total samples to embargo after each test fold.
+        For daily data with 5-day forward labels, ``0.01`` embargoes
+        ~2.5 days on a 252-sample dataset.
 
     Yields
     ------
     tuple[np.ndarray, np.ndarray]
         ``(train_indices, test_indices)`` for each fold.
+
+    Example
+    -------
+    >>> import numpy as np
+    >>> X = np.random.randn(500, 3)
+    >>> y = np.random.randn(500)
+    >>> folds = list(purged_kfold(X, y, n_splits=5, embargo_pct=0.02))
+    >>> len(folds)
+    5
+    >>> train_idx, test_idx = folds[0]
+    >>> len(train_idx) + len(test_idx) < 500  # embargo removes some samples
+    True
+
+    References
+    ----------
+    - Lopez de Prado (2018), "Advances in Financial Machine Learning", Ch. 7
+
+    See Also
+    --------
+    combinatorial_purged_kfold : Generates all C(n, k) purged splits.
+    wraquant.ml.pipeline.FinancialPipeline : Pipeline that uses purged K-fold.
     """
     n_samples = len(X)
     embargo_size = int(n_samples * embargo_pct)
@@ -89,6 +118,12 @@ def combinatorial_purged_kfold(
 ) -> Generator[tuple[np.ndarray, np.ndarray], None, None]:
     """Combinatorial purged K-Fold cross-validation.
 
+    Use combinatorial purged K-fold when you need more backtest paths
+    than standard purged K-fold provides.  By choosing ``n_test_splits``
+    groups as the test set from ``n_splits`` total groups, this generates
+    C(n_splits, n_test_splits) distinct train/test splits -- each with
+    an embargo to prevent information leakage.
+
     Generates all C(n_splits, n_test_splits) train/test combinations,
     applying an embargo after each test group to prevent leakage.
 
@@ -109,6 +144,23 @@ def combinatorial_purged_kfold(
     ------
     tuple[np.ndarray, np.ndarray]
         ``(train_indices, test_indices)`` for each combination.
+
+    Example
+    -------
+    >>> import numpy as np
+    >>> X = np.random.randn(500, 3)
+    >>> y = np.random.randn(500)
+    >>> folds = list(combinatorial_purged_kfold(X, y, n_splits=5, n_test_splits=2))
+    >>> len(folds)  # C(5, 2) = 10
+    10
+
+    References
+    ----------
+    - Lopez de Prado (2018), "Advances in Financial Machine Learning", Ch. 12
+
+    See Also
+    --------
+    purged_kfold : Simpler purged K-fold with n_splits folds.
     """
     n_samples = len(X)
     embargo_size = int(n_samples * embargo_pct)
@@ -165,25 +217,64 @@ def fractional_differentiation(
 ) -> pd.Series:
     """Fractionally differentiate a time series.
 
+    Use fractional differentiation to make a price or factor series
+    stationary (required by many ML models) while retaining as much
+    memory (long-range dependence) as possible.  Standard first
+    differencing (d=1) makes the series stationary but destroys all
+    memory.  Fractional differencing with d=0.3-0.5 achieves stationarity
+    while preserving most of the signal.
+
     Applies the fractional differentiation operator of order *d*
     (Hosking, 1981) to obtain a (near-)stationary series while
     preserving long-range memory.
 
+    The operator is defined as:
+
+        (1 - B)^d = sum_{k=0}^{inf} C(d,k) * (-B)^k
+
+    where B is the backshift operator and C(d,k) are the binomial-like
+    weights.
+
     Parameters
     ----------
     series : pd.Series
-        Input time series.
+        Input time series (e.g., log prices).
     d : float
         Fractional differentiation order (0 < d < 1 for partial
         differentiation; d = 1 is the standard first difference).
+        Start with d=0.5 and decrease until the ADF test rejects at
+        the desired significance level.
     threshold : float
-        Minimum absolute weight to retain.
+        Minimum absolute weight to retain.  Smaller values use more
+        lagged observations but increase computational cost.
 
     Returns
     -------
     pd.Series
         Fractionally differentiated series (initial rows where the full
-        convolution is not available are dropped).
+        convolution is not available are dropped).  Test stationarity
+        with an ADF test; if non-stationary, increase *d*.
+
+    Example
+    -------
+    >>> import pandas as pd, numpy as np
+    >>> np.random.seed(42)
+    >>> prices = pd.Series(100 + np.cumsum(np.random.randn(300) * 0.5),
+    ...                     name='close')
+    >>> frac_diff = fractional_differentiation(prices, d=0.4)
+    >>> len(frac_diff) < len(prices)  # initial rows dropped
+    True
+    >>> frac_diff.std() > 0  # non-trivial output
+    True
+
+    References
+    ----------
+    - Hosking (1981), "Fractional Differencing"
+    - Lopez de Prado (2018), "Advances in Financial Machine Learning", Ch. 5
+
+    See Also
+    --------
+    denoised_correlation : Random Matrix Theory denoising.
     """
     weights = _frac_diff_weights(d, threshold)
     width = len(weights)
@@ -245,6 +336,14 @@ def denoised_correlation(
 ) -> np.ndarray:
     """Denoise a correlation matrix using Random Matrix Theory.
 
+    Use denoised correlation before portfolio optimization or clustering
+    to remove noise eigenvalues that arise from finite-sample estimation.
+    When T/N (observations/assets) is not large, the sample correlation
+    matrix contains substantial noise.  RMT denoising replaces eigenvalues
+    consistent with random noise (Marchenko-Pastur distribution) with
+    their average, producing a cleaner matrix that leads to more stable
+    portfolio weights.
+
     Eigenvalues that fall within the Marchenko-Pastur distribution are
     replaced by their average, shrinking noise while preserving signal.
 
@@ -259,7 +358,39 @@ def denoised_correlation(
     Returns
     -------
     np.ndarray
-        Denoised correlation matrix of shape ``(N, N)``.
+        Denoised correlation matrix of shape ``(N, N)``.  The matrix is
+        symmetric, positive semi-definite, and has unit diagonal.  Use
+        it in place of ``returns.corr()`` for portfolio optimization.
+
+    Example
+    -------
+    >>> import pandas as pd, numpy as np
+    >>> np.random.seed(42)
+    >>> returns = pd.DataFrame(np.random.randn(252, 10) * 0.01)
+    >>> clean_corr = denoised_correlation(returns)
+    >>> clean_corr.shape
+    (10, 10)
+    >>> np.allclose(np.diag(clean_corr), 1.0)  # unit diagonal
+    True
+
+    Notes
+    -----
+    The Marchenko-Pastur upper bound is:
+
+        lambda_+ = sigma^2 * (1 + sqrt(N/T))^2
+
+    Eigenvalues above this threshold are retained as "signal"; those
+    below are replaced.
+
+    References
+    ----------
+    - Laloux et al. (1999), "Noise dressing of financial correlation
+      matrices"
+    - Lopez de Prado (2018), "Advances in Financial Machine Learning", Ch. 2
+
+    See Also
+    --------
+    detoned_correlation : Remove the market mode from a correlation matrix.
     """
     corr = np.array(returns.corr())
     t, n = returns.shape
@@ -303,21 +434,48 @@ def detoned_correlation(
     """Remove the first *n_components* eigenvectors (market mode) from a
     correlation matrix.
 
-    This is useful for removing the dominant market factor from a
-    correlation matrix so that residual clustering structure becomes
-    visible.
+    Use detoned correlation when you want to uncover residual co-movement
+    structure after removing the dominant market factor.  The first
+    eigenvector of asset returns typically represents the "market mode"
+    (all assets moving together).  Removing it reveals sector, style, or
+    idiosyncratic clustering that is hidden when the market factor
+    dominates.  This is particularly useful before hierarchical
+    clustering or community detection.
 
     Parameters
     ----------
     corr : np.ndarray
         Correlation matrix of shape ``(N, N)``.
     n_components : int
-        Number of leading eigenvalues/vectors to remove.
+        Number of leading eigenvalues/vectors to remove (default 1,
+        which removes only the market factor).
 
     Returns
     -------
     np.ndarray
-        De-toned correlation matrix.
+        De-toned correlation matrix of shape ``(N, N)``.  The matrix is
+        symmetric with unit diagonal but is *not* positive definite
+        (some eigenvalues are set to zero).
+
+    Example
+    -------
+    >>> import numpy as np
+    >>> np.random.seed(42)
+    >>> corr = np.corrcoef(np.random.randn(5, 252))
+    >>> detoned = detoned_correlation(corr, n_components=1)
+    >>> detoned.shape
+    (5, 5)
+    >>> np.allclose(np.diag(detoned), 1.0)
+    True
+
+    References
+    ----------
+    - Lopez de Prado (2020), "Machine Learning for Asset Managers", Ch. 2
+
+    See Also
+    --------
+    denoised_correlation : Remove noise eigenvalues from a correlation matrix.
+    wraquant.ml.clustering.correlation_clustering : Cluster assets by correlation.
     """
     eigenvalues, eigenvectors = np.linalg.eigh(corr)
     idx = np.argsort(eigenvalues)[::-1]

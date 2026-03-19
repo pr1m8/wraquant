@@ -39,18 +39,53 @@ def mean_variance(
 ) -> OptimizationResult:
     """Mean-variance optimization (Markowitz).
 
+    Use mean-variance optimization to find the portfolio that minimises
+    risk for a given target return (efficient frontier), or maximises
+    the Sharpe ratio when no target is specified.  This is the foundation
+    of modern portfolio theory.
+
+    Solves:
+        min  w' Sigma w
+        s.t. w' mu = target_return
+             sum(w) = 1
+             bounds[i][0] <= w[i] <= bounds[i][1]
+
+    When ``target_return`` is None, maximises ``(w'mu - rf) / sqrt(w'Sigma w)``.
+
     Parameters:
-        returns: Asset return DataFrame (columns = assets).
-        target_return: Target annualized return (None = max Sharpe).
-        risk_free: Annual risk-free rate.
-        periods_per_year: Trading periods per year.
-        bounds: Weight bounds per asset (min, max).
+        returns: Asset return DataFrame (columns = assets).  Must
+            contain at least 2 assets and enough observations for a
+            stable covariance estimate.
+        target_return: Target annualised return (None = max Sharpe).
+        risk_free: Annual risk-free rate for Sharpe calculation.
+        periods_per_year: Trading periods per year (252 for daily).
+        bounds: Weight bounds per asset (min, max).  Use ``(0, 1)`` for
+            long-only; ``(-1, 1)`` to allow shorting.
 
     Returns:
-        OptimizationResult with optimal weights.
+        OptimizationResult with optimal weights, expected return,
+        volatility, and Sharpe ratio.  Access ``result.weights`` for
+        the allocation and ``result.sharpe_ratio`` for the risk-adjusted
+        metric.
 
     Example:
-        >>> result = mean_variance(returns_df, target_return=0.10)  # doctest: +SKIP
+        >>> import pandas as pd, numpy as np
+        >>> np.random.seed(42)
+        >>> returns = pd.DataFrame(np.random.randn(252, 3) * 0.01,
+        ...                        columns=['SPY', 'TLT', 'GLD'])
+        >>> result = mean_variance(returns, target_return=0.05)
+        >>> np.isclose(result.weights.sum(), 1.0)
+        True
+
+    Notes:
+        Markowitz optimization is sensitive to estimation error in the
+        mean return vector.  Consider ``black_litterman`` or
+        ``hierarchical_risk_parity`` for more robust alternatives.
+
+    See Also:
+        max_sharpe: Convenience wrapper for max-Sharpe optimization.
+        min_volatility: Minimum variance portfolio.
+        risk_parity: Equal risk contribution portfolio.
     """
     n = returns.shape[1]
     mu = returns.mean().values
@@ -99,13 +134,36 @@ def min_volatility(
 ) -> OptimizationResult:
     """Minimum volatility portfolio.
 
+    Use the minimum volatility portfolio when your primary objective is
+    risk reduction rather than return maximisation.  This portfolio sits
+    at the leftmost point of the efficient frontier and does not require
+    a return estimate, making it more robust than mean-variance to
+    estimation error in expected returns.
+
+    Solves: min w' Sigma w, s.t. sum(w) = 1, bounds.
+
     Parameters:
         returns: Asset return DataFrame.
-        bounds: Weight bounds per asset.
+        bounds: Weight bounds per asset (default long-only ``(0, 1)``).
         periods_per_year: Trading periods per year.
 
     Returns:
-        OptimizationResult with minimum variance weights.
+        OptimizationResult with minimum variance weights.  The
+        ``volatility`` field gives the lowest achievable portfolio
+        standard deviation.
+
+    Example:
+        >>> import pandas as pd, numpy as np
+        >>> np.random.seed(0)
+        >>> returns = pd.DataFrame(np.random.randn(252, 4) * 0.01,
+        ...                        columns=['A', 'B', 'C', 'D'])
+        >>> result = min_volatility(returns)
+        >>> result.volatility > 0
+        True
+
+    See Also:
+        mean_variance: Full mean-variance with target return.
+        risk_parity: Equal risk contribution (also estimation-robust).
     """
     n = returns.shape[1]
     mu = returns.mean().values
@@ -146,6 +204,13 @@ def max_sharpe(
 ) -> OptimizationResult:
     """Maximum Sharpe ratio portfolio.
 
+    Use max-Sharpe when you want the portfolio with the highest
+    risk-adjusted return.  This is the tangency portfolio on the
+    efficient frontier -- the point where a line from the risk-free
+    rate is tangent to the frontier.
+
+    Maximises: (w'mu - rf) / sqrt(w'Sigma w), s.t. sum(w) = 1, bounds.
+
     Parameters:
         returns: Asset return DataFrame.
         risk_free: Annual risk-free rate.
@@ -153,7 +218,21 @@ def max_sharpe(
         periods_per_year: Trading periods per year.
 
     Returns:
-        OptimizationResult with maximum Sharpe weights.
+        OptimizationResult with maximum Sharpe weights.  The
+        ``sharpe_ratio`` field gives the optimal risk-adjusted return.
+
+    Example:
+        >>> import pandas as pd, numpy as np
+        >>> np.random.seed(42)
+        >>> returns = pd.DataFrame(np.random.randn(252, 3) * 0.01,
+        ...                        columns=['SPY', 'TLT', 'GLD'])
+        >>> result = max_sharpe(returns, risk_free=0.04)
+        >>> np.isclose(result.weights.sum(), 1.0)
+        True
+
+    See Also:
+        mean_variance: Mean-variance with a target return constraint.
+        min_volatility: Minimum risk portfolio.
     """
     return mean_variance(
         returns,
@@ -170,12 +249,41 @@ def risk_parity(
 ) -> OptimizationResult:
     """Risk parity (equal risk contribution) portfolio.
 
+    Use risk parity when you want each asset to contribute equally to
+    total portfolio risk.  Unlike mean-variance, risk parity does not
+    require expected return estimates, making it robust to estimation
+    error.  It is the basis of many institutional "all-weather" strategies.
+
+    Minimises: sum_i (RC_i / sigma_p - 1/N)^2
+
+    where RC_i = w_i * (Sigma w)_i / sigma_p is asset i's risk
+    contribution and sigma_p is portfolio volatility.
+
     Parameters:
         returns: Asset return DataFrame.
         periods_per_year: Trading periods per year.
 
     Returns:
-        OptimizationResult with risk parity weights.
+        OptimizationResult with risk parity weights.  Lower-volatility
+        assets receive higher weights; higher-volatility assets receive
+        lower weights.
+
+    Example:
+        >>> import pandas as pd, numpy as np
+        >>> np.random.seed(42)
+        >>> returns = pd.DataFrame(np.random.randn(252, 3) * np.array([0.01, 0.02, 0.005]),
+        ...                        columns=['Bonds', 'Equity', 'Gold'])
+        >>> result = risk_parity(returns)
+        >>> result.weights[0] > result.weights[1]  # bonds get more weight (lower vol)
+        True
+
+    References:
+        - Maillard, Roncalli & Teiletche (2010), "The Properties of
+          Equally Weighted Risk Contribution Portfolios"
+
+    See Also:
+        hierarchical_risk_parity: HRP (no inversion of covariance matrix).
+        min_volatility: Minimum variance (not risk-balanced).
     """
     n = returns.shape[1]
     mu = returns.mean().values
@@ -224,12 +332,33 @@ def equal_weight(
 ) -> OptimizationResult:
     """Equal weight portfolio (1/N).
 
+    Use the equal-weight portfolio as a robust baseline.  Despite its
+    simplicity, 1/N consistently outperforms many optimised portfolios
+    out-of-sample because it avoids estimation error entirely.
+
     Parameters:
         returns: Asset return DataFrame.
         periods_per_year: Trading periods per year.
 
     Returns:
-        OptimizationResult with equal weights.
+        OptimizationResult with equal weights (each asset receives
+        weight 1/N).
+
+    Example:
+        >>> import pandas as pd, numpy as np
+        >>> returns = pd.DataFrame(np.random.randn(100, 4) * 0.01,
+        ...                        columns=['A', 'B', 'C', 'D'])
+        >>> result = equal_weight(returns)
+        >>> np.allclose(result.weights, 0.25)
+        True
+
+    References:
+        - DeMiguel, Garlappi & Uppal (2009), "Optimal Versus Naive
+          Diversification"
+
+    See Also:
+        inverse_volatility: Simple vol-weighted alternative.
+        risk_parity: Optimisation-based risk balancing.
     """
     n = returns.shape[1]
     mu = returns.mean().values
@@ -252,12 +381,34 @@ def inverse_volatility(
 ) -> OptimizationResult:
     """Inverse volatility weighted portfolio.
 
+    Use inverse-volatility weighting as a simple, estimation-light
+    alternative to mean-variance.  Assets with lower volatility receive
+    higher weights, producing a portfolio that tilts toward stability
+    without requiring a full covariance estimate.
+
+    Weight_i = (1 / sigma_i) / sum_j(1 / sigma_j)
+
     Parameters:
         returns: Asset return DataFrame.
         periods_per_year: Trading periods per year.
 
     Returns:
-        OptimizationResult with inverse vol weights.
+        OptimizationResult with inverse vol weights.  Lower-volatility
+        assets receive higher allocations.
+
+    Example:
+        >>> import pandas as pd, numpy as np
+        >>> np.random.seed(0)
+        >>> returns = pd.DataFrame(
+        ...     np.random.randn(252, 3) * np.array([0.005, 0.02, 0.01]),
+        ...     columns=['Bonds', 'Equity', 'Gold'])
+        >>> result = inverse_volatility(returns)
+        >>> result.weights[0] > result.weights[1]  # Bonds > Equity
+        True
+
+    See Also:
+        equal_weight: Uniform weighting (ignores vol entirely).
+        risk_parity: Equalises risk contribution (uses covariance).
     """
     mu = returns.mean().values
     cov = returns.cov().values
@@ -281,14 +432,43 @@ def hierarchical_risk_parity(
 ) -> OptimizationResult:
     """Hierarchical Risk Parity (HRP) by Lopez de Prado.
 
-    Uses scipy hierarchical clustering and inverse-variance allocation.
+    Use HRP when you want a stable, estimation-robust portfolio that
+    does not require covariance matrix inversion.  HRP applies
+    hierarchical clustering to the correlation matrix, then allocates
+    via recursive bisection using inverse variance.  This avoids the
+    instability of mean-variance optimisation and produces portfolios
+    that are naturally diversified across asset clusters.
+
+    Algorithm:
+        1. Compute correlation-based distance and hierarchical linkage.
+        2. Quasi-diagonalise the covariance matrix.
+        3. Recursively bisect the sorted assets, allocating by inverse
+           variance of each cluster.
 
     Parameters:
         returns: Asset return DataFrame.
         periods_per_year: Trading periods per year.
 
     Returns:
-        OptimizationResult with HRP weights.
+        OptimizationResult with HRP weights.  Weights are always
+        positive (long-only) and sum to 1.
+
+    Example:
+        >>> import pandas as pd, numpy as np
+        >>> np.random.seed(42)
+        >>> returns = pd.DataFrame(np.random.randn(252, 5) * 0.01,
+        ...                        columns=['A', 'B', 'C', 'D', 'E'])
+        >>> result = hierarchical_risk_parity(returns)
+        >>> np.isclose(result.weights.sum(), 1.0)
+        True
+
+    References:
+        - Lopez de Prado (2016), "Building Diversified Portfolios that
+          Outperform Out-of-Sample"
+
+    See Also:
+        risk_parity: Equal risk contribution (requires covariance inversion).
+        mean_variance: Classical Markowitz (more sensitive to estimation error).
     """
     from scipy.cluster.hierarchy import leaves_list, linkage
     from scipy.spatial.distance import squareform
@@ -353,15 +533,52 @@ def black_litterman(
 ) -> OptimizationResult:
     """Black-Litterman model.
 
+    Use Black-Litterman when you have subjective views on expected
+    returns for some assets and want to combine them with market
+    equilibrium returns in a Bayesian framework.  BL produces more
+    stable and intuitive portfolios than raw mean-variance because it
+    starts from an equilibrium prior (implied by market capitalisation)
+    and blends in your views proportionally to your confidence.
+
+    The posterior expected return is:
+
+        E[r] = [(tau Sigma)^{-1} + P' Omega^{-1} P]^{-1}
+               * [(tau Sigma)^{-1} pi + P' Omega^{-1} Q]
+
+    where pi = implied equilibrium returns, P = pick matrix, Q = view
+    returns, Omega = view uncertainty.
+
     Parameters:
         returns: Asset return DataFrame.
-        views: Dict mapping asset name to expected return view.
-        tau: Uncertainty scaling parameter.
+        views: Dict mapping asset name to expected return view (e.g.,
+            ``{'AAPL': 0.12}`` means you expect AAPL to return 12%
+            annualised).
+        tau: Uncertainty scaling parameter (typical range 0.01-0.1).
+            Higher tau gives more weight to your views.
         risk_free: Annual risk-free rate.
         periods_per_year: Trading periods per year.
 
     Returns:
-        OptimizationResult with BL-adjusted weights.
+        OptimizationResult with BL-adjusted weights.  The weights
+        reflect a blend of market equilibrium and your views.
+
+    Example:
+        >>> import pandas as pd, numpy as np
+        >>> np.random.seed(42)
+        >>> returns = pd.DataFrame(np.random.randn(252, 3) * 0.01,
+        ...                        columns=['AAPL', 'MSFT', 'GOOG'])
+        >>> views = {'AAPL': 0.15}  # bullish on AAPL
+        >>> result = black_litterman(returns, views, tau=0.05)
+        >>> result.weights[0] > 1 / 3  # AAPL gets more weight
+        True
+
+    References:
+        - Black & Litterman (1992), "Global Portfolio Optimization"
+        - He & Litterman (1999), "The Intuition Behind Black-Litterman"
+
+    See Also:
+        mean_variance: Pure mean-variance (no views prior).
+        risk_parity: View-free risk-based allocation.
     """
     n = returns.shape[1]
     assets = list(returns.columns)

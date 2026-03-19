@@ -26,6 +26,11 @@ def minimize_quadratic(
 ) -> dict[str, Any]:
     """Solve min 0.5 * x'Qx + c'x subject to linear constraints via SLSQP.
 
+    Use this for portfolio optimisation (where Q is the covariance matrix),
+    regularised regression, and any convex quadratic problem.  The SLSQP
+    solver handles moderate problem sizes (n < 1000) well; for larger
+    problems, use ``solve_qp`` with the ``'osqp'`` or ``'cvxpy'`` backend.
+
     Parameters:
         Q: Positive semi-definite matrix of shape ``(n, n)``.
         c: Linear cost vector of shape ``(n,)``.
@@ -36,8 +41,22 @@ def minimize_quadratic(
         bounds: Variable bounds as ``[(lb, ub), ...]``.
 
     Returns:
-        Dict with keys ``x`` (solution), ``objective`` (optimal value),
-        ``status`` (solver status string), and ``success`` (bool).
+        Dict with keys ``x`` (solution vector), ``objective`` (optimal
+        value), ``status`` (``'optimal'`` or error message), and
+        ``success`` (bool).
+
+    Example:
+        >>> import numpy as np
+        >>> Q = np.array([[2, 0], [0, 2]], dtype=float)
+        >>> c = np.array([-4, -6], dtype=float)
+        >>> result = minimize_quadratic(Q, c, bounds=[(0, 10), (0, 10)])
+        >>> result['success']
+        True
+        >>> np.allclose(result['x'], [2, 3], atol=0.1)
+        True
+
+    See Also:
+        solve_qp: Multi-backend QP solver (scipy, OSQP, cvxpy).
     """
     Q = np.asarray(Q, dtype=float)
     c = np.asarray(c, dtype=float)
@@ -105,6 +124,11 @@ def solve_qp(
 ) -> dict[str, Any]:
     """Quadratic program solver with backend dispatch.
 
+    Use ``solve_qp`` as the primary entry point for quadratic
+    programming.  It dispatches to scipy (no extra deps), OSQP (fast
+    first-order solver for large sparse QPs), or cvxpy (general-purpose
+    convex solver).
+
     Solves::
 
         min  0.5 * x' Q x + c' x
@@ -120,13 +144,32 @@ def solve_qp(
         A_ub: Inequality constraint matrix.
         b_ub: Inequality constraint RHS.
         bounds: Variable bounds ``[(lb, ub), ...]``.
-        solver: Backend — ``'scipy'``, ``'osqp'``, or ``'cvxpy'``.
+        solver: Backend -- ``'scipy'`` (default, no extra deps),
+            ``'osqp'`` (fast for large sparse problems, requires
+            ``optimization`` extra), or ``'cvxpy'`` (most flexible,
+            requires ``optimization`` extra).
 
     Returns:
-        Dict with keys ``x``, ``objective``, ``status``, and ``success``.
+        Dict with keys ``x`` (solution), ``objective`` (optimal value),
+        ``status`` (solver status), and ``success`` (bool).
 
     Raises:
         ValueError: If *solver* is not recognised.
+
+    Example:
+        >>> import numpy as np
+        >>> Q = np.eye(3) * 2
+        >>> c = np.array([-2, -3, -1], dtype=float)
+        >>> A_eq = np.ones((1, 3))
+        >>> b_eq = np.array([1.0])
+        >>> result = solve_qp(Q, c, A_eq=A_eq, b_eq=b_eq,
+        ...                   bounds=[(0, 1)] * 3)
+        >>> result['success']
+        True
+
+    See Also:
+        minimize_quadratic: Scipy-only QP solver.
+        wraquant.opt.portfolio.mean_variance: Portfolio-specific QP.
     """
     solver = solver.lower()
 

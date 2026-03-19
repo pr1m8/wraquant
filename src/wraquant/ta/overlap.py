@@ -32,18 +32,8 @@ __all__ = [
 # ---------------------------------------------------------------------------
 
 
-def _validate_series(data: pd.Series, name: str = "data") -> pd.Series:
-    """Ensure *data* is a ``pd.Series``; raise ``TypeError`` otherwise."""
-    if not isinstance(data, pd.Series):
-        raise TypeError(f"{name} must be a pd.Series, got {type(data).__name__}")
-    return data
-
-
-def _validate_period(period: int, name: str = "period") -> int:
-    if period < 1:
-        raise ValueError(f"{name} must be >= 1, got {period}")
-    return period
-
+from wraquant.ta._validators import validate_period as _validate_period
+from wraquant.ta._validators import validate_series as _validate_series
 
 # ---------------------------------------------------------------------------
 # Moving Averages

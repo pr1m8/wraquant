@@ -35,17 +35,8 @@ __all__ = [
 # ---------------------------------------------------------------------------
 
 
-def _validate_series(data: pd.Series, name: str = "data") -> pd.Series:
-    """Ensure *data* is a ``pd.Series``; raise ``TypeError`` otherwise."""
-    if not isinstance(data, pd.Series):
-        raise TypeError(f"{name} must be a pd.Series, got {type(data).__name__}")
-    return data
-
-
-def _validate_period(period: int, name: str = "period") -> int:
-    if period < 1:
-        raise ValueError(f"{name} must be >= 1, got {period}")
-    return period
+from wraquant.ta._validators import validate_period as _validate_period
+from wraquant.ta._validators import validate_series as _validate_series
 
 
 def _ema(data: pd.Series, period: int) -> pd.Series:
@@ -58,9 +49,7 @@ def _sma(data: pd.Series, period: int) -> pd.Series:
     return data.rolling(window=period, min_periods=period).mean()
 
 
-def _true_range(
-    high: pd.Series, low: pd.Series, close: pd.Series
-) -> pd.Series:
+def _true_range(high: pd.Series, low: pd.Series, close: pd.Series) -> pd.Series:
     """Internal True Range helper."""
     prev_close = close.shift(1)
     tr = pd.concat(
@@ -70,9 +59,7 @@ def _true_range(
     return tr
 
 
-def _atr(
-    high: pd.Series, low: pd.Series, close: pd.Series, period: int
-) -> pd.Series:
+def _atr(high: pd.Series, low: pd.Series, close: pd.Series, period: int) -> pd.Series:
     """Internal ATR helper (SMA of True Range)."""
     tr = _true_range(high, low, close)
     return tr.rolling(window=period, min_periods=period).mean()

@@ -40,22 +40,59 @@ def black_scholes(
     sigma: float,
     option_type: str | OptionType = "call",
 ) -> np.float64:
-    """Price a European option using the Black-Scholes formula.
+    r"""Price a European option using the Black-Scholes closed-form formula.
+
+    The Black-Scholes (1973) formula gives the theoretical price of a
+    European option under the assumptions of log-normal asset dynamics,
+    constant volatility, and continuous trading.  Use this as the
+    baseline pricing model or as a quick sanity check against more
+    complex models (Heston, Levy, etc.).
+
+    For a call:
+
+    .. math::
+
+        C = S\,\Phi(d_1) - K\,e^{-rT}\,\Phi(d_2)
+
+    where :math:`d_1 = \frac{\ln(S/K) + (r + \sigma^2/2)T}{\sigma\sqrt{T}}`
+    and :math:`d_2 = d_1 - \sigma\sqrt{T}`.
 
     Parameters:
-        S: Current underlying price.
-        K: Strike price.
-        T: Time to expiration in years.
-        r: Risk-free interest rate (annualized, continuous compounding).
-        sigma: Volatility of the underlying (annualized).
-        option_type: 'call' or 'put'.
+        S (float): Current underlying price.
+        K (float): Strike price.
+        T (float): Time to expiration in years.  At ``T <= 0`` the
+            intrinsic value is returned.
+        r (float): Risk-free interest rate (annualized, continuously
+            compounded).
+        sigma (float): Volatility of the underlying (annualized).
+        option_type (str | OptionType): ``'call'`` or ``'put'``.
 
     Returns:
-        The Black-Scholes option price.
+        np.float64: The Black-Scholes option price.  Always non-negative.
+            For deep out-of-the-money options the price approaches zero;
+            for deep in-the-money options it approaches the intrinsic
+            value discounted at the risk-free rate.
 
     Example:
         >>> black_scholes(100, 100, 1.0, 0.05, 0.2)
         10.450...
+        >>> black_scholes(100, 100, 1.0, 0.05, 0.2, 'put')
+        5.573...
+
+    Notes:
+        The model assumes constant volatility and no dividends.  For
+        dividend-paying stocks, reduce ``S`` by the present value of
+        expected dividends or use the Merton (1973) continuous-dividend
+        extension (replace ``S`` with ``S * exp(-q * T)``).
+
+    See Also:
+        binomial_tree: Lattice method supporting American exercise.
+        monte_carlo_option: Simulation-based pricing.
+        implied_volatility: Invert this formula to recover vol from price.
+
+    References:
+        Black, F. & Scholes, M. (1973). *The Pricing of Options and
+        Corporate Liabilities.* Journal of Political Economy 81(3).
     """
     otype = _parse_option_type(option_type)
 
@@ -86,26 +123,54 @@ def binomial_tree(
     option_type: str | OptionType = "call",
     style: str | OptionStyle = "european",
 ) -> np.float64:
-    """Price an option using the Cox-Ross-Rubinstein (CRR) binomial tree.
+    r"""Price an option using the Cox-Ross-Rubinstein (CRR) binomial tree.
 
-    Supports both European and American exercise styles.
+    The binomial tree discretises the asset price evolution into up/down
+    moves and computes the option value by backward induction.  Unlike
+    Black-Scholes, the tree supports **American-style** early exercise.
+    Use this when you need American option prices or when the analytical
+    formula is unavailable.
+
+    At each step the asset moves up by ``u = exp(sigma * sqrt(dt))`` or
+    down by ``d = 1/u`` with risk-neutral probability
+    ``p = (exp(r*dt) - d) / (u - d)``.  The tree converges to the
+    Black-Scholes price as ``n_steps`` increases.
 
     Parameters:
-        S: Current underlying price.
-        K: Strike price.
-        T: Time to expiration in years.
-        r: Risk-free interest rate (annualized, continuous compounding).
-        sigma: Volatility of the underlying (annualized).
-        n_steps: Number of time steps in the tree.
-        option_type: 'call' or 'put'.
-        style: 'european' or 'american'.
+        S (float): Current underlying price.
+        K (float): Strike price.
+        T (float): Time to expiration in years.
+        r (float): Risk-free interest rate (annualized, continuously
+            compounded).
+        sigma (float): Volatility of the underlying (annualized).
+        n_steps (int): Number of time steps in the tree.  200--500 steps
+            give good accuracy for most applications.
+        option_type (str | OptionType): ``'call'`` or ``'put'``.
+        style (str | OptionStyle): ``'european'`` or ``'american'``.
 
     Returns:
-        The binomial tree option price.
+        np.float64: The binomial tree option price.  For European options
+            this converges to the Black-Scholes price; for American
+            options the price is at least as large as the European price
+            due to the early exercise premium.
 
     Example:
         >>> binomial_tree(100, 100, 1.0, 0.05, 0.2, 200)
         10.4...
+        >>> binomial_tree(100, 100, 1.0, 0.05, 0.2, 200, 'put', 'american')
+        6.08...
+
+    Notes:
+        Convergence is O(1/n_steps).  For faster convergence consider
+        Richardson extrapolation (average the n and 2n step prices).
+
+    See Also:
+        black_scholes: Analytical European option pricing.
+        monte_carlo_option: Simulation-based pricing.
+
+    References:
+        Cox, J.C., Ross, S.A. & Rubinstein, M. (1979). *Option Pricing:
+        A Simplified Approach.* Journal of Financial Economics 7(3).
     """
     otype = _parse_option_type(option_type)
     ostyle = _parse_option_style(style)
@@ -159,28 +224,50 @@ def monte_carlo_option(
     option_type: str | OptionType = "call",
     seed: int | None = None,
 ) -> np.float64:
-    """Price a European option using Monte Carlo simulation.
+    r"""Price a European option using Monte Carlo simulation under GBM.
 
-    Uses geometric Brownian motion to simulate price paths and
-    discounts the average payoff.
+    Simulates ``n_sims`` asset price paths under risk-neutral geometric
+    Brownian motion, computes the terminal payoff on each path, and
+    returns the discounted average.  Use Monte Carlo when the payoff is
+    path-dependent, the underlying follows a non-standard process, or
+    when you need a flexible framework that can be extended to exotic
+    options.
+
+    The standard error of the estimate decreases as
+    :math:`1/\sqrt{n\_sims}`, so 100 000 paths typically give 2--3
+    significant digits of accuracy.
 
     Parameters:
-        S: Current underlying price.
-        K: Strike price.
-        T: Time to expiration in years.
-        r: Risk-free interest rate (annualized, continuous compounding).
-        sigma: Volatility of the underlying (annualized).
-        n_sims: Number of simulation paths.
-        n_steps: Number of time steps per path.
-        option_type: 'call' or 'put'.
-        seed: Random seed for reproducibility.
+        S (float): Current underlying price.
+        K (float): Strike price.
+        T (float): Time to expiration in years.
+        r (float): Risk-free interest rate (annualized, continuously
+            compounded).
+        sigma (float): Volatility of the underlying (annualized).
+        n_sims (int): Number of simulation paths.  More paths reduce
+            variance but increase computation time.
+        n_steps (int): Number of time steps per path.  For European
+            vanilla options a single step suffices, but path-dependent
+            payoffs require finer discretisation.
+        option_type (str | OptionType): ``'call'`` or ``'put'``.
+        seed (int | None): Random seed for reproducibility.
 
     Returns:
-        The Monte Carlo option price estimate.
+        np.float64: The Monte Carlo estimate of the option price.  This
+            is an unbiased estimator that converges to the Black-Scholes
+            price for European vanilla options under GBM.
 
     Example:
         >>> monte_carlo_option(100, 100, 1.0, 0.05, 0.2, 100000, 252, seed=42)
         10.4...
+
+    Notes:
+        For variance reduction consider antithetic variates or control
+        variates (using the Black-Scholes price as a control).
+
+    See Also:
+        black_scholes: Closed-form European pricing (faster, exact).
+        binomial_tree: Lattice method for American options.
     """
     otype = _parse_option_type(option_type)
     rng = np.random.default_rng(seed)

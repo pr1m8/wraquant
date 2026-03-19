@@ -24,6 +24,11 @@ def pareto_front(
 ) -> dict[str, Any]:
     """Approximate the Pareto frontier via the weighted-sum method.
 
+    Use the weighted-sum approach for a quick Pareto front approximation
+    when you have a convex bi-objective problem (e.g., risk vs. return,
+    cost vs. tracking error).  For non-convex problems or more than 2
+    objectives, use ``nsga2`` instead.
+
     For each of *n_points* evenly-spaced weight vectors the scalar
     weighted-sum of the objectives is minimised using SLSQP.
 
@@ -32,13 +37,26 @@ def pareto_front(
             to be minimised simultaneously.
         constraints: Scipy-compatible constraint dicts applied to every
             sub-problem.
-        n_points: Number of Pareto-front samples.
+        n_points: Number of Pareto-front samples (default 50).
         bounds: Variable bounds ``[(lb, ub), ...]``.
 
     Returns:
-        Dict with keys ``points`` (array of decision vectors, shape
-        ``(k, n)``), ``objectives`` (objective values, shape ``(k, m)``),
-        and ``n_points`` (number of non-dominated points found).
+        Dict with keys ``points`` (non-dominated decision vectors, shape
+        ``(k, n)``), ``objectives`` (corresponding objective values,
+        shape ``(k, m)``), and ``n_points`` (number of non-dominated
+        points found).
+
+    Example:
+        >>> import numpy as np
+        >>> f1 = lambda x: float(x[0] ** 2)
+        >>> f2 = lambda x: float((x[0] - 1) ** 2)
+        >>> result = pareto_front([f1, f2], bounds=[(0, 1)], n_points=20)
+        >>> result['n_points'] > 0
+        True
+
+    See Also:
+        nsga2: Evolutionary multi-objective optimizer (handles non-convex).
+        epsilon_constraint: Epsilon-constraint Pareto method.
     """
     n_obj = len(objectives)
     if n_obj < 2:
@@ -140,17 +158,46 @@ def nsga2(
 ) -> dict[str, Any]:
     """NSGA-II multi-objective optimisation via pymoo.
 
+    Use NSGA-II when you have two or more competing objectives and want
+    to find the Pareto-optimal frontier.  In finance, this is used for
+    risk-return trade-offs, cost-tracking trade-offs in execution, and
+    multi-factor portfolio construction.  NSGA-II is an evolutionary
+    algorithm that maintains diversity across the Pareto front.
+
     Parameters:
-        objectives: List of scalar objective functions ``f(x) -> float``.
+        objectives: List of scalar objective functions ``f(x) -> float``,
+            each to be minimised.
         bounds: Variable bounds ``[(lb, ub), ...]``.
-        pop_size: Population size.
-        n_gen: Number of generations.
-        seed: Random seed.
+        pop_size: Population size (default 100).  Larger populations
+            improve frontier coverage but increase computation.
+        n_gen: Number of generations (default 200).
+        seed: Random seed for reproducibility.
 
     Returns:
-        Dict with keys ``pareto_front`` (decision vectors on the front),
-        ``pareto_objectives`` (corresponding objective values), and
-        ``n_points``.
+        Dict with keys:
+
+        - ``pareto_front``: np.ndarray of decision vectors on the
+          Pareto front (shape ``(n_points, n_var)``).
+        - ``pareto_objectives``: np.ndarray of objective values (shape
+          ``(n_points, n_obj)``).
+        - ``n_points``: number of Pareto-optimal solutions found.
+
+    Example:
+        >>> import numpy as np
+        >>> # Minimise x^2 and (x-2)^2 simultaneously
+        >>> f1 = lambda x: float(x[0] ** 2)
+        >>> f2 = lambda x: float((x[0] - 2) ** 2)
+        >>> result = nsga2([f1, f2], bounds=[(0, 3)], pop_size=50, n_gen=100, seed=42)
+        >>> result['n_points'] > 0
+        True
+
+    References:
+        - Deb et al. (2002), "A Fast and Elitist Multiobjective Genetic
+          Algorithm: NSGA-II"
+
+    See Also:
+        pareto_front: Weighted-sum Pareto approximation (no pymoo needed).
+        epsilon_constraint: Epsilon-constraint method.
     """
     from pymoo.algorithms.moo.nsga2 import NSGA2
     from pymoo.core.problem import ElementwiseProblem

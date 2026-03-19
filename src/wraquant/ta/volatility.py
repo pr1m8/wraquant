@@ -37,16 +37,8 @@ __all__ = [
 # ---------------------------------------------------------------------------
 
 
-def _validate_series(data: pd.Series, name: str = "data") -> pd.Series:
-    if not isinstance(data, pd.Series):
-        raise TypeError(f"{name} must be a pd.Series, got {type(data).__name__}")
-    return data
-
-
-def _validate_period(period: int, name: str = "period") -> int:
-    if period < 1:
-        raise ValueError(f"{name} must be >= 1, got {period}")
-    return period
+from wraquant.ta._validators import validate_period as _validate_period
+from wraquant.ta._validators import validate_series as _validate_series
 
 
 def _ema(data: pd.Series, period: int) -> pd.Series:
@@ -436,7 +428,9 @@ def garman_klass(
 
     from wraquant.vol.realized import garman_klass as _garman_klass
 
-    return _garman_klass(open_=open_, high=high, low=low, close=close, window=period, annualize=annualize)
+    return _garman_klass(
+        open_=open_, high=high, low=low, close=close, window=period, annualize=annualize
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -538,7 +532,9 @@ def rogers_satchell(
 
     from wraquant.vol.realized import rogers_satchell as _rogers_satchell
 
-    return _rogers_satchell(open_=open_, high=high, low=low, close=close, window=period, annualize=annualize)
+    return _rogers_satchell(
+        open_=open_, high=high, low=low, close=close, window=period, annualize=annualize
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -592,7 +588,9 @@ def yang_zhang(
 
     from wraquant.vol.realized import yang_zhang as _yang_zhang
 
-    return _yang_zhang(open_=open_, high=high, low=low, close=close, window=period, annualize=annualize)
+    return _yang_zhang(
+        open_=open_, high=high, low=low, close=close, window=period, annualize=annualize
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -792,12 +790,12 @@ def acceleration_bands(
     _validate_period(period)
 
     hl_ratio = factor * (high - low) / ((high + low) / 2.0)
-    upper_band = (high * (1.0 + hl_ratio)).rolling(
-        window=period, min_periods=period
-    ).mean()
-    lower_band = (low * (1.0 - hl_ratio)).rolling(
-        window=period, min_periods=period
-    ).mean()
+    upper_band = (
+        (high * (1.0 + hl_ratio)).rolling(window=period, min_periods=period).mean()
+    )
+    lower_band = (
+        (low * (1.0 - hl_ratio)).rolling(window=period, min_periods=period).mean()
+    )
     middle = close.rolling(window=period, min_periods=period).mean()
 
     upper_band.name = "acceleration_bands_upper"

@@ -26,25 +26,44 @@ def to_tearsheet(
     benchmark: pd.Series | None = None,
     output_path: str | Path | None = None,
 ) -> dict[str, Any]:
-    """Generate performance tearsheet data from a return series.
+    """Generate a performance tearsheet from a return series.
 
-    Computes key performance and risk metrics and returns them as a
-    dictionary.  Optionally writes the result to a JSON file.
+    Computes the key performance and risk metrics that every portfolio
+    analysis should include, and returns them as a serialisable
+    dictionary.  Optionally writes the result to a JSON file for
+    reporting or downstream consumption.
+
+    Metrics computed: total return, annualized return, annualized
+    volatility, Sharpe ratio, maximum drawdown, and Calmar ratio.
+    When a benchmark is provided, also computes correlation and
+    information ratio.
 
     Parameters:
-        returns: Series of portfolio returns (simple, not cumulative),
-            indexed by datetime.
-        benchmark: Optional benchmark return series for relative
-            metrics.
-        output_path: If provided, write the tearsheet dict to this
-            JSON file.
+        returns (pd.Series): Series of portfolio returns (simple, not
+            cumulative), indexed by datetime.
+        benchmark (pd.Series | None): Optional benchmark return series
+            for relative metrics.  When provided, the two series are
+            aligned by index.
+        output_path (str | Path | None): If provided, write the
+            tearsheet dict to this JSON file.
 
     Returns:
-        Dictionary with keys such as ``total_return``,
-        ``annualized_return``, ``annualized_volatility``,
-        ``sharpe_ratio``, ``max_drawdown``, ``calmar_ratio``, and
-        optionally ``benchmark_correlation`` and
-        ``information_ratio``.
+        dict[str, Any]: Dictionary with keys ``total_return``,
+            ``annualized_return``, ``annualized_volatility``,
+            ``sharpe_ratio``, ``max_drawdown``, ``calmar_ratio``,
+            ``n_periods``, and optionally ``benchmark_correlation``
+            and ``information_ratio``.
+
+    Example:
+        >>> import pandas as pd, numpy as np
+        >>> returns = pd.Series(np.random.randn(252) * 0.01)
+        >>> sheet = to_tearsheet(returns)
+        >>> "sharpe_ratio" in sheet
+        True
+
+    See Also:
+        to_json: Serialize any data to JSON.
+        format_table: Pretty-print a DataFrame.
     """
     returns = returns.dropna()
     n_periods = len(returns)
@@ -111,16 +130,32 @@ def to_json(
 ) -> str | None:
     """Export data to JSON format.
 
+    Handles DataFrames, Series, and plain dictionaries.  When a file
+    path is provided, the JSON is written to disk; otherwise the JSON
+    string is returned for further use (e.g., sending via an API).
+
     Parameters:
-        data: Data to serialize.  DataFrames and Series use the pandas
-            JSON serializer; plain dicts use the stdlib ``json`` module.
-        path: If provided, write the JSON string to this file and
-            return ``None``.  Otherwise, return the JSON string.
-        orient: Orientation for :meth:`pandas.DataFrame.to_json`
+        data (pd.DataFrame | pd.Series | dict): Data to serialize.
+            DataFrames and Series use the pandas JSON serializer; plain
+            dicts use the stdlib ``json`` module.
+        path (str | Path | None): If provided, write the JSON string
+            to this file and return ``None``.  Otherwise, return the
+            JSON string.
+        orient (str): Orientation for :meth:`pandas.DataFrame.to_json`
             (e.g., ``'records'``, ``'index'``, ``'columns'``).
 
     Returns:
-        JSON string when *path* is ``None``; otherwise ``None``.
+        str | None: JSON string when *path* is ``None``; otherwise
+            ``None``.
+
+    Example:
+        >>> json_str = to_json({"sharpe": 1.2, "max_dd": -0.15})
+        >>> isinstance(json_str, str)
+        True
+
+    See Also:
+        to_dict: Convert to a nested dictionary.
+        to_tearsheet: Generate a full performance report.
     """
     if isinstance(data, (pd.DataFrame, pd.Series)):
         json_str = data.to_json(orient=orient, date_format="iso", indent=2)
@@ -142,13 +177,24 @@ def to_dict(
     """Convert a DataFrame or Series to a nested dictionary.
 
     For a DataFrame, produces ``{column: {index: value, ...}, ...}``.
-    For a Series, produces ``{index: value, ...}``.
+    For a Series, produces ``{index: value, ...}``.  Useful for
+    serialization, API responses, or interop with non-pandas code.
 
     Parameters:
-        data: DataFrame or Series to convert.
+        data (pd.DataFrame | pd.Series): DataFrame or Series to
+            convert.
 
     Returns:
-        Nested dictionary representation of the data.
+        dict[str, Any]: Nested dictionary representation of the data.
+
+    Example:
+        >>> import pandas as pd
+        >>> s = pd.Series([1, 2, 3], index=["a", "b", "c"])
+        >>> to_dict(s)
+        {'a': 1, 'b': 2, 'c': 3}
+
+    See Also:
+        to_json: Serialize to JSON string.
     """
     if isinstance(data, pd.Series):
         return data.to_dict()
@@ -162,14 +208,27 @@ def format_table(
 ) -> str:
     """Format a DataFrame as a pretty-printed table string.
 
+    Produces a human-readable text table suitable for console output,
+    log files, or email reports.  Numeric columns are formatted to a
+    fixed number of decimal places, and designated columns are
+    displayed as percentages.
+
     Parameters:
-        data: DataFrame to format.
-        precision: Number of decimal places for numeric columns.
-        pct_columns: Column names to format as percentages (multiplied
-            by 100 and suffixed with ``%``).
+        data (pd.DataFrame): DataFrame to format.
+        precision (int): Number of decimal places for numeric columns
+            (default 4).
+        pct_columns (list[str] | None): Column names to format as
+            percentages (values are multiplied by 100 and suffixed
+            with ``%``).
 
     Returns:
-        String representation of the formatted table.
+        str: String representation of the formatted table.
+
+    Example:
+        >>> import pandas as pd
+        >>> df = pd.DataFrame({"return": [0.05], "vol": [0.15]})
+        >>> print(format_table(df, pct_columns=["return", "vol"]))
+        ...
     """
     formatted = data.copy()
 

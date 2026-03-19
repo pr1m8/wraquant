@@ -256,20 +256,37 @@ def propensity_score(
     """Estimate propensity scores using logistic regression.
 
     Fits a logistic regression of treatment assignment on covariates
-    to estimate P(treatment=1 | covariates).
+    to estimate P(treatment=1 | covariates).  The propensity score is
+    the foundation for IPW and doubly robust estimators: it balances
+    confounders by reweighting observations so that treated and control
+    groups look comparable.
 
-    Parameters
-    ----------
-    treatment : np.ndarray
-        Binary treatment indicator (1D array of 0s and 1s).
-    covariates : np.ndarray
-        Covariate matrix (n_samples, n_features). An intercept column
-        is added automatically.
+    Scores are clipped to [0.01, 0.99] to avoid extreme weights.
 
-    Returns
-    -------
-    np.ndarray
-        Estimated propensity scores (probabilities), shape (n_samples,).
+    Parameters:
+        treatment (np.ndarray): Binary treatment indicator (1-D array
+            of 0s and 1s).
+        covariates (np.ndarray): Covariate matrix of shape
+            ``(n_samples, n_features)``.  An intercept column is added
+            automatically; do not include one.
+
+    Returns:
+        np.ndarray: Estimated propensity scores (probabilities) of
+            shape ``(n_samples,)``, each in [0.01, 0.99].
+
+    Example:
+        >>> import numpy as np
+        >>> rng = np.random.default_rng(0)
+        >>> X = rng.normal(size=(200, 3))
+        >>> T = (X[:, 0] + rng.normal(size=200) > 0).astype(float)
+        >>> ps = propensity_score(T, X)
+        >>> ps.shape
+        (200,)
+
+    See Also:
+        ipw_ate: Use propensity scores to estimate the ATE.
+        doubly_robust_ate: Combines propensity scores with outcome
+            regression.
     """
     treatment = np.asarray(treatment, dtype=float).ravel()
     covariates = np.asarray(covariates, dtype=float)
@@ -304,23 +321,51 @@ def ipw_ate(
     treatment: np.ndarray,
     propensity_scores: np.ndarray,
 ) -> ATEResult:
-    """Estimate the Average Treatment Effect using Inverse Probability Weighting.
+    r"""Estimate the Average Treatment Effect using Inverse Probability Weighting.
 
-    Uses the Horvitz-Thompson estimator with normalized weights.
+    IPW reweights each observation by the inverse of the probability
+    of receiving its actual treatment, creating a pseudo-population
+    where treatment is independent of covariates.  The Horvitz-Thompson
+    estimator is:
 
-    Parameters
-    ----------
-    outcome : np.ndarray
-        Observed outcomes (1D array).
-    treatment : np.ndarray
-        Binary treatment indicator (1D array of 0s and 1s).
-    propensity_scores : np.ndarray
-        Estimated propensity scores (1D array).
+    .. math::
 
-    Returns
-    -------
-    ATEResult
-        ATE estimate with standard error and confidence interval.
+        \widehat{\text{ATE}} = \frac{1}{n}\sum_{i=1}^{n}
+        \frac{T_i\,Y_i}{e(X_i)}
+        - \frac{1}{n}\sum_{i=1}^{n}
+        \frac{(1 - T_i)\,Y_i}{1 - e(X_i)}
+
+    Use IPW when you have a well-estimated propensity score and
+    moderate overlap between treated and control groups.  If
+    propensity scores are extreme (close to 0 or 1), consider the
+    doubly robust estimator instead.
+
+    Parameters:
+        outcome (np.ndarray): Observed outcomes (1-D array).
+        treatment (np.ndarray): Binary treatment indicator (0s and 1s).
+        propensity_scores (np.ndarray): Estimated propensity scores
+            from :func:`propensity_score` (1-D array).
+
+    Returns:
+        ATEResult: ATE estimate with standard error, 95% confidence
+            interval, and sample sizes.
+
+    Example:
+        >>> import numpy as np
+        >>> rng = np.random.default_rng(0)
+        >>> n = 500
+        >>> X = rng.normal(size=(n, 2))
+        >>> T = (X[:, 0] > 0).astype(float)
+        >>> Y = 2.0 * T + X[:, 0] + rng.normal(size=n)
+        >>> ps = propensity_score(T, X)
+        >>> result = ipw_ate(Y, T, ps)
+        >>> 0.5 < result.ate < 3.5
+        True
+
+    See Also:
+        doubly_robust_ate: More robust alternative combining IPW and
+            outcome regression.
+        matching_ate: Nonparametric matching estimator.
     """
     outcome = np.asarray(outcome, dtype=float).ravel()
     treatment = np.asarray(treatment, dtype=float).ravel()
@@ -367,24 +412,43 @@ def matching_ate(
 ) -> ATEResult:
     """Estimate the ATE using nearest-neighbor matching on covariates.
 
-    Each treated unit is matched to the closest control unit(s) based on
-    Euclidean distance in covariate space (and vice-versa for ATT/ATC).
+    For each treated unit, finds the closest control unit(s) in
+    Euclidean covariate space and uses the matched pair difference as
+    the individual treatment effect estimate (and vice versa for
+    controls).  The ATE is the average of these pairwise differences.
 
-    Parameters
-    ----------
-    outcome : np.ndarray
-        Observed outcomes (1D array).
-    treatment : np.ndarray
-        Binary treatment indicator (1D array of 0s and 1s).
-    covariates : np.ndarray
-        Covariate matrix (n_samples, n_features).
-    n_neighbors : int
-        Number of nearest neighbors to match with. Default is 1.
+    Matching is intuitive and nonparametric, but can be biased in
+    high-dimensional covariate spaces due to the curse of
+    dimensionality.  Consider propensity-score matching or the doubly
+    robust estimator when dimensionality is high.
 
-    Returns
-    -------
-    ATEResult
-        ATE estimate with standard error and confidence interval.
+    Parameters:
+        outcome (np.ndarray): Observed outcomes (1-D array).
+        treatment (np.ndarray): Binary treatment indicator (0s and 1s).
+        covariates (np.ndarray): Covariate matrix of shape
+            ``(n_samples, n_features)``.
+        n_neighbors (int): Number of nearest neighbors to match with
+            (default 1).  More neighbors reduce variance but may
+            increase bias.
+
+    Returns:
+        ATEResult: ATE estimate with standard error and 95% confidence
+            interval.
+
+    Example:
+        >>> import numpy as np
+        >>> rng = np.random.default_rng(0)
+        >>> X = rng.normal(size=(300, 2))
+        >>> T = (X[:, 0] > 0).astype(float)
+        >>> Y = 1.5 * T + X[:, 0] + rng.normal(size=300)
+        >>> result = matching_ate(Y, T, X)
+        >>> result.n_treated > 0
+        True
+
+    See Also:
+        ipw_ate: Weighting-based estimator (no matching).
+        doubly_robust_ate: Combines matching intuition with IPW
+            robustness.
     """
     outcome = np.asarray(outcome, dtype=float).ravel()
     treatment = np.asarray(treatment, dtype=float).ravel()
@@ -449,25 +513,52 @@ def doubly_robust_ate(
     treatment: np.ndarray,
     covariates: np.ndarray,
 ) -> ATEResult:
-    """Estimate the ATE using the doubly robust (augmented IPW) estimator.
+    r"""Estimate the ATE using the doubly robust (augmented IPW) estimator.
 
-    Combines inverse probability weighting with outcome regression.
-    The estimator is consistent if either the propensity score model or
-    the outcome model is correctly specified.
+    The doubly robust estimator combines inverse probability weighting
+    with outcome regression.  It is **consistent if either** the
+    propensity score model **or** the outcome regression model is
+    correctly specified, providing a valuable insurance against model
+    misspecification.
 
-    Parameters
-    ----------
-    outcome : np.ndarray
-        Observed outcomes (1D array).
-    treatment : np.ndarray
-        Binary treatment indicator (1D array of 0s and 1s).
-    covariates : np.ndarray
-        Covariate matrix (n_samples, n_features).
+    This is the **recommended default** when you are unsure about
+    model specification.
 
-    Returns
-    -------
-    ATEResult
-        ATE estimate with standard error and confidence interval.
+    Internally, the function:
+
+    1. Estimates propensity scores via logistic regression.
+    2. Fits separate OLS outcome models for treated and control groups.
+    3. Combines both in the augmented IPW formula.
+
+    Parameters:
+        outcome (np.ndarray): Observed outcomes (1-D array).
+        treatment (np.ndarray): Binary treatment indicator (0s and 1s).
+        covariates (np.ndarray): Covariate matrix of shape
+            ``(n_samples, n_features)``.
+
+    Returns:
+        ATEResult: ATE estimate with standard error and 95% confidence
+            interval.
+
+    Example:
+        >>> import numpy as np
+        >>> rng = np.random.default_rng(0)
+        >>> X = rng.normal(size=(500, 3))
+        >>> T = (X[:, 0] > 0).astype(float)
+        >>> Y = 2.0 * T + X[:, 0] + rng.normal(size=500)
+        >>> result = doubly_robust_ate(Y, T, X)
+        >>> 0.5 < result.ate < 3.5
+        True
+
+    See Also:
+        ipw_ate: Pure IPW estimator.
+        matching_ate: Nonparametric matching estimator.
+        propensity_score: Logistic regression propensity scores.
+
+    References:
+        Robins, J.M., Rotnitzky, A. & Zhao, L.P. (1994). *Estimation
+        of Regression Coefficients When Some Regressors Are Not Always
+        Observed.* JASA 89(427).
     """
     outcome = np.asarray(outcome, dtype=float).ravel()
     treatment = np.asarray(treatment, dtype=float).ravel()
@@ -534,25 +625,49 @@ def regression_discontinuity(
 ) -> RDResult:
     """Estimate treatment effect using a sharp regression discontinuity design.
 
-    Fits local linear regressions on each side of the cutoff and estimates
-    the treatment effect as the discontinuity at the cutoff.
+    RDD exploits a sharp cutoff in a running variable (e.g., market-cap
+    threshold for index inclusion, credit score cutoff for loan
+    approval) to identify a local causal effect.  The key identifying
+    assumption is that units just above and just below the cutoff are
+    comparable, so any discontinuity in outcomes at the cutoff is
+    attributable to the treatment.
 
-    Parameters
-    ----------
-    outcome : np.ndarray
-        Observed outcomes (1D array).
-    running_var : np.ndarray
-        Running variable that determines treatment assignment (1D array).
-    cutoff : float
-        Cutoff value. Units with running_var >= cutoff are treated.
-    bandwidth : float or None
-        Bandwidth for local linear regression. If None, uses Silverman's
-        rule of thumb: 1.06 * std * n^(-1/5).
+    The function fits local linear regressions on each side of the
+    cutoff and estimates the treatment effect as the jump at the
+    cutoff.
 
-    Returns
-    -------
-    RDResult
-        RD estimate with standard error and confidence interval.
+    Parameters:
+        outcome (np.ndarray): Observed outcomes (1-D array).
+        running_var (np.ndarray): Running variable that determines
+            treatment (1-D array).  Units with
+            ``running_var >= cutoff`` are treated.
+        cutoff (float): Cutoff value for the running variable
+            (default 0.0).
+        bandwidth (float | None): Bandwidth for local linear
+            regression.  If None, uses Silverman's rule of thumb.
+            A narrower bandwidth reduces bias but increases variance.
+
+    Returns:
+        RDResult: Estimated local ATE at the cutoff, with standard
+            error, confidence interval, and bandwidth used.
+
+    Raises:
+        ValueError: If there are fewer than 2 observations on either
+            side of the cutoff within the bandwidth.
+
+    Example:
+        >>> import numpy as np
+        >>> rng = np.random.default_rng(0)
+        >>> n = 500
+        >>> X = rng.uniform(-1, 1, n)
+        >>> Y = 0.5 * (X >= 0).astype(float) + X + rng.normal(0, 0.2, n)
+        >>> result = regression_discontinuity(Y, X, cutoff=0.0)
+        >>> 0.0 < result.ate < 1.5
+        True
+
+    See Also:
+        diff_in_diff: Before/after comparison with control group.
+        synthetic_control: Single-unit causal inference over time.
     """
     outcome = np.asarray(outcome, dtype=float).ravel()
     running_var = np.asarray(running_var, dtype=float).ravel()
@@ -626,24 +741,51 @@ def synthetic_control(
 ) -> SyntheticControlResult:
     """Estimate treatment effect using the synthetic control method.
 
-    Finds convex combination weights for donor units that best reproduce
-    the treated unit's pre-treatment outcomes, then estimates the
-    treatment effect as the post-treatment gap.
+    The synthetic control method constructs a data-driven counterfactual
+    for a single treated unit by finding a weighted combination of
+    untreated donor units that closely reproduces the treated unit's
+    pre-treatment trajectory.  The treatment effect is the
+    post-treatment gap between the observed and synthetic outcomes.
 
-    Parameters
-    ----------
-    treated_outcomes : np.ndarray
-        Outcomes for the treated unit over all time periods (1D array).
-    donor_outcomes : np.ndarray
-        Outcomes for donor units (n_periods, n_donors).
-    pre_period : int
-        Number of pre-treatment time periods (index of first post-treatment
-        period).
+    Use synthetic control for single-unit case studies (e.g., the
+    effect of a policy change on one country, or a management change
+    at one firm) when a natural control group is unavailable.
 
-    Returns
-    -------
-    SyntheticControlResult
-        Estimated treatment effect, donor weights, and diagnostics.
+    Parameters:
+        treated_outcomes (np.ndarray): Outcomes for the treated unit
+            over all time periods (1-D array of length T).
+        donor_outcomes (np.ndarray): Outcomes for donor (control) units,
+            shape ``(T, n_donors)``.
+        pre_period (int): Number of pre-treatment time periods.  The
+            first ``pre_period`` rows are used for fitting; the
+            remainder is the post-treatment evaluation window.
+
+    Returns:
+        SyntheticControlResult: Estimated treatment effect (average
+            post-period gap), donor weights, synthetic outcomes, and
+            pre-period RMSE as a fit quality diagnostic.
+
+    Raises:
+        ValueError: If *pre_period* is out of range.
+
+    Example:
+        >>> import numpy as np
+        >>> rng = np.random.default_rng(0)
+        >>> T, n_donors = 20, 5
+        >>> donors = rng.normal(size=(T, n_donors)).cumsum(axis=0)
+        >>> treated = donors @ np.array([0.3, 0.5, 0.2, 0, 0])
+        >>> treated[15:] += 2.0  # treatment effect of 2.0
+        >>> result = synthetic_control(treated, donors, pre_period=15)
+        >>> result.ate > 0
+        True
+
+    See Also:
+        diff_in_diff: Two-group before/after comparison.
+        regression_discontinuity: Cutoff-based causal identification.
+
+    References:
+        Abadie, A., Diamond, A. & Hainmueller, J. (2010). *Synthetic
+        Control Methods for Comparative Case Studies.* JASA 105(490).
     """
     treated_outcomes = np.asarray(treated_outcomes, dtype=float).ravel()
     donor_outcomes = np.asarray(donor_outcomes, dtype=float)
@@ -716,29 +858,52 @@ def diff_in_diff(
     post: np.ndarray,
     entity: np.ndarray | None = None,
 ) -> DIDResult:
-    """Estimate treatment effect using difference-in-differences.
+    r"""Estimate treatment effect using difference-in-differences (DID).
 
-    Implements the canonical 2x2 DID estimator. When entity fixed effects
-    are provided, uses the within estimator.
+    DID compares the before-after change in the treatment group to the
+    before-after change in the control group, netting out common time
+    trends:
 
-    Parameters
-    ----------
-    outcome : np.ndarray
-        Observed outcomes (1D array).
-    treatment : np.ndarray
-        Binary group indicator (1D array): 1 = treatment group,
-        0 = control group.
-    post : np.ndarray
-        Binary time indicator (1D array): 1 = post-treatment,
-        0 = pre-treatment.
-    entity : np.ndarray or None
-        Entity identifiers for panel data (1D array). If provided,
-        entity fixed effects are included. Default is None.
+    .. math::
 
-    Returns
-    -------
-    DIDResult
-        DID estimate with standard error and confidence interval.
+        \hat{\delta} = (\bar{Y}_{T,\text{post}} - \bar{Y}_{T,\text{pre}})
+        - (\bar{Y}_{C,\text{post}} - \bar{Y}_{C,\text{pre}})
+
+    The key identifying assumption is **parallel trends**: absent the
+    treatment, both groups would have followed the same trajectory.
+
+    Use DID when you have panel data with a clear treatment date and a
+    plausible control group.
+
+    Parameters:
+        outcome (np.ndarray): Observed outcomes (1-D array).
+        treatment (np.ndarray): Binary group indicator (1-D array):
+            1 = treatment group, 0 = control group.
+        post (np.ndarray): Binary time indicator (1-D array):
+            1 = post-treatment, 0 = pre-treatment.
+        entity (np.ndarray | None): Entity identifiers for panel data
+            (1-D array).  If provided, entity fixed effects are
+            included.  Default is None.
+
+    Returns:
+        DIDResult: DID estimate with standard error, 95% confidence
+            interval, and group means for parallel-trends diagnostics.
+
+    Example:
+        >>> import numpy as np
+        >>> rng = np.random.default_rng(0)
+        >>> n = 400
+        >>> treat = np.repeat([0, 1], n // 2)
+        >>> post_period = np.tile([0, 1], n // 2)
+        >>> Y = 1.0 + 0.5 * treat + 0.3 * post_period + 2.0 * treat * post_period
+        >>> Y += rng.normal(0, 0.5, n)
+        >>> result = diff_in_diff(Y, treat, post_period)
+        >>> 1.0 < result.ate < 3.0
+        True
+
+    See Also:
+        synthetic_control: Single-unit causal inference.
+        regression_discontinuity: Cutoff-based identification.
     """
     outcome = np.asarray(outcome, dtype=float).ravel()
     treatment = np.asarray(treatment, dtype=float).ravel()
@@ -1412,8 +1577,7 @@ def instrumental_variable(
     df_num = n_instruments
     df_den = n - Z_full.shape[1]
     first_stage_f = float(
-        ((ssr_restricted - ssr_unrestricted) / df_num)
-        / (ssr_unrestricted / df_den)
+        ((ssr_restricted - ssr_unrestricted) / df_num) / (ssr_unrestricted / df_den)
     )
 
     # --- Second stage: regress outcome on x_hat + controls ---
@@ -1583,9 +1747,7 @@ def event_study(
     event_indices = np.asarray(event_indices, dtype=int).ravel()
 
     if len(returns) != len(market_returns):
-        raise ValueError(
-            "returns and market_returns must have the same length."
-        )
+        raise ValueError("returns and market_returns must have the same length.")
 
     event_window_len = event_window_pre + event_window_post + 1
     all_cars = []
@@ -1750,8 +1912,12 @@ def _fit_synthetic_weights(
     w0 = np.ones(n_donors) / n_donors
 
     result = optimize.minimize(
-        objective, w0, jac=grad, method="SLSQP",
-        bounds=bounds, constraints=constraints,
+        objective,
+        w0,
+        jac=grad,
+        method="SLSQP",
+        bounds=bounds,
+        constraints=constraints,
     )
     return result.x
 
@@ -1847,8 +2013,7 @@ def synthetic_control_weights(
 
     if pre_period < 2 or pre_period >= n_periods:
         raise ValueError(
-            f"pre_period must be between 2 and {n_periods - 1}, "
-            f"got {pre_period}."
+            f"pre_period must be between 2 and {n_periods - 1}, " f"got {pre_period}."
         )
 
     # Pre- and post-treatment splits
@@ -1882,8 +2047,7 @@ def synthetic_control_weights(
             # Remaining donors (including original treated as a donor)
             remaining_idx = [i for i in range(n_donors) if i != j]
             placebo_donors = np.column_stack(
-                [donor_outcomes[:, remaining_idx],
-                 treated_outcomes.reshape(-1, 1)]
+                [donor_outcomes[:, remaining_idx], treated_outcomes.reshape(-1, 1)]
             )
 
             placebo_y_pre = placebo_treated[:pre_period]
@@ -1893,12 +2057,8 @@ def synthetic_control_weights(
                 placebo_w = _fit_synthetic_weights(placebo_y_pre, placebo_D_pre)
                 placebo_synth = placebo_donors @ placebo_w
                 placebo_gaps = placebo_treated - placebo_synth
-                p_pre = float(np.sqrt(np.mean(
-                    placebo_gaps[:pre_period] ** 2
-                )))
-                p_post = float(np.sqrt(np.mean(
-                    placebo_gaps[pre_period:] ** 2
-                )))
+                p_pre = float(np.sqrt(np.mean(placebo_gaps[:pre_period] ** 2)))
+                p_post = float(np.sqrt(np.mean(placebo_gaps[pre_period:] ** 2)))
                 p_ratio = p_post / p_pre if p_pre > 1e-12 else np.inf
                 ratios.append(p_ratio)
             except Exception:
@@ -1907,9 +2067,7 @@ def synthetic_control_weights(
 
         placebo_ratios = np.array(ratios)
         # p-value: fraction of placebo ratios >= treated ratio
-        placebo_p_value = float(
-            np.mean(placebo_ratios >= rmspe_ratio)
-        )
+        placebo_p_value = float(np.mean(placebo_ratios >= rmspe_ratio))
 
     return SyntheticControlWeightsResult(
         ate=ate,
@@ -2429,8 +2587,7 @@ def _mccrary_test(
     # Test statistic
     log_diff = np.log(max(f_right, 1e-12)) - np.log(max(f_left, 1e-12))
     se_diff = np.sqrt(
-        (se_right / max(f_right, 1e-12))**2
-        + (se_left / max(f_left, 1e-12))**2
+        (se_right / max(f_right, 1e-12)) ** 2 + (se_left / max(f_left, 1e-12)) ** 2
     )
 
     if se_diff > 0:
@@ -2576,7 +2733,7 @@ def regression_discontinuity_robust(
     y_bw = outcome[in_bw]
 
     if kernel == "triangular":
-        w = (1.0 - np.abs(r_bw) / bandwidth)
+        w = 1.0 - np.abs(r_bw) / bandwidth
     elif kernel == "epanechnikov":
         w = 0.75 * (1.0 - (r_bw / bandwidth) ** 2)
     else:  # uniform
@@ -2758,9 +2915,7 @@ def bounds_analysis(
     elif method == "lee":
         if selection is None:
             raise ValueError("Lee bounds require a 'selection' indicator.")
-        return _lee_bounds(
-            outcome, treatment, selection, treated_mask, control_mask
-        )
+        return _lee_bounds(outcome, treatment, selection, treated_mask, control_mask)
     else:
         raise ValueError(f"Unknown method '{method}'. Use 'manski' or 'lee'.")
 
@@ -2849,10 +3004,9 @@ def _lee_bounds(
         y_t = outcome[treated_mask & (selection == 1)]
         y_c = outcome[control_mask & (selection == 1)]
         diff = float(np.mean(y_t) - np.mean(y_c))
-        se = float(np.sqrt(
-            np.var(y_t, ddof=1) / len(y_t)
-            + np.var(y_c, ddof=1) / len(y_c)
-        ))
+        se = float(
+            np.sqrt(np.var(y_t, ddof=1) / len(y_t) + np.var(y_c, ddof=1) / len(y_c))
+        )
         z_crit = stats.norm.ppf(0.975)
         return BoundsResult(
             lower_bound=diff,
@@ -2888,7 +3042,7 @@ def _lee_bounds(
         )
 
     # Lower bound: trim from above (remove highest outcomes)
-    y_lower = y_sorted[:n_trim - n_remove]
+    y_lower = y_sorted[: n_trim - n_remove]
     # Upper bound: trim from below (remove lowest outcomes)
     y_upper = y_sorted[n_remove:]
 

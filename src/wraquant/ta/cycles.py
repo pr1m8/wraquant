@@ -29,16 +29,8 @@ __all__ = [
 # ---------------------------------------------------------------------------
 
 
-def _validate_series(data: pd.Series, name: str = "data") -> pd.Series:
-    if not isinstance(data, pd.Series):
-        raise TypeError(f"{name} must be a pd.Series, got {type(data).__name__}")
-    return data
-
-
-def _validate_period(period: int, name: str = "period") -> int:
-    if period < 1:
-        raise ValueError(f"{name} must be >= 1, got {period}")
-    return period
+from wraquant.ta._validators import validate_period as _validate_period
+from wraquant.ta._validators import validate_series as _validate_series
 
 
 def _highpass_filter(data: np.ndarray, period: int) -> np.ndarray:
@@ -47,14 +39,15 @@ def _highpass_filter(data: np.ndarray, period: int) -> np.ndarray:
     Removes components with period longer than *period* bars.
     """
     n = len(data)
-    alpha = (
-        (np.cos(2 * np.pi / period) + np.sin(2 * np.pi / period) - 1)
-        / np.cos(2 * np.pi / period)
+    alpha = (np.cos(2 * np.pi / period) + np.sin(2 * np.pi / period) - 1) / np.cos(
+        2 * np.pi / period
     )
     hp = np.zeros(n)
     for i in range(2, n):
         hp[i] = (
-            (1 - alpha / 2) * (1 - alpha / 2) * (data[i] - 2 * data[i - 1] + data[i - 2])
+            (1 - alpha / 2)
+            * (1 - alpha / 2)
+            * (data[i] - 2 * data[i - 1] + data[i - 2])
             + 2 * (1 - alpha) * hp[i - 1]
             - (1 - alpha) * (1 - alpha) * hp[i - 2]
         )
@@ -118,10 +111,7 @@ def hilbert_transform_dominant_period(
     smooth = np.zeros(n)
     for i in range(3, n):
         smooth[i] = (
-            4 * values[i]
-            + 3 * values[i - 1]
-            + 2 * values[i - 2]
-            + values[i - 3]
+            4 * values[i] + 3 * values[i - 1] + 2 * values[i - 2] + values[i - 3]
         ) / 10.0
 
     period_out = np.full(n, np.nan)

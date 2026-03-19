@@ -70,9 +70,9 @@ def max_drawdown(prices: pd.Series) -> float:
     Returns:
         Maximum drawdown as a negative float (e.g., -0.25 for 25% drawdown).
     """
-    cummax = prices.cummax()
-    drawdown = (prices - cummax) / cummax
-    return float(drawdown.min())
+    from wraquant.risk.metrics import max_drawdown as _canonical
+
+    return _canonical(prices)
 
 
 def calmar_ratio(
@@ -347,11 +347,13 @@ def return_attribution(
     select = wb * (rp - rb)
     interact = (wp - wb) * (rp - rb)
 
-    detail = pd.DataFrame({
-        "allocation": alloc,
-        "selection": select,
-        "interaction": interact,
-    })
+    detail = pd.DataFrame(
+        {
+            "allocation": alloc,
+            "selection": select,
+            "interaction": interact,
+        }
+    )
 
     return {
         "allocation": float(alloc.sum()),

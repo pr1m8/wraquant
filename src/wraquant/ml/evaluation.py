@@ -34,6 +34,11 @@ def classification_metrics(
 ) -> dict[str, float]:
     """Compute standard classification metrics.
 
+    Use classification metrics to evaluate direction-prediction models
+    (e.g., predicting up/down/flat labels).  These metrics assess the
+    statistical quality of the classifier independently of PnL; pair
+    with ``financial_metrics`` for economic evaluation.
+
     Parameters
     ----------
     y_true : array-like
@@ -47,8 +52,38 @@ def classification_metrics(
     Returns
     -------
     dict[str, float]
-        Dictionary with keys ``accuracy``, ``precision``, ``recall``,
-        ``f1``.  If *y_prob* is given, also ``log_loss`` and ``auc``.
+        ``accuracy`` : float
+            Fraction of correct predictions.
+        ``precision`` : float
+            Macro-averaged precision (how many predicted positives are
+            actually positive).
+        ``recall`` : float
+            Macro-averaged recall (how many actual positives are
+            captured).
+        ``f1`` : float
+            Macro-averaged F1 score (harmonic mean of precision and
+            recall).
+        ``log_loss`` : float (only if *y_prob* given)
+            Cross-entropy loss.  Lower is better; measures calibration
+            quality.
+        ``auc`` : float (only if *y_prob* given, binary only)
+            Area under the ROC curve.  0.5 = random, 1.0 = perfect.
+
+    Example
+    -------
+    >>> import numpy as np
+    >>> y_true = np.array([1, 0, 1, 1, 0, 1])
+    >>> y_pred = np.array([1, 0, 0, 1, 0, 1])
+    >>> metrics = classification_metrics(y_true, y_pred)
+    >>> metrics['accuracy']
+    0.8333333333333334
+    >>> metrics['f1'] > 0.5
+    True
+
+    See Also
+    --------
+    financial_metrics : PnL-based evaluation of directional predictions.
+    backtest_predictions : Full backtest with transaction costs.
     """
     y_true = np.asarray(y_true)
     y_pred = np.asarray(y_pred)
@@ -144,6 +179,12 @@ def financial_metrics(
 ) -> dict[str, float]:
     """Compute finance-specific evaluation metrics from predictions.
 
+    Use financial metrics to evaluate whether a model's predictions
+    translate into actual trading profits.  A model can have high
+    accuracy but poor financial performance if it is right on small moves
+    and wrong on large moves.  These metrics directly measure economic
+    value.
+
     The predicted labels are interpreted as position signals: ``1`` for
     long, ``-1`` for short, ``0`` for flat.
 
@@ -159,10 +200,35 @@ def financial_metrics(
     Returns
     -------
     dict[str, float]
-        ``strategy_return``: cumulative strategy return,
-        ``sharpe``: annualised Sharpe ratio (252 trading days),
-        ``hit_rate``: fraction of correct direction predictions,
-        ``profit_factor``: gross profit / gross loss.
+        ``strategy_return`` : float
+            Cumulative strategy return (sum of signal * return).
+        ``sharpe`` : float
+            Annualised Sharpe ratio (252 trading days).  Values above
+            1.0 are generally considered good; above 2.0 is excellent.
+        ``hit_rate`` : float
+            Fraction of periods where predicted sign matches actual
+            sign.  A hit rate above 0.5 is necessary but not sufficient
+            for profitability.
+        ``profit_factor`` : float
+            Gross profit / gross loss.  Values above 1.0 indicate a
+            profitable strategy; above 2.0 is strong.
+
+    Example
+    -------
+    >>> import numpy as np
+    >>> y_true = np.array([1, -1, 1, 1, -1])
+    >>> y_pred = np.array([1, -1, -1, 1, 1])
+    >>> returns = np.array([0.02, -0.01, 0.015, 0.005, -0.02])
+    >>> metrics = financial_metrics(y_true, y_pred, returns)
+    >>> metrics['hit_rate']
+    0.6
+    >>> metrics['sharpe'] != 0
+    True
+
+    See Also
+    --------
+    classification_metrics : Standard ML classification metrics.
+    backtest_predictions : Full backtest with transaction costs.
     """
     y_true = np.asarray(y_true, dtype=float)
     y_pred = np.asarray(y_pred, dtype=float)
@@ -209,6 +275,12 @@ def learning_curve(
 ) -> dict[str, np.ndarray]:
     """Generate a learning curve for a model.
 
+    Use learning curves to diagnose whether a model suffers from high
+    bias (underfitting) or high variance (overfitting).  If training and
+    test scores converge at a low value, the model is too simple.  If
+    there is a large gap between training and test scores, the model is
+    overfitting and more data or regularisation is needed.
+
     Parameters
     ----------
     model : estimator
@@ -226,11 +298,29 @@ def learning_curve(
     Returns
     -------
     dict
-        ``train_sizes``: np.ndarray of absolute training sizes,
-        ``train_scores``: np.ndarray of shape ``(len(sizes), cv)`` with
-        training scores,
-        ``test_scores``: np.ndarray of shape ``(len(sizes), cv)`` with
-        test scores.
+        ``train_sizes`` : np.ndarray
+            Absolute number of training samples at each point.
+        ``train_scores`` : np.ndarray, shape ``(len(sizes), cv)``
+            Training scores at each size/fold.  Plot the mean across
+            folds to visualize training performance.
+        ``test_scores`` : np.ndarray, shape ``(len(sizes), cv)``
+            Test scores at each size/fold.  The gap between train and
+            test mean scores indicates overfitting.
+
+    Example
+    -------
+    >>> from sklearn.linear_model import Ridge
+    >>> import numpy as np
+    >>> X = np.random.randn(300, 5)
+    >>> y = X @ [1, 0.5, 0, 0, 0] + np.random.randn(300) * 0.1
+    >>> result = learning_curve(Ridge(), X, y, cv=3)
+    >>> result['train_sizes'].shape[0]  # 10 points by default
+    10
+
+    See Also
+    --------
+    classification_metrics : Evaluate classification quality.
+    financial_metrics : Evaluate economic value of predictions.
     """
     from sklearn.model_selection import learning_curve as _lc
 
@@ -265,27 +355,58 @@ def backtest_predictions(
 ) -> dict[str, Any]:
     """Backtest a prediction signal against actual returns.
 
+    Use backtest_predictions as a quick sanity check of a model's
+    economic value before building a full backtest.  It applies
+    realistic transaction costs (proportional to position changes)
+    and computes key performance metrics including Sharpe, max drawdown,
+    and turnover.
+
     Parameters
     ----------
     predictions : array-like
-        Predicted position signals (e.g. 1, 0, -1).
+        Predicted position signals (e.g. 1, 0, -1).  The signal is
+        applied as a position: ``signal * return``.
     returns : array-like
-        Actual period returns.
+        Actual period returns corresponding to each prediction.
     cost_bps : float
         Transaction cost in basis points applied on each position
-        change.
+        change (default 10 bps).  For equities, 5-10 bps is typical;
+        for futures, 1-3 bps.
 
     Returns
     -------
     dict
-        ``gross_returns``: np.ndarray of per-period strategy returns
-        before costs,
-        ``net_returns``: np.ndarray of per-period strategy returns after
-        costs,
-        ``cumulative_return``: float,
-        ``sharpe``: float (annualised),
-        ``max_drawdown``: float,
-        ``turnover``: float (mean absolute position change per period).
+        ``gross_returns`` : np.ndarray
+            Per-period strategy returns before costs.
+        ``net_returns`` : np.ndarray
+            Per-period strategy returns after costs.
+        ``cumulative_return`` : float
+            Total cumulative net return.  Positive = profitable.
+        ``sharpe`` : float
+            Annualised Sharpe ratio of net returns.  Above 1.0 is
+            generally good; above 2.0 is excellent.
+        ``max_drawdown`` : float
+            Maximum peak-to-trough decline in cumulative PnL.
+            Always negative or zero.
+        ``turnover`` : float
+            Mean absolute position change per period.  Higher turnover
+            means higher transaction costs.
+
+    Example
+    -------
+    >>> import numpy as np
+    >>> preds = np.array([1, 1, -1, 1, -1, 0, 1])
+    >>> rets = np.array([0.01, -0.005, -0.02, 0.015, 0.01, 0.005, 0.008])
+    >>> result = backtest_predictions(preds, rets, cost_bps=10)
+    >>> result['cumulative_return'] != 0
+    True
+    >>> result['max_drawdown'] <= 0
+    True
+
+    See Also
+    --------
+    financial_metrics : Quick financial metrics without transaction costs.
+    wraquant.ml.pipeline.walk_forward_backtest : Walk-forward backtest.
     """
     preds = np.asarray(predictions, dtype=float)
     rets = np.asarray(returns, dtype=float)

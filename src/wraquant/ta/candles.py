@@ -32,10 +32,7 @@ __all__ = [
 # ---------------------------------------------------------------------------
 
 
-def _validate_series(data: pd.Series, name: str = "data") -> pd.Series:
-    if not isinstance(data, pd.Series):
-        raise TypeError(f"{name} must be a pd.Series, got {type(data).__name__}")
-    return data
+from wraquant.ta._validators import validate_series as _validate_series
 
 
 def _body(open_: pd.Series, close: pd.Series) -> pd.Series:

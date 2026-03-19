@@ -41,31 +41,49 @@ def implied_volatility(
     max_iter: int = 200,
     initial_guess: float = 0.3,
 ) -> np.float64:
-    """Compute implied volatility using Newton-Raphson iteration.
+    r"""Compute implied volatility using Newton-Raphson iteration.
 
-    Solves for sigma such that BS(S, K, T, r, sigma) = market_price.
+    Solves for :math:`\sigma` such that
+    :math:`\text{BS}(S, K, T, r, \sigma) = \text{market\_price}` by
+    iterating :math:`\sigma_{n+1} = \sigma_n - (C(\sigma_n) - C_{\text{mkt}}) / \mathcal{V}(\sigma_n)`,
+    where :math:`\mathcal{V}` is the Black-Scholes vega.
+
+    Use implied volatility to translate observed option prices into a
+    single number that summarises the market's view of future
+    uncertainty.  Comparing implied vols across strikes and expiries
+    reveals the volatility smile/skew.
+
+    When vega is too small (deep in/out of the money), the solver
+    automatically falls back to a robust bisection method.
 
     Parameters:
-        market_price: Observed market price of the option.
-        S: Current underlying price.
-        K: Strike price.
-        T: Time to expiration in years.
-        r: Risk-free interest rate (annualized).
-        option_type: 'call' or 'put'.
-        tol: Convergence tolerance.
-        max_iter: Maximum number of iterations.
-        initial_guess: Starting volatility estimate.
+        market_price (float): Observed market price of the option.
+        S (float): Current underlying price.
+        K (float): Strike price.
+        T (float): Time to expiration in years.
+        r (float): Risk-free interest rate (annualized).
+        option_type (str | OptionType): ``'call'`` or ``'put'``.
+        tol (float): Convergence tolerance on the price difference.
+        max_iter (int): Maximum number of Newton iterations.
+        initial_guess (float): Starting volatility estimate.  0.3 (30%)
+            is a reasonable default for most equity options.
 
     Returns:
-        Implied volatility (annualized).
+        np.float64: Implied volatility (annualized).  For example, 0.20
+            corresponds to 20% annualized volatility.
 
     Raises:
-        PricingError: If the solver does not converge.
+        PricingError: If the solver does not converge within *max_iter*
+            iterations.
 
     Example:
         >>> price = black_scholes(100, 100, 1.0, 0.05, 0.2)
         >>> implied_volatility(price, 100, 100, 1.0, 0.05)
         0.2000...
+
+    See Also:
+        vol_smile: Compute implied vols across multiple strikes.
+        vol_surface: Build a full implied volatility surface.
     """
     otype = _parse_option_type(option_type)
     sigma = initial_guess
@@ -135,16 +153,31 @@ def vol_smile(
 ) -> dict[str, npt.NDArray[np.float64]]:
     """Compute a volatility smile from market prices at multiple strikes.
 
+    For a fixed expiry, the implied volatility typically varies across
+    strikes, forming a "smile" or "skew" pattern.  This function
+    computes the implied vol at each strike by inverting the
+    Black-Scholes formula, producing the raw data for smile analysis,
+    model calibration, or visualization.
+
     Parameters:
-        strikes: Array of strike prices.
-        market_prices: Corresponding market option prices.
-        S: Current underlying price.
-        T: Time to expiration in years.
-        r: Risk-free interest rate (annualized).
-        option_type: 'call' or 'put'.
+        strikes (Sequence[float] | ndarray): Array of strike prices.
+        market_prices (Sequence[float] | ndarray): Corresponding market
+            option prices (same length as *strikes*).
+        S (float): Current underlying price.
+        T (float): Time to expiration in years.
+        r (float): Risk-free interest rate (annualized).
+        option_type (str | OptionType): ``'call'`` or ``'put'``.
 
     Returns:
-        Dictionary with keys 'strikes' and 'implied_vols', each an ndarray.
+        dict[str, ndarray]: Dictionary with keys:
+
+        - ``'strikes'`` -- 1D array of strike prices.
+        - ``'implied_vols'`` -- 1D array of implied volatilities
+          corresponding to each strike.
+
+    Raises:
+        ValueError: If *strikes* and *market_prices* differ in length.
+        PricingError: If any individual implied vol fails to converge.
 
     Example:
         >>> strikes = [90, 95, 100, 105, 110]
@@ -152,6 +185,10 @@ def vol_smile(
         >>> result = vol_smile(strikes, prices, 100, 0.5, 0.05)
         >>> len(result['implied_vols'])
         5
+
+    See Also:
+        implied_volatility: Single-strike implied vol solver.
+        vol_surface: Extend the smile across multiple expiries.
     """
     otype = _parse_option_type(option_type)
     strikes_arr = np.asarray(strikes, dtype=np.float64)
@@ -180,19 +217,34 @@ def vol_surface(
 ) -> dict[str, npt.NDArray[np.float64]]:
     """Construct a volatility surface from market prices across strikes and expiries.
 
+    The volatility surface is the central object in options trading: it
+    maps every (strike, expiry) pair to an implied volatility.  Use the
+    surface for interpolation to price off-market options, for
+    calibrating stochastic volatility models (Heston, SABR), or for
+    detecting relative-value opportunities.
+
     Parameters:
-        strikes: Array of strike prices (columns).
-        expiries: Array of times to expiry in years (rows).
-        market_prices: 2D array of option prices, shape (len(expiries), len(strikes)).
-        S: Current underlying price.
-        r: Risk-free interest rate (annualized).
-        option_type: 'call' or 'put'.
+        strikes (Sequence[float] | ndarray): Array of strike prices
+            (columns of the surface).
+        expiries (Sequence[float] | ndarray): Array of times to expiry
+            in years (rows of the surface).
+        market_prices (Sequence[Sequence[float]] | ndarray): 2D array of
+            option prices, shape ``(len(expiries), len(strikes))``.
+        S (float): Current underlying price.
+        r (float): Risk-free interest rate (annualized).
+        option_type (str | OptionType): ``'call'`` or ``'put'``.
 
     Returns:
-        Dictionary with keys:
-        - 'strikes': 1D array of strikes
-        - 'expiries': 1D array of expiries
-        - 'implied_vols': 2D array of implied vols, shape (len(expiries), len(strikes))
+        dict[str, ndarray]: Dictionary with keys:
+
+        - ``'strikes'`` -- 1D array of strikes.
+        - ``'expiries'`` -- 1D array of expiries.
+        - ``'implied_vols'`` -- 2D array of implied vols, shape
+          ``(len(expiries), len(strikes))``.
+
+    Raises:
+        ValueError: If the shape of *market_prices* does not match
+            ``(len(expiries), len(strikes))``.
 
     Example:
         >>> strikes = [95, 100, 105]
@@ -201,6 +253,10 @@ def vol_surface(
         >>> surface = vol_surface(strikes, expiries, prices, 100, 0.05)
         >>> surface['implied_vols'].shape
         (2, 3)
+
+    See Also:
+        vol_smile: Single-expiry volatility smile.
+        implied_volatility: Single-point implied vol solver.
     """
     otype = _parse_option_type(option_type)
     strikes_arr = np.asarray(strikes, dtype=np.float64)

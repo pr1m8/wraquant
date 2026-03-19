@@ -34,27 +34,44 @@ def geometric_brownian_motion(
     n_paths: int,
     seed: int | None = None,
 ) -> npt.NDArray[np.float64]:
-    """Simulate paths of geometric Brownian motion.
+    r"""Simulate paths of geometric Brownian motion (GBM).
 
-    dS = mu * S * dt + sigma * S * dW
+    GBM is the standard model for equity price dynamics and underlies
+    the Black-Scholes framework.  The SDE is:
+
+    .. math::
+
+        dS_t = \mu\,S_t\,dt + \sigma\,S_t\,dW_t
+
+    The solution is log-normal:
+    :math:`S_T = S_0 \exp\bigl((\mu - \sigma^2/2)T + \sigma W_T\bigr)`.
+
+    Use GBM for quick scenario generation, Monte Carlo option pricing,
+    or as a baseline against more complex processes (Heston, jump
+    diffusion).
 
     Parameters:
-        S0: Initial price.
-        mu: Drift rate (annualized).
-        sigma: Volatility (annualized).
-        T: Time horizon in years.
-        n_steps: Number of time steps.
-        n_paths: Number of simulation paths.
-        seed: Random seed for reproducibility.
+        S0 (float): Initial price.
+        mu (float): Drift rate (annualized).  Under the risk-neutral
+            measure, set ``mu = r`` (the risk-free rate).
+        sigma (float): Volatility (annualized).
+        T (float): Time horizon in years.
+        n_steps (int): Number of time steps.  252 for daily resolution.
+        n_paths (int): Number of simulation paths.
+        seed (int | None): Random seed for reproducibility.
 
     Returns:
-        Array of shape (n_paths, n_steps + 1) with simulated price paths.
-        Column 0 is the initial price S0.
+        ndarray: Array of shape ``(n_paths, n_steps + 1)`` with
+            simulated price paths.  Column 0 is the initial price S0.
 
     Example:
         >>> paths = geometric_brownian_motion(100, 0.05, 0.2, 1.0, 252, 1000, seed=42)
         >>> paths.shape
         (1000, 253)
+
+    See Also:
+        heston: Stochastic volatility extension of GBM.
+        jump_diffusion: GBM with Poisson-driven jumps.
     """
     rng = np.random.default_rng(seed)
     dt = T / n_steps
@@ -85,36 +102,62 @@ def heston(
     n_paths: int,
     seed: int | None = None,
 ) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
-    """Simulate the Heston stochastic volatility model.
+    r"""Simulate the Heston (1993) stochastic volatility model.
 
-    dS = mu * S * dt + sqrt(v) * S * dW_1
-    dv = kappa * (theta - v) * dt + sigma_v * sqrt(v) * dW_2
-    corr(dW_1, dW_2) = rho
+    The Heston model captures the **leverage effect** (negative
+    correlation between returns and volatility) and generates
+    realistic volatility smiles.  The coupled SDEs are:
 
-    Uses the full truncation scheme to ensure non-negative variance.
+    .. math::
+
+        dS_t &= \mu\,S_t\,dt + \sqrt{v_t}\,S_t\,dW_t^1 \\
+        dv_t &= \kappa(\theta - v_t)\,dt + \sigma_v\sqrt{v_t}\,dW_t^2 \\
+        \text{corr}(dW^1, dW^2) &= \rho
+
+    Uses the **full truncation** scheme (replace negative variance
+    with zero before computing diffusion) to ensure non-negative
+    variance in the discretisation.
+
+    Use Heston when you need to capture the volatility smile or when
+    constant-volatility GBM is insufficient.
 
     Parameters:
-        S0: Initial price.
-        v0: Initial variance.
-        mu: Drift rate (annualized).
-        kappa: Mean reversion speed of variance.
-        theta: Long-run variance level.
-        sigma_v: Volatility of variance (vol of vol).
-        rho: Correlation between price and variance Brownian motions.
-        T: Time horizon in years.
-        n_steps: Number of time steps.
-        n_paths: Number of simulation paths.
-        seed: Random seed for reproducibility.
+        S0 (float): Initial price.
+        v0 (float): Initial variance (e.g., 0.04 for 20% vol).
+        mu (float): Drift rate (annualized).
+        kappa (float): Mean reversion speed of variance.
+        theta (float): Long-run variance level.
+        sigma_v (float): Volatility of variance (vol of vol).
+        rho (float): Correlation between price and variance Brownian
+            motions.  Typically negative for equities (-0.7 to -0.3).
+        T (float): Time horizon in years.
+        n_steps (int): Number of time steps.
+        n_paths (int): Number of simulation paths.
+        seed (int | None): Random seed for reproducibility.
 
     Returns:
-        Tuple of (price_paths, vol_paths), each of shape (n_paths, n_steps + 1).
+        tuple[ndarray, ndarray]: ``(price_paths, vol_paths)``, each of
+            shape ``(n_paths, n_steps + 1)``.
 
     Example:
         >>> prices, vols = heston(100, 0.04, 0.05, 2.0, 0.04, 0.3, -0.7, 1.0, 252, 1000, seed=42)
         >>> prices.shape
         (1000, 253)
-        >>> vols.shape
-        (1000, 253)
+
+    Notes:
+        The Feller condition :math:`2\kappa\theta \geq \sigma_v^2`
+        ensures variance stays strictly positive in continuous time.
+        Even when violated, the full truncation scheme keeps the
+        discretisation non-negative.
+
+    See Also:
+        geometric_brownian_motion: Constant-vol baseline.
+        heston_characteristic: Analytical characteristic function for
+            Fourier-based Heston option pricing.
+
+    References:
+        Heston, S.L. (1993). *A Closed-Form Solution for Options with
+        Stochastic Volatility.* Review of Financial Studies 6(2).
     """
     rng = np.random.default_rng(seed)
     dt = T / n_steps
@@ -161,32 +204,53 @@ def jump_diffusion(
     n_paths: int,
     seed: int | None = None,
 ) -> npt.NDArray[np.float64]:
-    """Simulate the Merton jump-diffusion model.
+    r"""Simulate the Merton (1976) jump-diffusion model.
 
-    dS/S = (mu - lam * k) * dt + sigma * dW + J * dN
+    Extends GBM with random jumps driven by a compound Poisson
+    process.  This captures sudden large moves (crashes, earnings
+    surprises) that GBM cannot reproduce:
 
-    where N is a Poisson process with intensity lam, and
-    log(1+J) ~ N(jump_mean, jump_std^2).
+    .. math::
+
+        \frac{dS}{S} = (\mu - \lambda k)\,dt + \sigma\,dW + J\,dN
+
+    where :math:`N` is a Poisson process with intensity
+    :math:`\lambda`, :math:`\ln(1+J) \sim N(\mu_J, \sigma_J^2)`,
+    and :math:`k = E[e^J - 1]` is the drift compensation.
+
+    Use jump diffusion when you need to model **fat tails** and
+    **sudden discontinuities** in asset prices, or to capture the
+    implied volatility smile steepening at short maturities.
 
     Parameters:
-        S0: Initial price.
-        mu: Drift rate (annualized, before jump compensation).
-        sigma: Diffusion volatility (annualized).
-        lam: Jump intensity (expected number of jumps per year).
-        jump_mean: Mean of log jump size.
-        jump_std: Standard deviation of log jump size.
-        T: Time horizon in years.
-        n_steps: Number of time steps.
-        n_paths: Number of simulation paths.
-        seed: Random seed for reproducibility.
+        S0 (float): Initial price.
+        mu (float): Drift rate (annualized, before jump compensation).
+        sigma (float): Diffusion volatility (annualized).
+        lam (float): Jump intensity (expected number of jumps per year).
+        jump_mean (float): Mean of log-jump size.  Negative values
+            model downward crashes.
+        jump_std (float): Standard deviation of log-jump size.
+        T (float): Time horizon in years.
+        n_steps (int): Number of time steps.
+        n_paths (int): Number of simulation paths.
+        seed (int | None): Random seed for reproducibility.
 
     Returns:
-        Array of shape (n_paths, n_steps + 1) with simulated price paths.
+        ndarray: Array of shape ``(n_paths, n_steps + 1)`` with
+            simulated price paths.
 
     Example:
         >>> paths = jump_diffusion(100, 0.05, 0.2, 1.0, -0.1, 0.15, 1.0, 252, 1000, seed=42)
         >>> paths.shape
         (1000, 253)
+
+    See Also:
+        geometric_brownian_motion: Diffusion-only baseline.
+        heston: Stochastic volatility without jumps.
+
+    References:
+        Merton, R.C. (1976). *Option Pricing When Underlying Stock
+        Returns Are Discontinuous.* Journal of Financial Economics 3.
     """
     rng = np.random.default_rng(seed)
     dt = T / n_steps
@@ -226,27 +290,45 @@ def ornstein_uhlenbeck(
     n_paths: int,
     seed: int | None = None,
 ) -> npt.NDArray[np.float64]:
-    """Simulate the Ornstein-Uhlenbeck (OU) mean-reverting process.
+    r"""Simulate the Ornstein-Uhlenbeck (OU) mean-reverting process.
 
-    dx = theta * (mu - x) * dt + sigma * dW
+    The OU process is the canonical continuous-time mean-reverting
+    model, widely used for interest rates, pairs-trading spreads,
+    and volatility dynamics:
+
+    .. math::
+
+        dX_t = \theta\,(\mu - X_t)\,dt + \sigma\,dW_t
+
+    This implementation uses the **exact discretisation** (not Euler)
+    so it is accurate for any step size.
+
+    Use OU for modelling quantities that revert to a long-run level:
+    interest rate spreads, log-volatility, or cointegrated pairs.
 
     Parameters:
-        x0: Initial value.
-        theta: Mean reversion speed.
-        mu: Long-run mean level.
-        sigma: Volatility.
-        T: Time horizon.
-        n_steps: Number of time steps.
-        n_paths: Number of simulation paths.
-        seed: Random seed for reproducibility.
+        x0 (float): Initial value.
+        theta (float): Mean reversion speed.  Higher values mean faster
+            reversion.  The half-life is :math:`\ln(2) / \theta`.
+        mu (float): Long-run mean level.
+        sigma (float): Volatility (diffusion coefficient).
+        T (float): Time horizon.
+        n_steps (int): Number of time steps.
+        n_paths (int): Number of simulation paths.
+        seed (int | None): Random seed for reproducibility.
 
     Returns:
-        Array of shape (n_paths, n_steps + 1) with simulated paths.
+        ndarray: Array of shape ``(n_paths, n_steps + 1)`` with
+            simulated paths.
 
     Example:
         >>> paths = ornstein_uhlenbeck(0.05, 5.0, 0.03, 0.01, 1.0, 252, 1000, seed=42)
         >>> paths.shape
         (1000, 253)
+
+    See Also:
+        cir_process: Mean-reverting process with non-negative constraint.
+        simulate_vasicek: OU-based interest rate model with bond pricing.
     """
     rng = np.random.default_rng(seed)
     dt = T / n_steps
@@ -279,30 +361,47 @@ def cir_process(
     n_paths: int,
     seed: int | None = None,
 ) -> npt.NDArray[np.float64]:
-    """Simulate the Cox-Ingersoll-Ross (CIR) process.
+    r"""Simulate the Cox-Ingersoll-Ross (CIR) process.
 
-    dx = kappa * (theta - x) * dt + sigma * sqrt(x) * dW
+    The CIR process is the standard mean-reverting, non-negative
+    model for interest rates and variance:
 
-    When the Feller condition (2*kappa*theta >= sigma^2) is satisfied,
-    the process stays strictly positive.
+    .. math::
+
+        dX_t = \kappa(\theta - X_t)\,dt + \sigma\sqrt{X_t}\,dW_t
+
+    The :math:`\sqrt{X}` diffusion term ensures the volatility
+    decreases as the process approaches zero, preventing negative
+    values when the **Feller condition**
+    :math:`2\kappa\theta \geq \sigma^2` holds.
+
+    This is a plain-array simulation.  For analytics (bond prices,
+    Feller diagnostics), use :func:`simulate_cir` instead.
 
     Parameters:
-        x0: Initial value (must be positive).
-        kappa: Mean reversion speed.
-        theta: Long-run mean level.
-        sigma: Volatility coefficient.
-        T: Time horizon.
-        n_steps: Number of time steps.
-        n_paths: Number of simulation paths.
-        seed: Random seed for reproducibility.
+        x0 (float): Initial value (must be positive).
+        kappa (float): Mean reversion speed.
+        theta (float): Long-run mean level.
+        sigma (float): Volatility coefficient.
+        T (float): Time horizon.
+        n_steps (int): Number of time steps.
+        n_paths (int): Number of simulation paths.
+        seed (int | None): Random seed for reproducibility.
 
     Returns:
-        Array of shape (n_paths, n_steps + 1) with simulated paths.
+        ndarray: Array of shape ``(n_paths, n_steps + 1)`` with
+            simulated paths.  Values are kept non-negative via
+            reflection.
 
     Example:
         >>> paths = cir_process(0.04, 2.0, 0.04, 0.1, 1.0, 252, 1000, seed=42)
         >>> paths.shape
         (1000, 253)
+
+    See Also:
+        simulate_cir: CIR with Feller diagnostics and bond pricing.
+        ornstein_uhlenbeck: Gaussian mean-reverting process (can go
+            negative).
     """
     rng = np.random.default_rng(seed)
     dt = T / n_steps
@@ -402,20 +501,18 @@ def simulate_sabr(
         z2 = rng.standard_normal(n_paths)
         # Correlate Brownian motions
         w1 = z1
-        w2 = rho * z1 + np.sqrt(1.0 - rho ** 2) * z2
+        w2 = rho * z1 + np.sqrt(1.0 - rho**2) * z2
 
         sig = vols[t]
         f = forwards[t]
 
         # Forward: absorb at zero to prevent negative forwards
         f_pos = np.maximum(f, 1e-10)
-        forwards[t + 1] = f + sig * f_pos ** beta * sqrt_dt * w1
+        forwards[t + 1] = f + sig * f_pos**beta * sqrt_dt * w1
         forwards[t + 1] = np.maximum(forwards[t + 1], 0.0)
 
         # Vol: lognormal dynamics
-        vols[t + 1] = sig * np.exp(
-            -0.5 * alpha ** 2 * dt + alpha * sqrt_dt * w2
-        )
+        vols[t + 1] = sig * np.exp(-0.5 * alpha**2 * dt + alpha * sqrt_dt * w2)
         vols[t + 1] = np.maximum(vols[t + 1], 1e-12)
 
     return {
@@ -540,11 +637,11 @@ def simulate_rough_bergomi(
         var_W_H = np.array([cov_matrix[i, i] for i in range(n_steps)])
 
         # Instantaneous variance: v_t = xi * exp(eta * W_H_t - 0.5 * eta^2 * Var(W_H_t))
-        v = xi * np.exp(eta * W_H - 0.5 * eta ** 2 * var_W_H)
+        v = xi * np.exp(eta * W_H - 0.5 * eta**2 * var_W_H)
         variances[1:, p] = v
 
         # Correlated spot BM increments
-        dW_spot = rho * z_fbm + np.sqrt(1.0 - rho ** 2) * z_spot
+        dW_spot = rho * z_fbm + np.sqrt(1.0 - rho**2) * z_spot
 
         # Simulate spot price (log-Euler)
         S = spot
@@ -635,23 +732,19 @@ def simulate_3_2_model(
         z1 = rng.standard_normal(n_paths)
         z2 = rng.standard_normal(n_paths)
         w1 = z1
-        w2 = rho * z1 + np.sqrt(1.0 - rho ** 2) * z2
+        w2 = rho * z1 + np.sqrt(1.0 - rho**2) * z2
 
         v = np.maximum(variances[t], 1e-12)
         sqrt_v = np.sqrt(v)
 
         # Variance dynamics: dV = kappa * V * (theta - V) dt + epsilon * V^{3/2} dW
         variances[t + 1] = (
-            v
-            + kappa * v * (theta - v) * dt
-            + epsilon * v ** 1.5 * sqrt_dt * w2
+            v + kappa * v * (theta - v) * dt + epsilon * v**1.5 * sqrt_dt * w2
         )
         variances[t + 1] = np.maximum(variances[t + 1], 1e-12)
 
         # Price dynamics (log-Euler)
-        prices[t + 1] = prices[t] * np.exp(
-            -0.5 * v * dt + sqrt_v * sqrt_dt * w1
-        )
+        prices[t + 1] = prices[t] * np.exp(-0.5 * v * dt + sqrt_v * sqrt_dt * w1)
 
     return {
         "prices": prices,
@@ -722,7 +815,7 @@ def simulate_cir(
     rng = np.random.default_rng(seed)
     dt = T / n_steps
 
-    feller_ratio = 2.0 * kappa * theta / (sigma ** 2) if sigma > 0 else float("inf")
+    feller_ratio = 2.0 * kappa * theta / (sigma**2) if sigma > 0 else float("inf")
     feller_satisfied = feller_ratio >= 1.0
 
     paths = np.empty((n_steps + 1, n_paths), dtype=np.float64)
@@ -857,8 +950,8 @@ def simulate_vasicek(
         t_i = times[i]
         B = (1.0 - np.exp(-kappa * t_i)) / kappa
         A = np.exp(
-            (theta - sigma ** 2 / (2.0 * kappa ** 2)) * (B - t_i)
-            - sigma ** 2 / (4.0 * kappa) * B ** 2
+            (theta - sigma**2 / (2.0 * kappa**2)) * (B - t_i)
+            - sigma**2 / (4.0 * kappa) * B**2
         )
         bond_prices[i] = A * np.exp(-B * r0)
 

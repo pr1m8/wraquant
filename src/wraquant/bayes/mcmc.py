@@ -40,31 +40,60 @@ def metropolis_hastings(
 ) -> dict[str, np.ndarray | float]:
     """Random-walk Metropolis-Hastings sampler.
 
-    Parameters
-    ----------
-    log_posterior : callable
-        Function that takes a parameter vector and returns the log
-        posterior density (up to a normalizing constant).
-    initial : np.ndarray
-        Initial parameter vector.
-    n_samples : int
-        Total number of samples to draw (before burn-in and thinning).
-    proposal_std : float or np.ndarray
-        Standard deviation(s) for the Gaussian proposal distribution.
-        Can be a scalar or a vector of the same length as initial.
-    burn_in : int
-        Number of initial samples to discard.
-    thin : int
-        Keep every ``thin``-th sample.
-    rng_seed : int
-        Random seed for reproducibility.
+    The Metropolis-Hastings algorithm is the foundational MCMC method
+    for sampling from an arbitrary (unnormalised) posterior distribution.
+    At each step it proposes a new point from a symmetric Gaussian
+    proposal, accepts or rejects based on the posterior ratio, and
+    thereby generates a Markov chain whose stationary distribution is
+    the target posterior.
 
-    Returns
-    -------
-    dict
-        ``samples``: np.ndarray of shape (n_kept, n_params) — posterior samples,
-        ``acceptance_rate``: float — fraction of proposals accepted,
-        ``log_posteriors``: np.ndarray — log posterior values for kept samples.
+    Use this when the posterior does not have a convenient closed form
+    and you need posterior samples for uncertainty quantification,
+    credible intervals, or posterior predictive checks.
+
+    **Tuning**: Aim for an acceptance rate of 20--50%.  If the rate is
+    too low, reduce ``proposal_std``; if too high, increase it.
+
+    Parameters:
+        log_posterior (callable): Function mapping a parameter vector
+            (1-D array) to the log posterior density (up to a
+            normalising constant).
+        initial (np.ndarray): Initial parameter vector of shape
+            ``(d,)``.
+        n_samples (int): Total number of samples to draw (before
+            burn-in and thinning).
+        proposal_std (float | np.ndarray): Standard deviation(s) for
+            the isotropic Gaussian proposal.  A scalar applies the
+            same std to all dimensions; an array allows per-dimension
+            tuning.
+        burn_in (int): Number of initial samples to discard as
+            warm-up.
+        thin (int): Keep every *thin*-th sample to reduce
+            autocorrelation.
+        rng_seed (int): Random seed for reproducibility.
+
+    Returns:
+        dict: Dictionary with keys:
+
+        - ``samples`` -- np.ndarray of shape ``(n_kept, d)``,
+          posterior samples after burn-in and thinning.
+        - ``acceptance_rate`` -- float, fraction of proposals accepted.
+        - ``log_posteriors`` -- np.ndarray, log posterior values for
+          each kept sample.
+
+    Example:
+        >>> import numpy as np
+        >>> log_p = lambda q: -0.5 * np.sum((q - 2.0) ** 2)
+        >>> result = metropolis_hastings(log_p, np.zeros(2),
+        ...     n_samples=5000, burn_in=500, proposal_std=1.0)
+        >>> result['samples'].shape[1]
+        2
+
+    See Also:
+        hamiltonian_monte_carlo: Gradient-based sampler with higher
+            acceptance rates in high dimensions.
+        slice_sampler: Tuning-free univariate sampler.
+        convergence_diagnostics: Assess MCMC convergence.
     """
     rng = np.random.default_rng(rng_seed)
     initial = np.asarray(initial, dtype=float).ravel()
@@ -122,27 +151,51 @@ def gibbs_sampler(
 ) -> np.ndarray:
     """Gibbs sampler for a model specified via full conditional distributions.
 
-    Parameters
-    ----------
-    conditionals : sequence of callables
-        A list of functions, one per parameter. Each function takes
-        (current_params, rng) and returns a single sample from the full
-        conditional distribution of that parameter given all others.
-    initial : np.ndarray
-        Initial parameter vector.
-    n_samples : int
-        Total number of samples to draw (before burn-in and thinning).
-    burn_in : int
-        Number of initial samples to discard.
-    thin : int
-        Keep every ``thin``-th sample.
-    rng_seed : int
-        Random seed for reproducibility.
+    Gibbs sampling is a special case of MCMC where each parameter is
+    updated by drawing from its **full conditional** distribution
+    (the distribution of that parameter given all others and the data).
+    Because every draw is accepted, Gibbs sampling avoids the tuning
+    burden of Metropolis-Hastings and is efficient when the full
+    conditionals have known forms (e.g., conjugate models).
 
-    Returns
-    -------
-    np.ndarray
-        Posterior samples of shape (n_kept, n_params).
+    Use Gibbs when you can analytically derive each conditional (common
+    in Bayesian linear regression, mixture models, and hierarchical
+    models).
+
+    Parameters:
+        conditionals (Sequence[callable]): A list of functions, one per
+            parameter.  Each callable has signature
+            ``fn(current_params, rng) -> float`` and returns a single
+            draw from the full conditional of that parameter.
+        initial (np.ndarray): Initial parameter vector of shape
+            ``(d,)``.
+        n_samples (int): Total number of samples to draw (before
+            burn-in and thinning).
+        burn_in (int): Number of initial samples to discard.
+        thin (int): Keep every *thin*-th sample.
+        rng_seed (int): Random seed for reproducibility.
+
+    Returns:
+        np.ndarray: Posterior samples of shape ``(n_kept, d)``.
+
+    Raises:
+        ValueError: If the number of conditionals does not match the
+            number of parameters.
+
+    Example:
+        >>> import numpy as np
+        >>> # Gibbs for bivariate normal with rho=0
+        >>> cond_0 = lambda p, rng: rng.normal(0, 1)
+        >>> cond_1 = lambda p, rng: rng.normal(0, 1)
+        >>> samples = gibbs_sampler([cond_0, cond_1], np.zeros(2),
+        ...     n_samples=2000, burn_in=200)
+        >>> samples.shape[1]
+        2
+
+    See Also:
+        metropolis_hastings: General-purpose MCMC when conditionals
+            are not available.
+        hamiltonian_monte_carlo: Gradient-based MCMC.
     """
     rng = np.random.default_rng(rng_seed)
     current = np.asarray(initial, dtype=float).ravel().copy()
@@ -486,8 +539,8 @@ def hamiltonian_monte_carlo(
 
         # Compute Hamiltonian
         proposed_lp = log_posterior(q)
-        current_K = 0.5 * np.sum(current_p ** 2 * inv_mass)
-        proposed_K = 0.5 * np.sum(p ** 2 * inv_mass)
+        current_K = 0.5 * np.sum(current_p**2 * inv_mass)
+        proposed_K = 0.5 * np.sum(p**2 * inv_mass)
 
         # Metropolis acceptance
         log_alpha = (proposed_lp - proposed_K) - (current_lp - current_K)

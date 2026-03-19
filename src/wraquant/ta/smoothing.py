@@ -31,18 +31,8 @@ __all__ = [
 # ---------------------------------------------------------------------------
 
 
-def _validate_series(data: pd.Series, name: str = "data") -> pd.Series:
-    """Ensure *data* is a ``pd.Series``; raise ``TypeError`` otherwise."""
-    if not isinstance(data, pd.Series):
-        raise TypeError(f"{name} must be a pd.Series, got {type(data).__name__}")
-    return data
-
-
-def _validate_period(period: int, name: str = "period") -> int:
-    if period < 1:
-        raise ValueError(f"{name} must be >= 1, got {period}")
-    return period
-
+from wraquant.ta._validators import validate_period as _validate_period
+from wraquant.ta._validators import validate_series as _validate_series
 
 # ---------------------------------------------------------------------------
 # ALMA — Arnaud Legoux Moving Average
@@ -89,9 +79,7 @@ def alma(
     m = offset * (period - 1)
     s = period / sigma
 
-    weights = np.array(
-        [np.exp(-((i - m) ** 2) / (2.0 * s * s)) for i in range(period)]
-    )
+    weights = np.array([np.exp(-((i - m) ** 2) / (2.0 * s * s)) for i in range(period)])
     weights = weights / weights.sum()
 
     def _alma(window: np.ndarray) -> float:
@@ -213,9 +201,7 @@ def sinema(data: pd.Series, period: int = 14) -> pd.Series:
     _validate_series(data)
     _validate_period(period)
 
-    weights = np.array(
-        [np.sin(np.pi * (i + 1) / (period + 1)) for i in range(period)]
-    )
+    weights = np.array([np.sin(np.pi * (i + 1) / (period + 1)) for i in range(period)])
     weights = weights / weights.sum()
 
     def _sinema(window: np.ndarray) -> float:
@@ -615,10 +601,7 @@ def hamming_window_ma(data: pd.Series, period: int = 14) -> pd.Series:
         return result
 
     weights = np.array(
-        [
-            0.54 - 0.46 * np.cos(2.0 * np.pi * i / (period - 1))
-            for i in range(period)
-        ]
+        [0.54 - 0.46 * np.cos(2.0 * np.pi * i / (period - 1)) for i in range(period)]
     )
     weights = weights / weights.sum()
 

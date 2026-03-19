@@ -36,6 +36,11 @@ def rolling_features(
 ) -> pd.DataFrame:
     """Generate rolling statistical features for each window length.
 
+    Use rolling features as a general-purpose feature engineering step
+    before training ML models on time-series data.  The rolling statistics
+    capture time-varying moments that can signal changes in trend (mean),
+    risk (std), asymmetry (skew), and tail behaviour (kurtosis).
+
     For every window the following statistics are computed: mean, std,
     skew, kurtosis, min, and max.
 
@@ -45,7 +50,8 @@ def rolling_features(
         Numeric time-series data.  If a DataFrame is passed, features are
         generated independently for each column.
     windows : Sequence[int]
-        Rolling-window sizes (default ``(5, 10, 21, 63)``).
+        Rolling-window sizes (default ``(5, 10, 21, 63)``), corresponding
+        roughly to 1-week, 2-week, 1-month, and 1-quarter horizons.
 
     Returns
     -------
@@ -53,7 +59,24 @@ def rolling_features(
         DataFrame whose columns are named
         ``{col}_{stat}_w{window}`` (or ``{stat}_w{window}`` when *data*
         is a Series).  The number of feature columns equals
-        ``n_cols * len(windows) * 6``.
+        ``n_cols * len(windows) * 6``.  Early rows contain NaN where the
+        window has insufficient data.
+
+    Example
+    -------
+    >>> import pandas as pd, numpy as np
+    >>> np.random.seed(0)
+    >>> returns = pd.Series(np.random.randn(100) * 0.01, name='ret')
+    >>> feats = rolling_features(returns, windows=(5, 21))
+    >>> feats.columns.tolist()[:3]
+    ['mean_w5', 'std_w5', 'skew_w5']
+    >>> feats.shape[1]  # 6 stats * 2 windows
+    12
+
+    See Also
+    --------
+    return_features : Lagged and cumulative return features.
+    volatility_features : Realised volatility and vol-of-vol features.
     """
     if isinstance(data, pd.Series):
         data = data.to_frame(name=data.name or "value")
@@ -96,6 +119,10 @@ def return_features(
 ) -> pd.DataFrame:
     """Compute lagged and cumulative return features from a price series.
 
+    Use return features as inputs to ML models predicting future returns
+    or direction.  Lagged returns capture momentum and mean-reversion
+    signals at multiple horizons; cumulative returns capture trend strength.
+
     Parameters
     ----------
     prices : pd.Series
@@ -106,9 +133,26 @@ def return_features(
     Returns
     -------
     pd.DataFrame
-        DataFrame with columns ``ret_lag{l}`` (simple return *l* periods
-        ago) and ``cum_ret_{l}`` (cumulative return over the last *l*
-        periods) for each lag *l*.
+        DataFrame with columns ``ret_lag{l}`` (log return *l* periods
+        ago, a momentum/mean-reversion signal) and ``cum_ret_{l}``
+        (cumulative log return over the last *l* periods, a trend
+        signal) for each lag *l*.  Early rows are NaN.
+
+    Example
+    -------
+    >>> import pandas as pd, numpy as np
+    >>> prices = pd.Series([100, 101, 102, 100, 103, 105, 104],
+    ...                     name='close')
+    >>> feats = return_features(prices, lags=(1, 3))
+    >>> list(feats.columns)
+    ['ret_lag1', 'cum_ret_1', 'ret_lag3', 'cum_ret_3']
+    >>> feats['cum_ret_3'].iloc[-1] > 0  # cumulative 3-period return
+    True
+
+    See Also
+    --------
+    rolling_features : Rolling statistical features.
+    technical_features : Technical analysis features (RSI, MACD, etc.).
     """
     result: dict[str, pd.Series] = {}
 
@@ -182,7 +226,12 @@ def technical_features(
     close: pd.Series,
     volume: pd.Series | None = None,
 ) -> pd.DataFrame:
-    """Compute common technical analysis features.
+    """Compute common technical analysis features for ML pipelines.
+
+    Use these features as inputs to ML models when you want to capture
+    classic technical signals without depending on the full ``wraquant.ta``
+    module.  Combines momentum (RSI, MACD), volatility (ATR, Bollinger),
+    and optionally volume (OBV) into a single DataFrame.
 
     Computes RSI, MACD histogram, Bollinger Band %B, and ATR.  If
     *volume* is provided, On-Balance Volume (OBV) is also included.
@@ -196,13 +245,41 @@ def technical_features(
     close : pd.Series
         Close prices.
     volume : pd.Series or None
-        Trade volume (optional).
+        Trade volume (optional).  When provided, adds OBV which tracks
+        cumulative buying/selling pressure.
 
     Returns
     -------
     pd.DataFrame
-        DataFrame with columns ``rsi``, ``macd_hist``, ``bb_pctb``,
-        ``atr``, and optionally ``obv``.
+        DataFrame with columns:
+
+        - ``rsi``: Relative Strength Index (0-100).  Values above 70
+          indicate overbought; below 30 indicate oversold.
+        - ``macd_hist``: MACD histogram.  Positive values indicate
+          bullish momentum; negative values indicate bearish.
+        - ``bb_pctb``: Bollinger Band %B (0-1 range typically).
+          Values above 1 mean price is above the upper band.
+        - ``atr``: Average True Range.  Higher values indicate more
+          volatile price action.
+        - ``obv`` (optional): On-Balance Volume.  Rising OBV confirms
+          an uptrend.
+
+    Example
+    -------
+    >>> import pandas as pd, numpy as np
+    >>> np.random.seed(0)
+    >>> n = 100
+    >>> close = pd.Series(100 + np.cumsum(np.random.randn(n) * 0.5))
+    >>> high = close + np.abs(np.random.randn(n) * 0.3)
+    >>> low = close - np.abs(np.random.randn(n) * 0.3)
+    >>> feats = technical_features(high, low, close)
+    >>> list(feats.columns)
+    ['rsi', 'macd_hist', 'bb_pctb', 'atr']
+
+    See Also
+    --------
+    return_features : Lagged and cumulative return features.
+    volatility_features : Realised volatility features.
     """
     result: dict[str, pd.Series] = {
         "rsi": _rsi(close),
@@ -230,18 +307,48 @@ def volatility_features(
 ) -> pd.DataFrame:
     """Compute realised-volatility-related features.
 
+    Use volatility features to capture the current risk environment and
+    volatility regime.  Realised volatility is the most important feature
+    in many financial ML models because volatility clusters (GARCH effect)
+    and predicts future volatility better than returns predict future
+    returns.
+
     Parameters
     ----------
     returns : pd.Series
         Log or simple return series.
     windows : Sequence[int]
-        Window sizes for rolling calculations.
+        Window sizes for rolling calculations (default ``(5, 10, 21, 63)``).
 
     Returns
     -------
     pd.DataFrame
-        Columns: ``realized_vol_w{w}``, ``vol_of_vol_w{w}``, and
-        ``vol_ratio_w{w1}_w{w2}`` for consecutive window pairs.
+        Columns:
+
+        - ``realized_vol_w{w}``: Annualised rolling standard deviation
+          (sqrt(252) scaling).  Interpretation: a value of 0.20 means
+          ~20% annualised volatility.
+        - ``vol_of_vol_w{w}``: Rolling std of the rolling vol.  High
+          values indicate unstable volatility (vol-of-vol regime).
+        - ``vol_ratio_w{w1}_w{w2}``: Ratio of short-window vol to
+          long-window vol.  Values > 1 indicate vol is spiking
+          (risk-off signal); values < 1 indicate vol compression.
+
+    Example
+    -------
+    >>> import pandas as pd, numpy as np
+    >>> np.random.seed(0)
+    >>> rets = pd.Series(np.random.randn(200) * 0.01, name='daily_ret')
+    >>> feats = volatility_features(rets, windows=(5, 21))
+    >>> 'realized_vol_w5' in feats.columns
+    True
+    >>> 'vol_ratio_w5_w21' in feats.columns
+    True
+
+    See Also
+    --------
+    rolling_features : General rolling statistical features.
+    wraquant.vol : Full volatility modelling (GARCH, stochastic vol).
     """
     result: dict[str, pd.Series] = {}
 
@@ -276,6 +383,11 @@ def microstructure_features(
 ) -> pd.DataFrame:
     """Compute market-microstructure features.
 
+    Use microstructure features to capture liquidity conditions,
+    information asymmetry, and trading activity.  These are particularly
+    valuable for short-horizon alpha models and execution-aware strategies
+    where liquidity predicts future returns or trading costs.
+
     Parameters
     ----------
     high : pd.Series
@@ -290,8 +402,43 @@ def microstructure_features(
     Returns
     -------
     pd.DataFrame
-        Columns: ``amihud_illiq``, ``kyle_lambda``,
-        ``log_volume``, ``volume_ma_ratio``, ``dollar_volume``.
+        Columns:
+
+        - ``amihud_illiq``: Amihud illiquidity ratio (21-day rolling
+          mean of |return| / dollar_volume).  Higher values indicate
+          less liquid, more price-impactful markets.
+        - ``kyle_lambda``: Kyle's lambda (21-day rolling OLS slope of
+          |price change| on signed sqrt-volume).  Measures the price
+          impact per unit of informed flow.  Higher values suggest
+          more information asymmetry.
+        - ``log_volume``: Natural log of volume.  Smooths the skewed
+          volume distribution for ML model consumption.
+        - ``volume_ma_ratio``: Current volume / 21-day moving average.
+          Values > 1 indicate above-average activity (potential event).
+        - ``dollar_volume``: Price * volume.  Absolute measure of
+          trading activity and liquidity.
+
+    Example
+    -------
+    >>> import pandas as pd, numpy as np
+    >>> np.random.seed(0)
+    >>> n = 100
+    >>> close = pd.Series(100 + np.cumsum(np.random.randn(n) * 0.5))
+    >>> high = close + np.abs(np.random.randn(n) * 0.3)
+    >>> low = close - np.abs(np.random.randn(n) * 0.3)
+    >>> volume = pd.Series(np.random.randint(1_000_000, 5_000_000, n))
+    >>> feats = microstructure_features(high, low, close, volume)
+    >>> list(feats.columns)
+    ['amihud_illiq', 'kyle_lambda', 'log_volume', 'volume_ma_ratio', 'dollar_volume']
+
+    References
+    ----------
+    - Amihud (2002), "Illiquidity and stock returns"
+    - Kyle (1985), "Continuous Auctions and Insider Trading"
+
+    See Also
+    --------
+    technical_features : Price-based technical indicators.
     """
     returns = close.pct_change()
     dollar_volume = close * volume
@@ -349,22 +496,49 @@ def label_fixed_horizon(
 ) -> pd.Series:
     """Label future return direction over a fixed horizon.
 
+    Use fixed-horizon labelling as the simplest way to create supervised
+    learning targets for directional prediction.  Each observation is
+    labelled based on the cumulative return over the next *horizon*
+    periods.  This is the standard approach for "will the price go up
+    or down over the next N days?" classification.
+
     Parameters
     ----------
     returns : pd.Series
         Period (e.g. daily) returns.
     horizon : int
-        Number of periods to accumulate forward returns.
+        Number of periods to accumulate forward returns (default 5,
+        i.e. one trading week).
     threshold : float
-        If ``threshold > 0``, three labels are produced (``1`` / ``0`` /
-        ``-1``).  If ``threshold == 0``, binary labels (``1`` / ``0``)
-        are produced where ``1`` means positive cumulative return.
+        If ``threshold > 0``, three labels are produced: ``1`` (up
+        beyond threshold), ``0`` (flat), ``-1`` (down beyond threshold).
+        If ``threshold == 0``, binary labels (``1`` / ``0``) are
+        produced where ``1`` means positive cumulative return.
 
     Returns
     -------
     pd.Series
         Integer labels aligned to the original index.  The last
-        *horizon* rows will be ``NaN``.
+        *horizon* rows will be ``NaN`` (no future data available).
+
+    Example
+    -------
+    >>> import pandas as pd, numpy as np
+    >>> rets = pd.Series([0.01, -0.005, 0.02, 0.01, -0.03, 0.015, 0.005])
+    >>> labels = label_fixed_horizon(rets, horizon=3, threshold=0.0)
+    >>> labels.iloc[0]  # sum of rets[1:4] = -0.005+0.02+0.01 > 0
+    1
+
+    Notes
+    -----
+    Fixed-horizon labelling does not adapt to volatility.  In high-vol
+    regimes, the threshold is hit more often; in low-vol regimes, most
+    labels become ``0``.  For volatility-adaptive labels, use
+    ``label_triple_barrier``.
+
+    See Also
+    --------
+    label_triple_barrier : Volatility-adaptive labelling (Lopez de Prado).
     """
     # For each index i, accumulate returns[i+1] through returns[i+horizon].
     # Use a forward-looking rolling sum.
@@ -403,7 +577,15 @@ def label_triple_barrier(
 ) -> pd.Series:
     """Triple-barrier labelling (Lopez de Prado).
 
+    Use triple-barrier labelling when you want targets that adapt to
+    market conditions.  Unlike fixed-horizon labels, this method defines
+    a profit-taking barrier (upper), a stop-loss barrier (lower), and a
+    maximum holding period (vertical).  Whichever barrier is hit first
+    determines the label.  This produces cleaner labels in volatile
+    markets because the barriers can be scaled by volatility.
+
     For each bar the method sets three barriers:
+
     * **Upper**: price rises by *upper* fraction  ->  label = 1
     * **Lower**: price falls by *lower* fraction  ->  label = -1
     * **Vertical**: *max_holding* bars elapse     ->  label = sign of return
@@ -427,7 +609,32 @@ def label_triple_barrier(
     -------
     pd.Series
         Integer labels in ``{-1, 0, 1}`` aligned to the input index.
+        ``1`` = profit-taking barrier hit first (bullish),
+        ``-1`` = stop-loss barrier hit first (bearish),
+        ``0`` = vertical barrier hit with zero return.
         The last *max_holding* entries may be ``NaN``.
+
+    Example
+    -------
+    >>> import pandas as pd
+    >>> close = pd.Series([100, 101, 102, 103, 100, 97, 98, 99, 100, 101])
+    >>> labels = label_triple_barrier(close, upper=0.03, lower=0.03, max_holding=5)
+    >>> labels.iloc[0]  # price rises 3% by bar 3 (103/100 - 1 = 0.03)
+    1
+
+    Notes
+    -----
+    In practice, set ``upper`` and ``lower`` proportional to recent
+    volatility (e.g., ``upper = lower = daily_vol * sqrt(max_holding)``).
+    This makes the labels regime-adaptive.
+
+    References
+    ----------
+    - Lopez de Prado (2018), "Advances in Financial Machine Learning", Ch. 3
+
+    See Also
+    --------
+    label_fixed_horizon : Simpler fixed-horizon labelling.
     """
     n = len(close)
     labels = pd.Series(np.full(n, np.nan), index=close.index, dtype="Int64")
@@ -480,7 +687,14 @@ def interaction_features(
 ) -> pd.DataFrame:
     """Create pairwise interaction terms between features.
 
+    Use interaction features when you suspect that predictive power lies
+    in the *combination* of features rather than individual signals.  For
+    example, ``momentum * volatility`` captures whether momentum is
+    occurring in a high- or low-volatility environment, which may predict
+    returns differently.
+
     For each pair of selected columns ``(A, B)``, computes:
+
     - ``A_x_B``: element-wise product (captures multiplicative relationships)
     - ``A_div_B``: element-wise ratio A / B (captures relative magnitudes)
 
@@ -534,6 +748,12 @@ def cross_asset_features(
 ) -> pd.DataFrame:
     """Compute cross-asset relationship features.
 
+    Use cross-asset features to capture how an asset co-moves with a
+    benchmark or related instrument.  Rolling correlation and beta
+    detect changing exposures (useful for regime detection); relative
+    strength identifies momentum divergence between the asset and its
+    benchmark.
+
     Given an asset return series and a benchmark (or related asset) return
     series, computes rolling correlation, rolling beta, and relative
     strength for each window.
@@ -586,9 +806,7 @@ def cross_asset_features(
         # Relative strength: cumulative return of asset vs benchmark
         cum_asset = (1 + a).rolling(w).apply(np.prod, raw=True)
         cum_bench = (1 + b).rolling(w).apply(np.prod, raw=True)
-        result[f"relative_strength_w{w}"] = cum_asset / cum_bench.replace(
-            0, np.nan
-        )
+        result[f"relative_strength_w{w}"] = cum_asset / cum_bench.replace(0, np.nan)
 
     return pd.DataFrame(result, index=aligned.index)
 
@@ -603,6 +821,12 @@ def regime_features(
     regime_labels: pd.Series | None = None,
 ) -> pd.DataFrame:
     """Create features from regime probabilities or labels.
+
+    Use regime features when you have upstream regime detection (e.g.,
+    HMM, Markov-switching) and want to feed regime state into downstream
+    ML models.  Regime duration and transition probability are predictive
+    because regimes tend to persist (duration) but eventually break down
+    (transition probability rises before a switch).
 
     Given regime probabilities (e.g., from an HMM or Markov-switching model),
     constructs features useful for downstream ML models: current regime
@@ -672,15 +896,11 @@ def regime_features(
             duration[i] = duration[i - 1] + 1
         else:
             duration[i] = 1
-    result["regime_duration"] = pd.Series(
-        duration, index=regime_probabilities.index
-    )
+    result["regime_duration"] = pd.Series(duration, index=regime_probabilities.index)
 
     # Rolling transition probability (how frequently regimes change)
     for w in [5, 10, 21]:
-        result[f"transition_prob_w{w}"] = regime_change.rolling(
-            w, min_periods=1
-        ).mean()
+        result[f"transition_prob_w{w}"] = regime_change.rolling(w, min_periods=1).mean()
 
     # Include raw probabilities
     for col in regime_probabilities.columns:

@@ -25,21 +25,44 @@ def bond_price(
     periods: int,
     freq: int = 2,
 ) -> np.float64:
-    """Compute the price of a fixed-rate bond as the PV of its cash flows.
+    r"""Compute the price of a fixed-rate bond as the PV of its cash flows.
+
+    Discounts each coupon payment and the face-value redemption at
+    the yield to maturity.  When ``ytm == coupon_rate``, the bond
+    prices at par.  Use this to mark positions to market given a
+    yield, or to compute the theoretical price for comparison against
+    the quoted market price.
+
+    .. math::
+
+        P = \sum_{t=1}^{n} \frac{C}{(1+y)^t}
+            + \frac{F}{(1+y)^n}
+
+    where :math:`C = F \cdot c / f` is the periodic coupon,
+    :math:`y = \text{ytm} / f`, :math:`n` is the number of periods,
+    and :math:`f` is the payment frequency.
 
     Parameters:
-        face_value: Par/face value of the bond.
-        coupon_rate: Annual coupon rate (e.g., 0.05 for 5%).
-        ytm: Yield to maturity (annualized, e.g., 0.05 for 5%).
-        periods: Total number of coupon periods remaining.
-        freq: Coupon payments per year (default 2 for semiannual).
+        face_value (float): Par/face value of the bond (e.g., 1000).
+        coupon_rate (float): Annual coupon rate (e.g., 0.05 for 5%).
+        ytm (float): Yield to maturity (annualized, e.g., 0.05 for 5%).
+        periods (int): Total number of coupon periods remaining.
+        freq (int): Coupon payments per year (default 2 for semiannual).
 
     Returns:
-        Present value (price) of the bond.
+        np.float64: Present value (dirty price) of the bond.  When
+            ``ytm < coupon_rate`` the bond trades at a premium (price >
+            face); when ``ytm > coupon_rate`` it trades at a discount.
 
     Example:
         >>> bond_price(1000, 0.05, 0.05, 10, 2)
         1000.0
+        >>> bond_price(1000, 0.05, 0.06, 10, 2)
+        925.6...
+
+    See Also:
+        bond_yield: Solve for the yield given price.
+        duration: Macaulay duration for interest-rate sensitivity.
     """
     coupon = face_value * coupon_rate / freq
     y = ytm / freq
@@ -67,24 +90,36 @@ def bond_yield(
 ) -> np.float64:
     """Compute the yield to maturity (YTM) of a bond via Newton's method.
 
+    YTM is the single discount rate that equates the present value of
+    a bond's cash flows to its market price.  It is the internal rate
+    of return assuming all coupons are reinvested at the same rate.
+    Use YTM to compare bonds with different coupons and maturities on
+    a common basis.
+
     Parameters:
-        price: Market price of the bond.
-        face_value: Par/face value of the bond.
-        coupon_rate: Annual coupon rate.
-        periods: Total number of coupon periods remaining.
-        freq: Coupon payments per year (default 2 for semiannual).
-        tol: Convergence tolerance.
-        max_iter: Maximum iterations.
+        price (float): Market price of the bond.
+        face_value (float): Par/face value of the bond.
+        coupon_rate (float): Annual coupon rate.
+        periods (int): Total number of coupon periods remaining.
+        freq (int): Coupon payments per year (default 2 for semiannual).
+        tol (float): Convergence tolerance on the price residual.
+        max_iter (int): Maximum Newton-Raphson iterations.
 
     Returns:
-        Annualized yield to maturity.
+        np.float64: Annualized yield to maturity.  For a par bond
+            (price == face_value) the YTM equals the coupon rate.
 
     Raises:
-        ValueError: If the solver does not converge.
+        ValueError: If the solver does not converge within *max_iter*
+            iterations.
 
     Example:
         >>> bond_yield(950, 1000, 0.05, 10, 2)
         0.059...
+
+    See Also:
+        bond_price: Price a bond given a yield.
+        zero_rate: Extract a zero rate from a zero-coupon bond.
     """
     coupon = face_value * coupon_rate / freq
     n = periods
@@ -132,21 +167,38 @@ def duration(
     periods: int,
     freq: int = 2,
 ) -> np.float64:
-    """Compute the Macaulay duration of a fixed-rate bond.
+    r"""Compute the Macaulay duration of a fixed-rate bond.
+
+    Macaulay duration is the weighted-average time to receive the
+    bond's cash flows, where the weights are the present-value
+    fractions.  It measures the bond's sensitivity to parallel shifts
+    in the yield curve: a duration of 5 years means a 1% yield
+    increase causes approximately a 5% price decrease.
+
+    .. math::
+
+        D = \frac{1}{P} \sum_{t=1}^{n} \frac{t}{f}
+            \cdot \frac{CF_t}{(1 + y)^t}
 
     Parameters:
-        face_value: Par/face value of the bond.
-        coupon_rate: Annual coupon rate.
-        ytm: Yield to maturity (annualized).
-        periods: Total number of coupon periods remaining.
-        freq: Coupon payments per year (default 2 for semiannual).
+        face_value (float): Par/face value of the bond.
+        coupon_rate (float): Annual coupon rate.
+        ytm (float): Yield to maturity (annualized).
+        periods (int): Total number of coupon periods remaining.
+        freq (int): Coupon payments per year (default 2 for semiannual).
 
     Returns:
-        Macaulay duration in years.
+        np.float64: Macaulay duration in years.  Zero-coupon bonds have
+            duration equal to their maturity; coupon bonds always have
+            duration less than maturity.
 
     Example:
         >>> duration(1000, 0.05, 0.05, 10, 2)
         4.08...
+
+    See Also:
+        modified_duration: Duration divided by (1 + y/freq).
+        convexity: Second-order interest-rate sensitivity.
     """
     coupon = face_value * coupon_rate / freq
     y = ytm / freq
@@ -177,23 +229,36 @@ def modified_duration(
     periods: int,
     freq: int = 2,
 ) -> np.float64:
-    """Compute the modified duration of a fixed-rate bond.
+    r"""Compute the modified duration of a fixed-rate bond.
 
-    Modified duration = Macaulay duration / (1 + ytm/freq).
+    Modified duration is the more practically useful sensitivity
+    measure: the percentage price change for a one-unit change in
+    yield.
+
+    .. math::
+
+        D_{\text{mod}} = \frac{D_{\text{mac}}}{1 + y/f}
+
+    A modified duration of 4 means a 100 bp (1%) yield increase
+    causes approximately a 4% price decline.
 
     Parameters:
-        face_value: Par/face value of the bond.
-        coupon_rate: Annual coupon rate.
-        ytm: Yield to maturity (annualized).
-        periods: Total number of coupon periods remaining.
-        freq: Coupon payments per year (default 2 for semiannual).
+        face_value (float): Par/face value of the bond.
+        coupon_rate (float): Annual coupon rate.
+        ytm (float): Yield to maturity (annualized).
+        periods (int): Total number of coupon periods remaining.
+        freq (int): Coupon payments per year (default 2 for semiannual).
 
     Returns:
-        Modified duration in years.
+        np.float64: Modified duration in years.
 
     Example:
         >>> modified_duration(1000, 0.05, 0.05, 10, 2)
         3.98...
+
+    See Also:
+        duration: Macaulay duration.
+        convexity: Second-order correction for large yield changes.
     """
     mac_dur = duration(face_value, coupon_rate, ytm, periods, freq)
     return np.float64(mac_dur / (1.0 + ytm / freq))
@@ -206,21 +271,43 @@ def convexity(
     periods: int,
     freq: int = 2,
 ) -> np.float64:
-    """Compute the convexity of a fixed-rate bond.
+    r"""Compute the convexity of a fixed-rate bond.
+
+    Convexity is the second-order sensitivity of bond price to yield
+    changes.  Duration alone gives a linear approximation; convexity
+    adds the curvature correction, improving accuracy for large yield
+    moves.
+
+    The price change for a yield shift :math:`\Delta y` is
+    approximately:
+
+    .. math::
+
+        \frac{\Delta P}{P} \approx -D_{\text{mod}} \cdot \Delta y
+        + \tfrac{1}{2}\,C \cdot (\Delta y)^2
+
+    where :math:`C` is convexity.  Positive convexity means the bond
+    gains more from a yield decrease than it loses from an equal
+    yield increase.
 
     Parameters:
-        face_value: Par/face value of the bond.
-        coupon_rate: Annual coupon rate.
-        ytm: Yield to maturity (annualized).
-        periods: Total number of coupon periods remaining.
-        freq: Coupon payments per year (default 2 for semiannual).
+        face_value (float): Par/face value of the bond.
+        coupon_rate (float): Annual coupon rate.
+        ytm (float): Yield to maturity (annualized).
+        periods (int): Total number of coupon periods remaining.
+        freq (int): Coupon payments per year (default 2 for semiannual).
 
     Returns:
-        Convexity measure (in years squared, scaled by freq^2).
+        np.float64: Convexity measure (in years squared, scaled by
+            ``freq^2``).
 
     Example:
         >>> convexity(1000, 0.05, 0.05, 10, 2)
         19.4...
+
+    See Also:
+        duration: First-order interest-rate sensitivity.
+        modified_duration: Percentage price change per unit yield change.
     """
     coupon = face_value * coupon_rate / freq
     y = ytm / freq
@@ -244,19 +331,32 @@ def zero_rate(
     face_value: float,
     periods: float,
 ) -> np.float64:
-    """Compute the zero coupon rate from a zero coupon bond price.
+    r"""Compute the zero-coupon (spot) rate from a zero-coupon bond price.
+
+    Solves :math:`P = F \cdot e^{-r \cdot T}` for *r*, giving the
+    continuously compounded rate that equates the bond price to the
+    present value of the face value.  Zero rates are the building
+    blocks of the term structure; use them to bootstrap a yield curve
+    or to discount future cash flows.
 
     Parameters:
-        price: Current market price of the zero coupon bond.
-        face_value: Par/face value of the bond.
-        periods: Time to maturity in years.
+        price (float): Current market price of the zero-coupon bond.
+        face_value (float): Par/face value of the bond.
+        periods (float): Time to maturity in years.
 
     Returns:
-        Annualized continuously compounded zero rate.
+        np.float64: Annualized continuously compounded zero rate.
+
+    Raises:
+        ValueError: If *price* or *periods* is not positive.
 
     Example:
         >>> zero_rate(950, 1000, 1.0)
         0.051...
+
+    See Also:
+        bootstrap_zero_curve: Bootstrap a full zero curve from par rates.
+        discount_factor: Convert a zero rate to a discount factor.
     """
     if price <= 0.0:
         raise ValueError("Price must be positive.")

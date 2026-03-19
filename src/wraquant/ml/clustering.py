@@ -34,6 +34,15 @@ def correlation_clustering(
 ) -> dict[str, Any]:
     """Cluster assets by their return correlations.
 
+    Use correlation clustering to group assets that move together,
+    which is useful for portfolio diversification (allocate across
+    clusters), risk management (monitor cluster concentration), and
+    statistical arbitrage (trade within-cluster mean-reversion).
+
+    The correlation-based distance is ``d(i,j) = sqrt(0.5 * (1 - rho_ij))``,
+    which maps perfect correlation to distance 0 and perfect negative
+    correlation to distance 1.
+
     Parameters
     ----------
     returns : pd.DataFrame
@@ -43,15 +52,45 @@ def correlation_clustering(
         automatically (silhouette score for hierarchical, or defaults to
         ``3`` for spectral).
     method : {'hierarchical', 'spectral'}
-        Clustering algorithm.
+        Clustering algorithm.  Hierarchical uses Ward linkage and
+        produces a dendrogram-compatible linkage matrix.  Spectral uses
+        the correlation matrix as affinity and finds clusters via
+        eigenvalue decomposition.
 
     Returns
     -------
     dict
-        ``labels``: np.ndarray of cluster assignments (length N),
-        ``n_clusters``: int,
-        ``linkage_matrix``: linkage matrix (hierarchical only, else
-        ``None``).
+        ``labels`` : np.ndarray
+            Cluster assignment for each asset (0-indexed, length N).
+            Assets with the same label belong to the same cluster.
+        ``n_clusters`` : int
+            Number of clusters found or specified.
+        ``linkage_matrix`` : np.ndarray or None
+            Linkage matrix (hierarchical only).  Pass to
+            ``scipy.cluster.hierarchy.dendrogram`` for visualization.
+
+    Example
+    -------
+    >>> import pandas as pd, numpy as np
+    >>> np.random.seed(42)
+    >>> # 3 groups of correlated assets
+    >>> factor = np.random.randn(252, 3)
+    >>> returns = pd.DataFrame(
+    ...     np.column_stack([factor[:, i % 3] + np.random.randn(252) * 0.5
+    ...                      for i in range(9)]),
+    ...     columns=[f'asset_{i}' for i in range(9)]
+    ... )
+    >>> result = correlation_clustering(returns, n_clusters=3)
+    >>> result['n_clusters']
+    3
+    >>> len(result['labels']) == 9
+    True
+
+    See Also
+    --------
+    regime_clustering : Cluster time periods into regimes.
+    optimal_clusters : Determine optimal cluster count.
+    wraquant.ml.preprocessing.detoned_correlation : Remove market mode before clustering.
     """
     corr = returns.corr().values
     n = corr.shape[0]
@@ -178,21 +217,54 @@ def regime_clustering(
 ) -> dict[str, Any]:
     """Cluster time periods into market regimes.
 
+    Use regime clustering when you want to identify distinct market
+    states (e.g., bull/bear, risk-on/risk-off, high/low volatility)
+    from observable features without a pre-defined model.  GMM is
+    preferred because it assigns soft probabilities to each regime;
+    KMeans provides hard assignments only.
+
     Parameters
     ----------
     features : pd.DataFrame or np.ndarray
-        Feature matrix where each row is a time observation.
+        Feature matrix where each row is a time observation.  Common
+        inputs include rolling volatility, returns, spreads, and VIX.
     n_regimes : int
-        Number of regimes to identify.
+        Number of regimes to identify (default 2, typical for
+        risk-on/risk-off).
     method : {'gmm', 'kmeans'}
-        Clustering algorithm.
+        Clustering algorithm.  ``'gmm'`` (Gaussian Mixture Model)
+        provides probabilistic assignments; ``'kmeans'`` provides
+        hard assignments and is faster.
 
     Returns
     -------
     dict
-        ``labels``: np.ndarray of regime assignments,
-        ``n_regimes``: int,
-        ``model``: the fitted clustering model.
+        ``labels`` : np.ndarray
+            Regime assignment for each time period (0-indexed).
+        ``n_regimes`` : int
+            Number of regimes.
+        ``model`` : object
+            Fitted GaussianMixture or KMeans model.  For GMM, call
+            ``model.predict_proba(X)`` to get regime probabilities.
+
+    Example
+    -------
+    >>> import numpy as np, pandas as pd
+    >>> np.random.seed(42)
+    >>> vol = np.concatenate([np.random.randn(100) * 0.5 + 0.1,
+    ...                       np.random.randn(100) * 0.5 + 0.3])
+    >>> features = pd.DataFrame({'vol': vol, 'vol_sq': vol ** 2})
+    >>> result = regime_clustering(features, n_regimes=2)
+    >>> result['n_regimes']
+    2
+    >>> len(result['labels']) == 200
+    True
+
+    See Also
+    --------
+    correlation_clustering : Cluster assets (cross-sectional).
+    optimal_clusters : Find the optimal number of clusters/regimes.
+    wraquant.regimes : HMM and Markov-switching regime detection.
     """
     X = np.asarray(features)
     if X.ndim == 1:
@@ -228,21 +300,46 @@ def optimal_clusters(
 ) -> int:
     """Determine the optimal number of clusters.
 
+    Use this function before calling ``correlation_clustering`` or
+    ``regime_clustering`` to select the number of clusters
+    data-adaptively rather than guessing.
+
     Parameters
     ----------
     data : pd.DataFrame or np.ndarray
         Feature matrix.
     max_k : int
-        Maximum number of clusters to evaluate.
+        Maximum number of clusters to evaluate (default 10).
     method : {'silhouette', 'bic'}
         Selection criterion.  ``'silhouette'`` uses the silhouette score
-        with KMeans; ``'bic'`` uses the Bayesian Information Criterion
-        with a Gaussian Mixture Model.
+        with KMeans (higher is better, range [-1, 1]); ``'bic'`` uses
+        the Bayesian Information Criterion with a Gaussian Mixture Model
+        (lower is better).  Silhouette is faster; BIC is more principled
+        for probabilistic models.
 
     Returns
     -------
     int
         Optimal number of clusters (between 2 and *max_k*).
+        Use this value as ``n_clusters`` in ``correlation_clustering``
+        or ``n_regimes`` in ``regime_clustering``.
+
+    Example
+    -------
+    >>> import numpy as np
+    >>> np.random.seed(42)
+    >>> # Generate data with 3 natural clusters
+    >>> data = np.vstack([np.random.randn(50, 2) + [0, 0],
+    ...                   np.random.randn(50, 2) + [5, 5],
+    ...                   np.random.randn(50, 2) + [10, 0]])
+    >>> k = optimal_clusters(data, max_k=6)
+    >>> 2 <= k <= 6
+    True
+
+    See Also
+    --------
+    correlation_clustering : Cluster assets by correlation.
+    regime_clustering : Cluster time periods into regimes.
     """
     X = np.asarray(data)
     if X.ndim == 1:

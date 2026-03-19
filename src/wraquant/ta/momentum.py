@@ -51,16 +51,8 @@ __all__ = [
 # ---------------------------------------------------------------------------
 
 
-def _validate_series(data: pd.Series, name: str = "data") -> pd.Series:
-    if not isinstance(data, pd.Series):
-        raise TypeError(f"{name} must be a pd.Series, got {type(data).__name__}")
-    return data
-
-
-def _validate_period(period: int, name: str = "period") -> int:
-    if period < 1:
-        raise ValueError(f"{name} must be >= 1, got {period}")
-    return period
+from wraquant.ta._validators import validate_period as _validate_period
+from wraquant.ta._validators import validate_series as _validate_series
 
 
 def _ema(data: pd.Series, period: int) -> pd.Series:
@@ -720,7 +712,9 @@ def kst(
     s4 = r4.rolling(window=sma4, min_periods=sma4).mean()
 
     kst_line = 1.0 * s1 + 2.0 * s2 + 3.0 * s3 + 4.0 * s4
-    signal_line = kst_line.rolling(window=signal_period, min_periods=signal_period).mean()
+    signal_line = kst_line.rolling(
+        window=signal_period, min_periods=signal_period
+    ).mean()
 
     return {
         "kst": kst_line.rename("kst"),
@@ -1216,9 +1210,7 @@ def relative_vigor_index(
 
     # Symmetric weighted moving average (SWMA) with weights [1, 2, 2, 1] / 6
     def _swma(s: pd.Series) -> pd.Series:
-        return (
-            s + 2.0 * s.shift(1) + 2.0 * s.shift(2) + s.shift(3)
-        ) / 6.0
+        return (s + 2.0 * s.shift(1) + 2.0 * s.shift(2) + s.shift(3)) / 6.0
 
     co_swma = _swma(co)
     hl_swma = _swma(hl)
@@ -1290,7 +1282,9 @@ def schaff_momentum(
     for i in range(len(frac1)):
         if np.isnan(frac1.iloc[i]):
             continue
-        prev = pf.iloc[i - 1] if i > 0 and not np.isnan(pf.iloc[i - 1]) else frac1.iloc[i]
+        prev = (
+            pf.iloc[i - 1] if i > 0 and not np.isnan(pf.iloc[i - 1]) else frac1.iloc[i]
+        )
         pf.iloc[i] = prev + 0.5 * (frac1.iloc[i] - prev)
 
     # Second Stochastic of the smoothed result
@@ -1303,7 +1297,11 @@ def schaff_momentum(
     for i in range(len(frac2)):
         if np.isnan(frac2.iloc[i]):
             continue
-        prev = result.iloc[i - 1] if i > 0 and not np.isnan(result.iloc[i - 1]) else frac2.iloc[i]
+        prev = (
+            result.iloc[i - 1]
+            if i > 0 and not np.isnan(result.iloc[i - 1])
+            else frac2.iloc[i]
+        )
         result.iloc[i] = prev + 0.5 * (frac2.iloc[i] - prev)
 
     result.name = "schaff_momentum"
@@ -1584,9 +1582,9 @@ def inertia(
         slope, intercept = np.polyfit(x, window, 1)
         return intercept + slope * (n - 1)
 
-    result = rvi_values.rolling(
-        window=linreg_period, min_periods=linreg_period
-    ).apply(_linreg_value, raw=True)
+    result = rvi_values.rolling(window=linreg_period, min_periods=linreg_period).apply(
+        _linreg_value, raw=True
+    )
     result.name = "inertia"
     return result
 
@@ -1650,9 +1648,9 @@ def squeeze_histogram(
         slope, intercept = np.polyfit(x, window, 1)
         return intercept + slope * (n - 1)
 
-    result = delta.rolling(
-        window=linreg_period, min_periods=linreg_period
-    ).apply(_linreg_value, raw=True)
+    result = delta.rolling(window=linreg_period, min_periods=linreg_period).apply(
+        _linreg_value, raw=True
+    )
     result.name = "squeeze_histogram"
     return result
 

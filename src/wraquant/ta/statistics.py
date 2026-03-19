@@ -31,17 +31,8 @@ __all__ = [
 # ---------------------------------------------------------------------------
 
 
-def _validate_series(data: pd.Series, name: str = "data") -> pd.Series:
-    if not isinstance(data, pd.Series):
-        raise TypeError(f"{name} must be a pd.Series, got {type(data).__name__}")
-    return data
-
-
-def _validate_period(period: int, name: str = "period") -> int:
-    if period < 1:
-        raise ValueError(f"{name} must be >= 1, got {period}")
-    return period
-
+from wraquant.ta._validators import validate_period as _validate_period
+from wraquant.ta._validators import validate_series as _validate_series
 
 # ---------------------------------------------------------------------------
 # Z-Score
@@ -118,9 +109,7 @@ def percentile_rank(data: pd.Series, period: int = 20) -> pd.Series:
         current = window[-1]
         return np.sum(window <= current) / len(window) * 100.0
 
-    result = data.rolling(window=period, min_periods=period).apply(
-        _pct_rank, raw=True
-    )
+    result = data.rolling(window=period, min_periods=period).apply(_pct_rank, raw=True)
     result.name = "percentile_rank"
     return result
 
@@ -407,9 +396,7 @@ def hurst_exponent(data: pd.Series, period: int = 100) -> pd.Series:
         coeffs = np.polyfit(lengths, rs_values, 1)
         return float(coeffs[0])
 
-    result = data.rolling(window=period, min_periods=period).apply(
-        _rs_hurst, raw=True
-    )
+    result = data.rolling(window=period, min_periods=period).apply(_rs_hurst, raw=True)
     result.name = "hurst_exponent"
     return result
 
@@ -549,7 +536,7 @@ def r_squared(
     bench_ret = benchmark.pct_change()
 
     corr = data_ret.rolling(window=period, min_periods=period).corr(bench_ret)
-    result = corr ** 2
+    result = corr**2
     result.name = "r_squared"
     return result
 

@@ -59,15 +59,32 @@ def dask_map(
     items: list,
     n_workers: int | None = None,
 ) -> list:
-    """Apply a function to items in parallel using Dask.
+    """Apply a function to items in parallel using Dask distributed.
+
+    Creates a temporary Dask ``Client``, submits all tasks as delayed
+    computations, collects results, and shuts down the client.  Use
+    this when tasks are CPU-intensive and you want multi-process
+    parallelism with Dask's scheduler.
+
+    Requires the ``scale`` extra group (``pip install wraquant[scale]``).
 
     Parameters:
-        func: Function to apply to each item.
-        items: List of items to process.
-        n_workers: Number of Dask workers (None for auto).
+        func (callable): Function to apply to each item.
+        items (list): List of items to process.
+        n_workers (int | None): Number of Dask workers.  ``None``
+            auto-detects based on available CPUs.
 
     Returns:
-        List of results.
+        list: List of results, in the same order as *items*.
+
+    Example:
+        >>> results = dask_map(lambda x: x ** 2, [1, 2, 3])  # doctest: +SKIP
+        >>> results
+        [1, 4, 9]
+
+    See Also:
+        ray_map: Alternative using Ray.
+        parallel_backtest: Higher-level parallel backtesting.
     """
     import dask
     from dask.distributed import Client
@@ -89,13 +106,30 @@ def ray_map(
 ) -> list:
     """Apply a function to items in parallel using Ray.
 
+    Initialises Ray (if not already running), wraps *func* as a remote
+    task, submits all items, and collects results.  Ray is ideal for
+    heavy workloads that benefit from distributed scheduling and
+    object-store-based data sharing.
+
+    Requires the ``scale`` extra group (``pip install wraquant[scale]``).
+
     Parameters:
-        func: Function to apply to each item.
-        items: List of items to process.
-        num_cpus: Number of CPUs to use (None for all).
+        func (callable): Function to apply to each item.
+        items (list): List of items to process.
+        num_cpus (int | None): Number of CPUs to use.  ``None`` uses
+            all available CPUs.
 
     Returns:
-        List of results.
+        list: List of results, in the same order as *items*.
+
+    Example:
+        >>> results = ray_map(lambda x: x ** 2, [1, 2, 3])  # doctest: +SKIP
+        >>> results
+        [1, 4, 9]
+
+    See Also:
+        dask_map: Alternative using Dask.
+        parallel_backtest: Higher-level parallel backtesting.
     """
     import ray
 
@@ -117,17 +151,42 @@ def parallel_backtest(
 ) -> list[dict]:
     """Run a backtest across a parameter grid in parallel.
 
-    Uses joblib by default (no extra deps), with optional Dask/Ray backends.
+    Each parameter combination is evaluated independently, making
+    this embarrassingly parallel.  Uses joblib by default (no extra
+    dependencies), with optional Dask or Ray backends for heavier
+    workloads or distributed clusters.
 
     Parameters:
-        strategy_fn: Function(prices, **params) -> dict with results.
-        parameter_grid: List of parameter dicts to test.
-        prices: Price data to backtest on.
-        backend: "joblib", "dask", or "ray".
-        n_jobs: Number of parallel jobs (-1 for all CPUs).
+        strategy_fn (callable): Strategy function with signature
+            ``strategy_fn(prices, **params) -> dict``.  The returned
+            dict should contain performance metrics (e.g.,
+            ``{"sharpe": 1.2, "max_dd": -0.15}``).
+        parameter_grid (list[dict]): List of parameter dicts to test.
+            Each dict is unpacked as keyword arguments to
+            *strategy_fn*.
+        prices (pd.DataFrame): Price data to backtest on.
+        backend (str): ``"joblib"`` (default), ``"dask"``, or
+            ``"ray"``.
+        n_jobs (int): Number of parallel jobs (-1 for all CPUs, joblib
+            only).
 
     Returns:
-        List of result dicts, one per parameter combination.
+        list[dict]: List of result dicts, one per parameter
+            combination, in the same order as *parameter_grid*.
+
+    Example:
+        >>> def strat(prices, window=20):
+        ...     ret = prices["close"].pct_change().rolling(window).mean().iloc[-1]
+        ...     return {"sharpe": ret / 0.01}
+        >>> grid = [{"window": w} for w in [10, 20, 50]]
+        >>> results = parallel_backtest(strat, grid, prices)  # doctest: +SKIP
+        >>> len(results)
+        3
+
+    See Also:
+        distributed_backtest: Enhanced version with auto-backend
+            selection and structured output.
+        parallel_optimize: Sweep portfolio constraints in parallel.
     """
     if backend == "joblib":
         from joblib import Parallel, delayed
@@ -290,9 +349,7 @@ def parallel_optimize(
     }
 
     if method not in _METHODS:
-        raise ValueError(
-            f"Unknown method {method!r}. Choose from: {sorted(_METHODS)}"
-        )
+        raise ValueError(f"Unknown method {method!r}. Choose from: {sorted(_METHODS)}")
     if not constraint_sets:
         raise ValueError("constraint_sets must be a non-empty list of dicts.")
 
@@ -306,7 +363,9 @@ def parallel_optimize(
             "expected_return": float(getattr(result, "expected_return", 0.0)),
             "volatility": float(getattr(result, "volatility", 0.0)),
             "sharpe_ratio": float(getattr(result, "sharpe_ratio", 0.0)),
-            "asset_names": list(getattr(result, "asset_names", returns.columns.tolist())),
+            "asset_names": list(
+                getattr(result, "asset_names", returns.columns.tolist())
+            ),
             "constraints": constraints,
             "error": None,
         }
@@ -317,15 +376,17 @@ def parallel_optimize(
     results: list[dict[str, Any]] = []
     for idx, r in enumerate(raw):
         if r is None:
-            results.append({
-                "weights": np.array([]),
-                "expected_return": float("nan"),
-                "volatility": float("nan"),
-                "sharpe_ratio": float("nan"),
-                "asset_names": [],
-                "constraints": constraint_sets[idx],
-                "error": "Optimization failed -- see logs for traceback.",
-            })
+            results.append(
+                {
+                    "weights": np.array([]),
+                    "expected_return": float("nan"),
+                    "volatility": float("nan"),
+                    "sharpe_ratio": float("nan"),
+                    "asset_names": [],
+                    "constraints": constraint_sets[idx],
+                    "error": "Optimization failed -- see logs for traceback.",
+                }
+            )
         else:
             results.append(r)
     return results
@@ -404,9 +465,7 @@ def parallel_walk_forward(
         raise ValueError("n_windows must be >= 1.")
     window_size = n // n_windows
     if window_size < 2:
-        raise ValueError(
-            f"Data has {n} rows, too small for {n_windows} windows."
-        )
+        raise ValueError(f"Data has {n} rows, too small for {n_windows} windows.")
 
     # Build window boundaries
     windows: list[tuple[int, int, int, int]] = []
@@ -422,9 +481,7 @@ def parallel_walk_forward(
         test_df = data.iloc[te_s:te_e]
         result = model_fn(train_df, test_df)
         preds = np.asarray(result.get("predictions", []))
-        actuals = np.asarray(
-            result.get("actuals", test_df.iloc[:, 0].values)
-        )
+        actuals = np.asarray(result.get("actuals", test_df.iloc[:, 0].values))
         metrics = result.get("metrics", {})
         return {"predictions": preds, "actuals": actuals, "metrics": metrics}
 
@@ -508,7 +565,9 @@ def parallel_regime_detection(
 
     def _detect_one(asset: str) -> Any:
         series = returns[asset]
-        return detect_regimes(series, method=method, n_regimes=n_regimes, **detect_kwargs)
+        return detect_regimes(
+            series, method=method, n_regimes=n_regimes, **detect_kwargs
+        )
 
     raw = _dispatch_parallel(_detect_one, assets, backend=backend, n_jobs=n_jobs)
 
@@ -738,10 +797,12 @@ def distributed_backtest(
             # Prefer dask/ray for large grids if available
             try:
                 import dask  # noqa: F401
+
                 backend = "dask"
             except ImportError:
                 try:
                     import ray  # noqa: F401
+
                     backend = "ray"
                 except ImportError:
                     backend = "joblib"
@@ -752,9 +813,7 @@ def distributed_backtest(
         metrics = strategy_fn(prices, **params)
         return {"params": params, "metrics": metrics}
 
-    raw = _dispatch_parallel(
-        _run_one, parameter_grid, backend=backend, n_jobs=n_jobs
-    )
+    raw = _dispatch_parallel(_run_one, parameter_grid, backend=backend, n_jobs=n_jobs)
 
     rows: list[dict[str, Any]] = []
     n_failed = 0
@@ -778,11 +837,17 @@ def distributed_backtest(
             all_param_keys.update(p.keys())
         metric_cols = [c for c in results_df.columns if c not in all_param_keys]
 
-        sort_col = "sharpe" if "sharpe" in metric_cols else (metric_cols[0] if metric_cols else None)
+        sort_col = (
+            "sharpe"
+            if "sharpe" in metric_cols
+            else (metric_cols[0] if metric_cols else None)
+        )
         if sort_col is not None and sort_col in results_df.columns:
             best_idx = results_df[sort_col].idxmax()
             best_row = results_df.loc[best_idx]
-            best_params = {k: best_row[k] for k in all_param_keys if k in best_row.index}
+            best_params = {
+                k: best_row[k] for k in all_param_keys if k in best_row.index
+            }
             best_metrics = {k: best_row[k] for k in metric_cols if k in best_row.index}
 
     return {

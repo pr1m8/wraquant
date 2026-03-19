@@ -10,6 +10,7 @@ from wraquant.stats.cointegration import (
     find_cointegrated_pairs,
     half_life,
     hedge_ratio,
+    johansen,
     pairs_backtest_signals,
     spread,
     zscore_signal,
@@ -56,16 +57,6 @@ from wraquant.stats.distributions import (
     tail_index,
     tail_ratio,
 )
-from wraquant.stats.robust import (
-    huber_mean,
-    mad,
-    outlier_detection,
-    robust_covariance,
-    robust_zscore,
-    trimmed_mean,
-    trimmed_std,
-    winsorize,
-)
 from wraquant.stats.factor import (
     factor_attribution,
     fama_french_regression,
@@ -91,6 +82,16 @@ from wraquant.stats.regression import (
     ols,
     rolling_ols,
     wls,
+)
+from wraquant.stats.robust import (
+    huber_mean,
+    mad,
+    outlier_detection,
+    robust_covariance,
+    robust_zscore,
+    trimmed_mean,
+    trimmed_std,
+    winsorize,
 )
 from wraquant.stats.tests import (
     breusch_pagan,
@@ -164,6 +165,7 @@ __all__ = [
     "outlier_detection",
     # cointegration
     "engle_granger",
+    "johansen",
     "half_life",
     "spread",
     "zscore_signal",
