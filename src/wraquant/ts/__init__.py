@@ -39,6 +39,7 @@ from wraquant.ts.forecasting import (
     ensemble_forecast,
     exponential_smoothing,
     forecast_evaluation,
+    garch_residual_forecast,
     holt_winters_forecast,
     rolling_forecast,
     ses_forecast,
@@ -115,6 +116,7 @@ __all__ = [
     "ensemble_forecast",
     "forecast_evaluation",
     "rolling_forecast",
+    "garch_residual_forecast",
     # stochastic process forecasting
     "ornstein_uhlenbeck_forecast",
     "jump_diffusion_forecast",

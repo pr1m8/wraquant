@@ -7,6 +7,7 @@ import pytest
 
 from wraquant.execution.optimal import (
     almgren_chriss,
+    bertsimas_lo,
     execution_frontier,
     optimal_execution_cost,
 )
@@ -74,3 +75,59 @@ class TestExecutionFrontier:
         # Higher lambda -> lower risk (std_dev) generally
         # The last point (highest lambda) should have lower std_dev
         assert result["std_dev"][-1] < result["std_dev"][0]
+
+
+class TestBertsimasLo:
+    def test_boundary_conditions(self) -> None:
+        result = bertsimas_lo(10_000, n_periods=20, volatility=0.02,
+                              impact_coeff=0.001)
+        assert result["trajectory"][0] == pytest.approx(10_000.0)
+        assert result["trajectory"][-1] == pytest.approx(0.0)
+
+    def test_trajectory_length(self) -> None:
+        result = bertsimas_lo(10_000, n_periods=20, volatility=0.02,
+                              impact_coeff=0.001)
+        assert len(result["trajectory"]) == 21
+        assert len(result["trades"]) == 20
+
+    def test_trades_sum_to_total(self) -> None:
+        result = bertsimas_lo(10_000, n_periods=20, volatility=0.02,
+                              impact_coeff=0.001)
+        np.testing.assert_allclose(result["trades"].sum(), 10_000, atol=1e-8)
+
+    def test_risk_neutral_is_linear(self) -> None:
+        result = bertsimas_lo(10_000, n_periods=10, volatility=0.02,
+                              impact_coeff=0.001, risk_aversion=0.0)
+        expected = np.linspace(10_000, 0, 11)
+        np.testing.assert_allclose(result["trajectory"], expected, atol=1e-8)
+
+    def test_risk_averse_front_loads(self) -> None:
+        neutral = bertsimas_lo(10_000, n_periods=20, volatility=0.02,
+                               impact_coeff=0.001, risk_aversion=0.0)
+        averse = bertsimas_lo(10_000, n_periods=20, volatility=0.02,
+                              impact_coeff=0.001, risk_aversion=100.0)
+        # Risk-averse trades more in early periods
+        assert averse["trades"][0] > neutral["trades"][0]
+
+    def test_expected_cost_positive(self) -> None:
+        result = bertsimas_lo(10_000, n_periods=20, volatility=0.02,
+                              impact_coeff=0.001)
+        assert result["expected_cost"] > 0
+
+    def test_cost_variance_non_negative(self) -> None:
+        result = bertsimas_lo(10_000, n_periods=20, volatility=0.02,
+                              impact_coeff=0.001)
+        assert result["cost_variance"] >= 0
+
+    def test_invalid_periods(self) -> None:
+        with pytest.raises(ValueError):
+            bertsimas_lo(10_000, n_periods=0, volatility=0.02,
+                         impact_coeff=0.001)
+
+    def test_returns_dict_keys(self) -> None:
+        result = bertsimas_lo(10_000, n_periods=10, volatility=0.02,
+                              impact_coeff=0.001)
+        assert "trajectory" in result
+        assert "trades" in result
+        assert "expected_cost" in result
+        assert "cost_variance" in result

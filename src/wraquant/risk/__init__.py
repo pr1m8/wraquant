@@ -299,7 +299,7 @@ from wraquant.risk.tail import (
     expected_shortfall_decomposition,
     tail_ratio_analysis,
 )
-from wraquant.risk.var import conditional_var, garch_var, value_at_risk
+from wraquant.risk.var import conditional_var, garch_var, greeks_var, value_at_risk
 
 __all__ = [
     # metrics
@@ -317,6 +317,7 @@ __all__ = [
     "value_at_risk",
     "conditional_var",
     "garch_var",
+    "greeks_var",
     # portfolio
     "portfolio_volatility",
     "risk_contribution",

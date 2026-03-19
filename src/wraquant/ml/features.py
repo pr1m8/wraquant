@@ -15,6 +15,7 @@ __all__ = [
     "rolling_features",
     "return_features",
     "technical_features",
+    "ta_features",
     "volatility_features",
     "microstructure_features",
     "label_fixed_horizon",
@@ -907,3 +908,104 @@ def regime_features(
         result[f"prob_{col}"] = regime_probabilities[col]
 
     return pd.DataFrame(result, index=regime_probabilities.index)
+
+
+# ---------------------------------------------------------------------------
+# TA-integrated features (imports from wraquant.ta)
+# ---------------------------------------------------------------------------
+
+
+def ta_features(
+    high: pd.Series,
+    low: pd.Series,
+    close: pd.Series,
+    volume: pd.Series | None = None,
+    include: Sequence[str] | None = None,
+) -> pd.DataFrame:
+    """Generate ML features using wraquant's full technical analysis library.
+
+    Unlike ``technical_features`` (which uses inline implementations),
+    this function imports directly from ``wraquant.ta`` to leverage the
+    full 263-indicator library.  This bridges the ``ml`` and ``ta``
+    modules so that ML pipelines can access production-quality TA
+    indicators without manual wiring.
+
+    By default, computes a curated set of the most ML-relevant
+    indicators: RSI, MACD histogram, Bollinger Band %B, ATR, and
+    optionally OBV.  Use the *include* parameter to select additional
+    indicators.
+
+    Parameters:
+        high: High prices.
+        low: Low prices.
+        close: Close prices.
+        volume: Trade volume (optional).  Required for volume-based
+            indicators (OBV, MFI).
+        include: Subset of indicators to include.  Options:
+            ``'rsi'``, ``'macd'``, ``'bbands'``, ``'atr'``, ``'obv'``.
+            If *None*, includes all available indicators.
+
+    Returns:
+        DataFrame with one column per indicator, indexed like the
+        input series.  Column names are descriptive (e.g., ``ta_rsi``,
+        ``ta_macd_hist``, ``ta_bb_pctb``, ``ta_atr``, ``ta_obv``).
+
+    Example:
+        >>> import pandas as pd, numpy as np
+        >>> np.random.seed(0)
+        >>> n = 100
+        >>> close = pd.Series(100 + np.cumsum(np.random.randn(n) * 0.5))
+        >>> high = close + np.abs(np.random.randn(n) * 0.3)
+        >>> low = close - np.abs(np.random.randn(n) * 0.3)
+        >>> feats = ta_features(high, low, close)
+        >>> 'ta_rsi' in feats.columns
+        True
+
+    See Also:
+        technical_features: Inline implementation (no ta/ dependency).
+        wraquant.ta.momentum.rsi: Full RSI implementation.
+        wraquant.ta.momentum.macd: Full MACD implementation.
+    """
+    from wraquant.ta.momentum import macd, rsi
+    from wraquant.ta.overlap import bollinger_bands
+    from wraquant.ta.volatility import atr
+
+    all_indicators = {"rsi", "macd", "bbands", "atr", "obv"}
+    if include is None:
+        selected = all_indicators.copy()
+    else:
+        selected = set(include) & all_indicators
+
+    result: dict[str, pd.Series] = {}
+
+    if "rsi" in selected:
+        result["ta_rsi"] = rsi(close, period=14)
+
+    if "macd" in selected:
+        macd_result = macd(close)
+        if isinstance(macd_result, dict):
+            result["ta_macd_hist"] = macd_result.get(
+                "histogram", macd_result.get("macd_hist", pd.Series(dtype=float))
+            )
+        else:
+            result["ta_macd_hist"] = macd_result
+
+    if "bbands" in selected:
+        bb = bollinger_bands(close, period=20)
+        if isinstance(bb, dict):
+            upper = bb.get("upper", pd.Series(dtype=float))
+            lower = bb.get("lower", pd.Series(dtype=float))
+            bb_range = (upper - lower).replace(0, np.nan)
+            result["ta_bb_pctb"] = (close - lower) / bb_range
+        else:
+            result["ta_bb_pctb"] = bb
+
+    if "atr" in selected:
+        result["ta_atr"] = atr(high, low, close, period=14)
+
+    if "obv" in selected and volume is not None:
+        from wraquant.ta.volume import obv
+
+        result["ta_obv"] = obv(close, volume)
+
+    return pd.DataFrame(result, index=close.index)

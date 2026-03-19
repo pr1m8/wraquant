@@ -1283,3 +1283,128 @@ def rolling_forecast(
         "errors": errors,
         "cumulative_metrics": {"rmse": cum_rmse, "mae": cum_mae},
     }
+
+
+# ---------------------------------------------------------------------------
+# garch_residual_forecast — ts/ ↔ vol/ integration
+# ---------------------------------------------------------------------------
+
+
+def garch_residual_forecast(
+    returns: pd.Series,
+    vol_model: str = "GARCH",
+    forecast_method: str = "ses",
+    horizon: int = 10,
+    garch_p: int = 1,
+    garch_q: int = 1,
+) -> dict:
+    """Forecast returns using GARCH-filtered residuals.
+
+    This function chains the ``vol`` and ``ts`` modules together:
+
+    1. Fit a GARCH model (from ``wraquant.vol.models``) to extract
+       conditional volatility and standardised residuals.
+    2. Forecast the standardised residuals (which should be approximately
+       iid) using a classical time-series method (SES, Theta, or Holt-
+       Winters from ``wraquant.ts.forecasting``).
+    3. Forecast conditional volatility forward using the GARCH model.
+    4. Recombine: ``return_forecast = residual_forecast * vol_forecast``.
+
+    The key insight is that raw financial returns are not iid (they
+    exhibit volatility clustering).  GARCH filtering removes the
+    heteroskedasticity, producing residuals that classical forecasting
+    methods can handle.  The recombination step re-introduces the
+    time-varying volatility into the forecast.
+
+    Chains: ``vol.garch_fit`` -> ``ts.ses_forecast`` (or other) ->
+    ``vol.garch_forecast`` -> recombine.
+
+    Parameters:
+        returns: Return series (daily or intraday).
+        vol_model: GARCH variant to use for filtering.  Options:
+            ``"GARCH"``, ``"EGARCH"``, ``"GJR"``.
+        forecast_method: Method for forecasting the standardised
+            residuals.  Options: ``"ses"`` (default), ``"theta"``,
+            ``"holt_winters"``.
+        horizon: Number of periods to forecast ahead (default 10).
+        garch_p: GARCH lag order (default 1).
+        garch_q: ARCH lag order (default 1).
+
+    Returns:
+        Dictionary containing:
+
+        - ``'return_forecast'`` (*np.ndarray*) -- Forecasted returns
+          (residual_forecast * vol_forecast), shape ``(horizon,)``.
+        - ``'vol_forecast'`` (*np.ndarray*) -- GARCH conditional
+          volatility forecast, shape ``(horizon,)``.
+        - ``'residual_forecast'`` (*np.ndarray*) -- Forecasted
+          standardised residuals, shape ``(horizon,)``.
+        - ``'standardized_residuals'`` (*np.ndarray*) -- In-sample
+          standardised residuals from the GARCH fit.
+        - ``'garch_params'`` (*dict*) -- Fitted GARCH parameters.
+
+    Example:
+        >>> import pandas as pd, numpy as np
+        >>> np.random.seed(42)
+        >>> returns = pd.Series(np.random.randn(500) * 0.01)
+        >>> result = garch_residual_forecast(returns, horizon=5)
+        >>> len(result['return_forecast'])
+        5
+        >>> len(result['vol_forecast'])
+        5
+
+    Notes:
+        This approach is related to the "GARCH-in-mean" literature but
+        separates the volatility and level dynamics for modularity.
+
+    See Also:
+        wraquant.vol.models.garch_fit: GARCH model fitting.
+        wraquant.vol.models.garch_forecast: GARCH volatility forecasting.
+        ses_forecast: SES for residual forecasting.
+        theta_forecast: Theta method for residual forecasting.
+    """
+    from wraquant.vol.models import garch_fit, garch_forecast
+
+    # Step 1: Fit GARCH to get conditional vol and standardised residuals
+    fit_result = garch_fit(returns, p=garch_p, q=garch_q)
+
+    std_resid = fit_result["standardized_residuals"]
+    garch_params = fit_result["params"]
+
+    # Step 2: Forecast standardised residuals with a classical method
+    # Clean residuals for forecasting
+    resid_clean = std_resid[np.isfinite(std_resid)]
+    resid_series = pd.Series(resid_clean)
+
+    forecast_fns = {
+        "ses": lambda s, h: ses_forecast(s, h=h)["forecast"].values,
+        "theta": lambda s, h: theta_forecast(s, h=h)["forecast"].values,
+        "holt_winters": lambda s, h: holt_winters_forecast(s, h=h)[
+            "forecast"
+        ].values,
+    }
+    fn = forecast_fns.get(forecast_method)
+    if fn is None:
+        raise ValueError(
+            f"forecast_method must be one of {list(forecast_fns)}, "
+            f"got {forecast_method!r}"
+        )
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        residual_fcast = fn(resid_series, horizon)
+
+    # Step 3: Forecast conditional volatility using GARCH
+    vol_fcast_result = garch_forecast(returns, horizon=horizon, p=garch_p, q=garch_q)
+    vol_fcast = np.asarray(vol_fcast_result["forecast_volatility"])[:horizon]
+
+    # Step 4: Recombine — return = residual * conditional_vol
+    return_fcast = residual_fcast[:horizon] * vol_fcast[:horizon]
+
+    return {
+        "return_forecast": return_fcast,
+        "vol_forecast": vol_fcast,
+        "residual_forecast": residual_fcast[:horizon],
+        "standardized_residuals": std_resid,
+        "garch_params": garch_params,
+    }

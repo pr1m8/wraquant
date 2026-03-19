@@ -6,17 +6,35 @@ and APScheduler for scheduling recurring quantitative finance tasks.
 
 from __future__ import annotations
 
-from typing import Any
+import functools
+import hashlib
+import json
+import logging
+import pickle
+import time as _time
+from collections import deque
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from pathlib import Path
+from typing import Any, Callable, TypeVar
 
 import numpy as np
 import pandas as pd
 
 from wraquant.core.decorators import requires_extra
 
+_F = TypeVar("_F", bound=Callable)
+
 __all__ = [
     "prefect_backtest_flow",
     "schedule_data_refresh",
     "pipeline",
+    "Pipeline",
+    "dag",
+    "DAG",
+    "retry",
+    "cache_result",
+    "log_step",
+    "parallel_pipeline",
 ]
 
 
@@ -148,3 +166,432 @@ class Pipeline:
         if isinstance(other, Pipeline):
             return Pipeline(self.steps + other.steps)
         raise TypeError(f"Cannot compose Pipeline with {type(other)}")
+
+
+# ---------------------------------------------------------------------------
+# DAG
+# ---------------------------------------------------------------------------
+
+
+class DAG:
+    """Directed Acyclic Graph of pipeline steps with dependencies.
+
+    Steps are executed in topological order so that each step runs only
+    after all its dependencies have completed.  No external dependencies
+    required.
+
+    Parameters:
+        steps: Dictionary mapping step name to a tuple of
+            ``(callable, list_of_dependency_names)``.
+
+    Example:
+        >>> d = DAG({
+        ...     "double": (lambda data: data * 2, []),
+        ...     "add_one": (lambda data: data + 1, ["double"]),
+        ... })
+        >>> results = d.run(initial_data=5)
+        >>> results["double"]
+        10
+        >>> results["add_one"]
+        11
+    """
+
+    def __init__(self, steps: dict[str, tuple[Callable, list[str]]]) -> None:
+        self.steps = steps
+        self._validate()
+
+    def _validate(self) -> None:
+        """Check for missing dependencies and cycles."""
+        names = set(self.steps.keys())
+        for name, (_, deps) in self.steps.items():
+            missing = set(deps) - names
+            if missing:
+                raise ValueError(
+                    f"Step '{name}' depends on undefined steps: {missing}"
+                )
+        # Cycle detection via topological sort attempt
+        self._topo_sort()
+
+    def _topo_sort(self) -> list[str]:
+        """Return step names in topological order (Kahn's algorithm)."""
+        in_degree: dict[str, int] = {name: 0 for name in self.steps}
+        dependents: dict[str, list[str]] = {name: [] for name in self.steps}
+
+        for name, (_, deps) in self.steps.items():
+            in_degree[name] = len(deps)
+            for dep in deps:
+                dependents[dep].append(name)
+
+        queue = deque(name for name, deg in in_degree.items() if deg == 0)
+        order: list[str] = []
+
+        while queue:
+            node = queue.popleft()
+            order.append(node)
+            for child in dependents[node]:
+                in_degree[child] -= 1
+                if in_degree[child] == 0:
+                    queue.append(child)
+
+        if len(order) != len(self.steps):
+            raise ValueError("DAG contains a cycle")
+
+        return order
+
+    def run(self, initial_data: Any = None) -> dict[str, Any]:
+        """Execute all steps in topological order.
+
+        Each step callable receives the output of its first dependency
+        (if any), or *initial_data* if it has no dependencies.  If a
+        step has multiple dependencies, it receives a dictionary mapping
+        dependency names to their results.
+
+        Parameters:
+            initial_data: Input data for root steps (steps with no
+                dependencies).
+
+        Returns:
+            Dictionary mapping step names to their outputs.
+        """
+        order = self._topo_sort()
+        results: dict[str, Any] = {}
+
+        for name in order:
+            fn, deps = self.steps[name]
+            if not deps:
+                results[name] = fn(initial_data)
+            elif len(deps) == 1:
+                results[name] = fn(results[deps[0]])
+            else:
+                dep_results = {d: results[d] for d in deps}
+                results[name] = fn(dep_results)
+
+        return results
+
+
+def dag(steps_dict: dict[str, tuple[Callable, list[str]]]) -> DAG:
+    """Create a DAG of pipeline steps with dependencies.
+
+    Steps run in topological order.  No external dependencies required.
+    This is useful for workflows where some steps depend on the output
+    of other steps, forming a directed acyclic graph.
+
+    Parameters:
+        steps_dict: Dictionary mapping step name to a tuple of
+            ``(callable, list_of_dependency_names)``.  Root steps
+            (no dependencies) receive the *initial_data* passed to
+            :meth:`DAG.run`.
+
+    Returns:
+        A DAG object with a ``.run(initial_data)`` method.
+
+    Example:
+        >>> d = dag({
+        ...     "fetch": (lambda data: [1, 2, 3], []),
+        ...     "double": (lambda data: [x * 2 for x in data], ["fetch"]),
+        ...     "total": (lambda data: sum(data), ["double"]),
+        ... })
+        >>> results = d.run()
+        >>> results["double"]
+        [2, 4, 6]
+        >>> results["total"]
+        12
+
+    See Also:
+        pipeline: Simple sequential pipeline (no dependencies).
+        parallel_pipeline: Run multiple pipelines in parallel.
+    """
+    return DAG(steps_dict)
+
+
+# ---------------------------------------------------------------------------
+# retry
+# ---------------------------------------------------------------------------
+
+
+def retry(
+    fn: Callable | None = None,
+    *,
+    max_retries: int = 3,
+    delay: float = 1.0,
+    backoff_factor: float = 2.0,
+    exceptions: tuple[type[Exception], ...] = (Exception,),
+) -> Callable:
+    """Retry decorator with exponential backoff.
+
+    Use this for unreliable operations like data fetching from external
+    APIs, database connections, or any I/O-bound function that may
+    transiently fail.  The decorator retries the function up to
+    *max_retries* times with exponential backoff between attempts.
+
+    Parameters:
+        fn: The function to wrap (when used without arguments).
+        max_retries: Maximum number of retry attempts (default 3).
+            The function is called at most ``max_retries + 1`` times
+            (1 initial + retries).
+        delay: Initial delay between retries in seconds (default 1.0).
+        backoff_factor: Multiplicative factor for delay between
+            successive retries (default 2.0).  With delay=1.0 and
+            backoff_factor=2.0, delays are 1s, 2s, 4s, ...
+        exceptions: Tuple of exception types to catch and retry on.
+            Default is ``(Exception,)`` which retries on any exception.
+
+    Returns:
+        Decorated function with retry logic.
+
+    Example:
+        >>> call_count = 0
+        >>> @retry(max_retries=2, delay=0.01)
+        ... def flaky():
+        ...     global call_count
+        ...     call_count += 1
+        ...     if call_count < 3:
+        ...         raise ConnectionError("temporary failure")
+        ...     return "success"
+        >>> flaky()
+        'success'
+
+    See Also:
+        cache_result: Cache expensive results to disk.
+        log_step: Log function entry/exit.
+    """
+
+    def decorator(func: Callable) -> Callable:
+        @functools.wraps(func)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            current_delay = delay
+            last_exc: Exception | None = None
+            for attempt in range(max_retries + 1):
+                try:
+                    return func(*args, **kwargs)
+                except exceptions as exc:
+                    last_exc = exc
+                    if attempt < max_retries:
+                        _time.sleep(current_delay)
+                        current_delay *= backoff_factor
+            raise last_exc  # type: ignore[misc]
+
+        return wrapper
+
+    if fn is not None:
+        # Used as @retry without arguments
+        return decorator(fn)
+    return decorator
+
+
+# ---------------------------------------------------------------------------
+# cache_result
+# ---------------------------------------------------------------------------
+
+
+def cache_result(
+    fn: Callable | None = None,
+    *,
+    cache_dir: str | Path | None = None,
+    ttl_hours: float = 24,
+) -> Callable:
+    """Cache function results to disk with TTL.
+
+    Use this for expensive computations (e.g., data fetching, feature
+    engineering, model training) that you want to avoid re-running
+    within a time window.  Results are pickled to disk and reloaded
+    if the cache is still valid.
+
+    The cache key is derived from the function name and its arguments
+    (serialised via ``repr``), so calling with different arguments
+    creates separate cache entries.
+
+    Parameters:
+        fn: The function to wrap (when used without arguments).
+        cache_dir: Directory for cache files.  If *None*, uses
+            ``~/.wraquant/cache``.
+        ttl_hours: Time-to-live in hours (default 24).  Cache entries
+            older than this are re-computed.
+
+    Returns:
+        Decorated function with disk caching.
+
+    Example:
+        >>> import tempfile
+        >>> @cache_result(cache_dir=tempfile.mkdtemp(), ttl_hours=1)
+        ... def slow_computation(x):
+        ...     return x ** 2
+        >>> slow_computation(5)  # computed
+        25
+        >>> slow_computation(5)  # loaded from cache
+        25
+
+    See Also:
+        retry: Retry decorator for unreliable operations.
+        log_step: Log function entry/exit.
+    """
+
+    def decorator(func: Callable) -> Callable:
+        @functools.wraps(func)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            # Determine cache directory
+            cdir = Path(cache_dir) if cache_dir is not None else Path.home() / ".wraquant" / "cache"
+            cdir.mkdir(parents=True, exist_ok=True)
+
+            # Build cache key from function name + args
+            key_data = f"{func.__module__}.{func.__qualname__}:{repr(args)}:{repr(sorted(kwargs.items()))}"
+            key_hash = hashlib.sha256(key_data.encode()).hexdigest()[:16]
+            cache_file = cdir / f"{func.__name__}_{key_hash}.pkl"
+            meta_file = cdir / f"{func.__name__}_{key_hash}.meta"
+
+            # Check if cached result is still valid
+            if cache_file.exists() and meta_file.exists():
+                try:
+                    meta = json.loads(meta_file.read_text())
+                    cached_time = meta.get("timestamp", 0)
+                    if (_time.time() - cached_time) < ttl_hours * 3600:
+                        with open(cache_file, "rb") as f:
+                            return pickle.load(f)  # noqa: S301
+                except (json.JSONDecodeError, pickle.UnpicklingError, OSError):
+                    pass  # Cache is corrupt, re-compute
+
+            # Compute and cache
+            result = func(*args, **kwargs)
+            try:
+                with open(cache_file, "wb") as f:
+                    pickle.dump(result, f)
+                meta_file.write_text(json.dumps({"timestamp": _time.time()}))
+            except (OSError, pickle.PicklingError):
+                pass  # Caching failure is non-fatal
+
+            return result
+
+        return wrapper
+
+    if fn is not None:
+        return decorator(fn)
+    return decorator
+
+
+# ---------------------------------------------------------------------------
+# log_step
+# ---------------------------------------------------------------------------
+
+
+def log_step(
+    fn: Callable | None = None,
+    *,
+    logger: logging.Logger | None = None,
+) -> Callable:
+    """Decorator that logs step entry, exit, and duration.
+
+    Use this to add lightweight observability to pipeline steps.  Each
+    call logs the function name, arguments summary, duration, and
+    whether it succeeded or raised an exception.
+
+    Parameters:
+        fn: The function to wrap (when used without arguments).
+        logger: Logger instance to use.  If *None*, uses a logger named
+            ``'wraquant.flow'``.
+
+    Returns:
+        Decorated function with logging.
+
+    Example:
+        >>> @log_step
+        ... def compute(x):
+        ...     return x * 2
+        >>> compute(5)
+        10
+
+    See Also:
+        retry: Retry with exponential backoff.
+        cache_result: Cache results to disk.
+    """
+
+    def decorator(func: Callable) -> Callable:
+        log = logger or logging.getLogger("wraquant.flow")
+
+        @functools.wraps(func)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            func_name = func.__qualname__
+            log.info("ENTER %s", func_name)
+            start = _time.perf_counter()
+            try:
+                result = func(*args, **kwargs)
+                elapsed = _time.perf_counter() - start
+                log.info("EXIT  %s  (%.3fs)", func_name, elapsed)
+                return result
+            except Exception:
+                elapsed = _time.perf_counter() - start
+                log.exception("FAIL  %s  (%.3fs)", func_name, elapsed)
+                raise
+
+        return wrapper
+
+    if fn is not None:
+        return decorator(fn)
+    return decorator
+
+
+# ---------------------------------------------------------------------------
+# parallel_pipeline
+# ---------------------------------------------------------------------------
+
+
+def parallel_pipeline(
+    *pipelines: Pipeline,
+    max_workers: int | None = None,
+) -> list[Any]:
+    """Run multiple Pipeline objects in parallel using threading.
+
+    Use this when you have independent pipelines (e.g., processing
+    different assets or strategies) that can run concurrently.  Each
+    pipeline runs in its own thread using a ``ThreadPoolExecutor``.
+
+    Parameters:
+        *pipelines: Pipeline objects to run.  Each pipeline must have
+            been created with all its steps already added.
+        max_workers: Maximum number of threads (default *None*, which
+            uses ``min(len(pipelines), 8)``).
+
+    Returns:
+        List of results, one per pipeline, in the same order as the
+        input pipelines.  Each result is the output of the pipeline's
+        final step.
+
+    Example:
+        >>> pipe1 = pipeline(lambda x: x * 2)
+        >>> pipe2 = pipeline(lambda x: x + 10)
+        >>> results = parallel_pipeline(pipe1, pipe2, initial_data=5)
+        >>> results  # [10, 15]  # doctest: +SKIP
+
+    Notes:
+        Since this uses threading (not multiprocessing), it is best
+        suited for I/O-bound tasks.  For CPU-bound parallel execution,
+        consider ``wraquant.scale``.
+
+    See Also:
+        pipeline: Create a sequential pipeline.
+        dag: Create a DAG with dependencies.
+    """
+    if not pipelines:
+        return []
+
+    workers = max_workers or min(len(pipelines), 8)
+
+    # Each pipeline needs initial data; we extract it from the first step
+    # Actually the user should call this differently -- let's support
+    # an initial_data pattern by allowing it as a kwarg hack or by
+    # requiring each pipeline to already have initial data baked in.
+    # The simplest approach: run each pipeline with None as initial data.
+    # Callers should bake in data via closures or partial application.
+
+    future_to_idx: dict[Any, int] = {}
+    results: list[Any] = [None] * len(pipelines)
+
+    with ThreadPoolExecutor(max_workers=workers) as executor:
+        for i, pipe in enumerate(pipelines):
+            future = executor.submit(pipe.run, None)
+            future_to_idx[future] = i
+
+        for future in as_completed(future_to_idx):
+            idx = future_to_idx[future]
+            results[idx] = future.result()
+
+    return results

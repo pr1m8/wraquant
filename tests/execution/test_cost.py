@@ -8,9 +8,11 @@ import pytest
 
 from wraquant.execution.cost import (
     commission_cost,
+    expected_cost_model,
     market_impact_model,
     slippage,
     total_cost,
+    transaction_cost_analysis,
 )
 
 
@@ -98,3 +100,107 @@ class TestMarketImpactModel:
         small = market_impact_model(1_000, 1_000_000, 0.02, model="sqrt")
         large = market_impact_model(100_000, 1_000_000, 0.02, model="sqrt")
         assert large > small
+
+
+class TestExpectedCostModel:
+    def test_spread_cost(self) -> None:
+        result = expected_cost_model(5000, 100.0, 1_000_000, 0.02, 0.02)
+        assert result["spread_cost"] == pytest.approx(50.0)
+
+    def test_total_greater_than_spread(self) -> None:
+        result = expected_cost_model(5000, 100.0, 1_000_000, 0.02, 0.02)
+        assert result["total_cost"] > result["spread_cost"]
+
+    def test_all_components_positive(self) -> None:
+        result = expected_cost_model(10_000, 50.0, 500_000, 0.015, 0.01)
+        assert result["spread_cost"] > 0
+        assert result["impact_cost"] > 0
+        assert result["timing_risk"] >= 0
+        assert result["cost_bps"] > 0
+
+    def test_returns_dict_keys(self) -> None:
+        result = expected_cost_model(1000, 100.0, 1_000_000, 0.02, 0.02)
+        expected_keys = {"spread_cost", "impact_cost", "timing_risk", "total_cost", "cost_bps"}
+        assert expected_keys == set(result.keys())
+
+    def test_larger_order_costs_more(self) -> None:
+        small = expected_cost_model(1000, 100.0, 1_000_000, 0.02, 0.02)
+        large = expected_cost_model(50_000, 100.0, 1_000_000, 0.02, 0.02)
+        assert large["total_cost"] > small["total_cost"]
+
+
+class TestTransactionCostAnalysis:
+    def test_basic_tca(self) -> None:
+        trades = pd.DataFrame({
+            "execution_price": [100.05, 100.10, 100.08],
+            "qty": [1000, 2000, 1500],
+            "side": ["buy", "buy", "buy"],
+        })
+        market = pd.DataFrame({
+            "arrival_price": [100.00],
+            "vwap": [100.06],
+            "close": [100.12],
+        })
+        tca = transaction_cost_analysis(trades, market)
+        assert "arrival_cost_bps" in tca.columns
+        assert "vwap_cost_bps" in tca.columns
+        assert "close_cost_bps" in tca.columns
+
+    def test_buy_arrival_cost_positive(self) -> None:
+        trades = pd.DataFrame({
+            "execution_price": [100.10],
+            "qty": [1000],
+            "side": ["buy"],
+        })
+        market = pd.DataFrame({
+            "arrival_price": [100.00],
+            "vwap": [100.05],
+            "close": [100.15],
+        })
+        tca = transaction_cost_analysis(trades, market)
+        assert tca["arrival_cost"].iloc[0] > 0  # paid more than arrival
+
+    def test_sell_cost_sign(self) -> None:
+        trades = pd.DataFrame({
+            "execution_price": [99.90],
+            "qty": [1000],
+            "side": ["sell"],
+        })
+        market = pd.DataFrame({
+            "arrival_price": [100.00],
+            "vwap": [100.00],
+            "close": [100.00],
+        })
+        tca = transaction_cost_analysis(trades, market)
+        # Sold below arrival -> positive cost for seller
+        assert tca["arrival_cost"].iloc[0] > 0
+
+    def test_per_trade_market_data(self) -> None:
+        trades = pd.DataFrame({
+            "execution_price": [100.05, 100.10],
+            "qty": [1000, 2000],
+            "side": ["buy", "buy"],
+        })
+        market = pd.DataFrame({
+            "arrival_price": [100.00, 100.05],
+            "vwap": [100.02, 100.07],
+            "close": [100.10, 100.12],
+        })
+        tca = transaction_cost_analysis(trades, market)
+        assert len(tca) == 2
+        assert tca["arrival_cost"].iloc[0] == pytest.approx(0.05)
+
+    def test_output_preserves_original_columns(self) -> None:
+        trades = pd.DataFrame({
+            "execution_price": [100.05],
+            "qty": [1000],
+            "side": ["buy"],
+        })
+        market = pd.DataFrame({
+            "arrival_price": [100.00],
+            "vwap": [100.02],
+            "close": [100.10],
+        })
+        tca = transaction_cost_analysis(trades, market)
+        assert "execution_price" in tca.columns
+        assert "qty" in tca.columns

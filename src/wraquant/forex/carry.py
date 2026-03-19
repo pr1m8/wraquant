@@ -165,3 +165,151 @@ def carry_attractiveness(
     if not df.empty:
         df = df.sort_values("differential", ascending=False).reset_index(drop=True)
     return df
+
+
+def carry_portfolio(
+    rates_dict: dict[str, float],
+    weights: dict[str, float] | None = None,
+    n_long: int = 3,
+    n_short: int = 3,
+) -> dict[str, object]:
+    """Construct a carry trade portfolio: long high-yield, short low-yield.
+
+    Use this to build a systematic carry strategy.  The portfolio goes
+    long the *n_long* highest-yielding currencies and short the *n_short*
+    lowest-yielding currencies.  If custom weights are provided, they
+    override the automatic equal-weight allocation.
+
+    This is the standard G10 carry trade approach used by institutional
+    investors.  It earns the interest rate differential but is exposed
+    to crash risk (carry unwinds).
+
+    Parameters:
+        rates_dict: Dictionary mapping currency codes to their annual
+            interest rates (e.g., ``{'USD': 0.05, 'JPY': 0.001,
+            'AUD': 0.04, 'EUR': 0.03, 'CHF': 0.015, 'NZD': 0.045}``).
+        weights: Optional custom weight for each currency.  If *None*,
+            equal-weights the long and short legs separately.
+        n_long: Number of currencies in the long leg (default 3).
+        n_short: Number of currencies in the short leg (default 3).
+
+    Returns:
+        Dictionary containing:
+
+        - **weights** (*dict*) -- Portfolio weights per currency.
+          Positive for long positions, negative for short positions.
+          Weights sum to approximately zero (dollar-neutral).
+        - **expected_carry** (*float*) -- Expected annualised carry
+          return (weighted sum of rates for longs minus shorts).
+        - **long_currencies** (*list*) -- Currencies in the long leg.
+        - **short_currencies** (*list*) -- Currencies in the short leg.
+
+    Example:
+        >>> rates = {'USD': 0.05, 'JPY': 0.001, 'AUD': 0.04,
+        ...          'EUR': 0.03, 'CHF': 0.015, 'NZD': 0.045}
+        >>> result = carry_portfolio(rates, n_long=2, n_short=2)
+        >>> result['expected_carry'] > 0
+        True
+        >>> len(result['long_currencies'])
+        2
+
+    See Also:
+        carry_attractiveness: Rank all pairs by carry differential.
+        carry_return: Full P&L including spot moves.
+    """
+    import numpy as np
+
+    sorted_currencies = sorted(rates_dict.keys(), key=lambda c: rates_dict[c], reverse=True)
+
+    long_ccys = sorted_currencies[:n_long]
+    short_ccys = sorted_currencies[-n_short:]
+
+    if weights is not None:
+        port_weights = {c: weights.get(c, 0.0) for c in sorted_currencies}
+    else:
+        # Equal weight within each leg, dollar-neutral
+        long_weight = 1.0 / n_long if n_long > 0 else 0.0
+        short_weight = -1.0 / n_short if n_short > 0 else 0.0
+        port_weights = {}
+        for c in long_ccys:
+            port_weights[c] = long_weight
+        for c in short_ccys:
+            port_weights[c] = short_weight
+
+    # Expected carry = sum(weight_i * rate_i)
+    expected_carry = sum(
+        port_weights.get(c, 0.0) * rates_dict[c] for c in rates_dict
+    )
+
+    return {
+        "weights": port_weights,
+        "expected_carry": float(expected_carry),
+        "long_currencies": long_ccys,
+        "short_currencies": short_ccys,
+    }
+
+
+def uncovered_interest_parity(
+    domestic_rate: float,
+    foreign_rate: float,
+    spot: float,
+    maturity: float = 1.0,
+) -> dict[str, float]:
+    """Uncovered Interest Rate Parity (UIP) expected future spot rate.
+
+    Use this to compute the expected future exchange rate implied by the
+    interest rate differential under UIP.  UIP states that the expected
+    depreciation of a currency equals the interest rate differential.
+
+    While Covered Interest Parity (CIP) holds by arbitrage, UIP is an
+    equilibrium condition that often fails empirically (the "forward
+    premium puzzle"), which is why carry trades can be profitable.
+
+    Formula:
+        E[S_T] = S * (1 + r_domestic * T) / (1 + r_foreign * T)
+
+    This is the same formula as Covered Interest Parity but interpreted
+    as the *expected* future spot rate rather than the no-arbitrage
+    forward rate.
+
+    Parameters:
+        domestic_rate: Annual interest rate of the domestic (base)
+            currency.
+        foreign_rate: Annual interest rate of the foreign (quote)
+            currency.
+        spot: Current spot exchange rate (domestic/foreign).
+        maturity: Horizon in years (default 1.0).
+
+    Returns:
+        Dictionary containing:
+
+        - **forward_rate** (*float*) -- UIP-implied expected future spot
+          rate.  If domestic rate > foreign rate, the domestic currency
+          is expected to depreciate (forward_rate > spot).
+        - **forward_premium** (*float*) -- Forward premium as a
+          percentage (``(forward - spot) / spot``).  Positive means the
+          domestic currency trades at a forward premium (expected to
+          depreciate).
+
+    Example:
+        >>> result = uncovered_interest_parity(0.05, 0.01, 1.1000, maturity=1.0)
+        >>> result['forward_rate'] > 1.1000  # domestic rate higher -> depreciation expected
+        True
+        >>> abs(result['forward_premium'] - 0.0396) < 0.01
+        True
+
+    Notes:
+        Reference: Fama (1984). "Forward and Spot Exchange Rates."
+        *Journal of Monetary Economics*, 14, 319-338.
+
+    See Also:
+        forward_premium: CIP-based forward rate calculation.
+        carry_return: Carry trade P&L (profits when UIP fails).
+    """
+    fwd = spot * (1 + domestic_rate * maturity) / (1 + foreign_rate * maturity)
+    premium = (fwd - spot) / spot if spot != 0 else 0.0
+
+    return {
+        "forward_rate": float(fwd),
+        "forward_premium": float(premium),
+    }

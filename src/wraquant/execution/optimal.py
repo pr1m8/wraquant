@@ -213,3 +213,118 @@ def execution_frontier(
         "expected_cost": costs,
         "std_dev": stds,
     }
+
+
+def bertsimas_lo(
+    total_shares: float,
+    n_periods: int,
+    volatility: float,
+    impact_coeff: float,
+    risk_aversion: float = 0.0,
+) -> dict[str, object]:
+    """Bertsimas-Lo (1998) optimal execution with discrete trading.
+
+    Use this for a discrete-time optimal execution model that minimises
+    expected cost plus a risk penalty.  Unlike Almgren-Chriss which
+    models continuous trading, Bertsimas-Lo explicitly works in discrete
+    periods and provides a closed-form solution under a linear
+    temporary impact model.
+
+    The optimal strategy in each period trades a constant fraction of
+    the remaining position.  With zero risk aversion, this simplifies
+    to the naive strategy of trading ``total_shares / n_periods`` per
+    period (linear liquidation).
+
+    Temporary impact model:
+        cost_t = impact_coeff * n_t^2
+
+    where n_t is the number of shares traded in period t.
+
+    Total expected cost:
+        E[cost] = impact_coeff * sum(n_t^2)
+
+    Parameters:
+        total_shares: Total shares to liquidate (positive).
+        n_periods: Number of discrete trading periods.
+        volatility: Per-period price volatility (standard deviation).
+        impact_coeff: Temporary impact coefficient.  The cost of
+            trading n shares in one period is ``impact_coeff * n^2``.
+        risk_aversion: Risk-aversion parameter (default 0.0 for
+            risk-neutral).  Higher values front-load execution to
+            reduce variance.
+
+    Returns:
+        Dictionary containing:
+
+        - **trajectory** (*NDArray*) -- Holdings path of length
+          ``n_periods + 1``, starting at *total_shares* and ending at 0.
+        - **trades** (*NDArray*) -- Shares traded per period (length
+          ``n_periods``).
+        - **expected_cost** (*float*) -- Expected total execution cost.
+        - **cost_variance** (*float*) -- Variance of execution cost
+          from holding risk.
+
+    Example:
+        >>> result = bertsimas_lo(10_000, n_periods=20, volatility=0.02,
+        ...                      impact_coeff=0.001, risk_aversion=0.0)
+        >>> result['trajectory'][0]
+        10000.0
+        >>> result['trajectory'][-1]
+        0.0
+        >>> len(result['trades'])
+        20
+
+    References:
+        - Bertsimas & Lo (1998), "Optimal Control of Execution Costs"
+          *Journal of Financial Markets*, 1(1), 1-50.
+
+    See Also:
+        almgren_chriss: Continuous-time optimal execution.
+        optimal_execution_cost: Evaluate a given trajectory.
+    """
+    if n_periods <= 0:
+        raise ValueError("n_periods must be positive")
+
+    # Compute optimal fraction to trade each period
+    # With risk aversion, the Bertsimas-Lo optimal strategy trades
+    # more aggressively early. The fraction depends on kappa.
+    if impact_coeff > 0 and risk_aversion > 0:
+        kappa_sq = risk_aversion * volatility**2 / impact_coeff
+        kappa = np.sqrt(kappa_sq) if kappa_sq > 0 else 0.0
+    else:
+        kappa = 0.0
+
+    trajectory = np.zeros(n_periods + 1, dtype=np.float64)
+    trajectory[0] = total_shares
+
+    if kappa < 1e-12:
+        # Risk-neutral: linear liquidation (trade equal amounts each period)
+        for j in range(1, n_periods + 1):
+            trajectory[j] = total_shares * (1.0 - j / n_periods)
+    else:
+        # Risk-averse: exponentially decaying trajectory
+        denom = np.sinh(kappa * n_periods)
+        if abs(denom) < 1e-15:
+            for j in range(1, n_periods + 1):
+                trajectory[j] = total_shares * (1.0 - j / n_periods)
+        else:
+            for j in range(1, n_periods + 1):
+                trajectory[j] = (
+                    total_shares * np.sinh(kappa * (n_periods - j)) / denom
+                )
+
+    trajectory[-1] = 0.0
+    trades = -np.diff(trajectory)  # positive = shares sold
+
+    # Expected cost = impact_coeff * sum(n_t^2)
+    expected_cost = float(impact_coeff * np.sum(trades**2))
+
+    # Variance from holding risk: sigma^2 * sum(x_t^2) for remaining positions
+    cost_variance = float(volatility**2 * np.sum(trajectory[1:] ** 2))
+
+    return {
+        "trajectory": trajectory,
+        "trades": trades,
+        "expected_cost": expected_cost,
+        "cost_variance": cost_variance,
+    }

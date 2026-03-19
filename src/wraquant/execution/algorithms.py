@@ -337,3 +337,295 @@ def arrival_price_benchmark(
         "arrival_cost": float(arrival_cost),
         "arrival_cost_bps": float(arrival_cost_bps),
     }
+
+
+def adaptive_schedule(
+    total_quantity: float,
+    market_volumes: pd.Series | NDArray[np.floating],
+    spread_series: pd.Series | NDArray[np.floating],
+    urgency: float = 0.5,
+) -> NDArray[np.floating]:
+    """Adapt execution schedule based on real-time microstructure signals.
+
+    Uses bid-ask spread and volume from the microstructure module to
+    dynamically adjust VWAP/TWAP schedules.  The core idea: trade more
+    aggressively when spreads are tight and volume is high (low execution
+    cost), and slow down when spreads widen or volume dries up.
+
+    This bridges ``execution`` and ``microstructure`` -- the schedule
+    responds to liquidity conditions rather than following a static plan.
+
+    The allocation for each interval is proportional to:
+
+        score_i = volume_i * (1 / spread_i)^urgency
+
+    where *urgency* controls how much the schedule responds to spread
+    changes.  Higher urgency means the algorithm shifts more volume
+    into tight-spread intervals.
+
+    Parameters:
+        total_quantity: Total quantity to execute (positive for buys).
+        market_volumes: Expected or observed market volume per interval.
+            Shape determines the number of intervals.
+        spread_series: Bid-ask spread (or effective spread) per interval.
+            Must have the same length as *market_volumes*.  Wider
+            spreads cause the algorithm to defer volume.
+        urgency: Urgency parameter in [0, 1].  Controls the trade-off
+            between execution speed and cost minimisation:
+
+            - ``0.0`` -- ignore spreads entirely (pure VWAP schedule).
+            - ``0.5`` -- balanced (default).  Moderate reallocation.
+            - ``1.0`` -- maximum spread sensitivity.  Concentrates
+              volume in the tightest-spread intervals.
+
+    Returns:
+        Quantity to execute in each interval.  Sum equals
+        *total_quantity*.  Intervals with wider spreads receive less
+        volume; intervals with higher volume and tighter spreads
+        receive more.
+
+    Example:
+        >>> import numpy as np
+        >>> volumes = np.array([1000, 2000, 1500, 3000, 2500])
+        >>> spreads = np.array([0.05, 0.02, 0.08, 0.03, 0.04])
+        >>> schedule = adaptive_schedule(10_000, volumes, spreads, urgency=0.5)
+        >>> np.isclose(schedule.sum(), 10_000)
+        True
+        >>> schedule[1] > schedule[2]  # more volume when spread is tight
+        True
+
+    Notes:
+        In production, feed live spread and volume data from
+        ``wraquant.microstructure.liquidity`` to dynamically re-plan
+        the remaining execution at each interval.
+
+    See Also:
+        vwap_schedule: Static volume-proportional scheduling.
+        twap_schedule: Equal-time scheduling.
+        wraquant.microstructure.liquidity.effective_spread: Spread input.
+    """
+    if not 0 <= urgency <= 1:
+        raise ValueError("urgency must be in [0, 1]")
+
+    vol = np.asarray(market_volumes, dtype=np.float64)
+    spr = np.asarray(spread_series, dtype=np.float64)
+
+    if len(vol) != len(spr):
+        raise ValueError(
+            f"market_volumes ({len(vol)}) and spread_series ({len(spr)}) "
+            "must have the same length"
+        )
+
+    # Avoid division by zero in spread
+    spr_safe = np.maximum(spr, 1e-10)
+
+    # Score: volume * inverse-spread^urgency
+    inv_spread_score = (1.0 / spr_safe) ** urgency
+    scores = vol * inv_spread_score
+
+    total_score = np.sum(scores)
+    if total_score <= 0:
+        # Fallback to uniform
+        return np.full(len(vol), total_quantity / len(vol), dtype=np.float64)
+
+    weights = scores / total_score
+    return total_quantity * weights
+
+
+def is_schedule(
+    total_quantity: float,
+    market_volumes: pd.Series | NDArray[np.floating],
+    alpha: float = 0.5,
+) -> NDArray[np.floating]:
+    """Implementation Shortfall (IS) optimal schedule.
+
+    Use this when you want to balance execution urgency against market
+    impact, following the simplified Almgren-Chriss intuition.  The
+    *alpha* parameter controls the trade-off: higher alpha front-loads
+    execution (reduces timing risk but increases impact); lower alpha
+    spreads execution more evenly (reduces impact but increases timing
+    risk).
+
+    The schedule allocates volume proportionally to a blend of uniform
+    (TWAP-like) and volume-proportional (VWAP-like) components, with
+    *alpha* controlling the blend:
+
+        allocation_i = alpha * (1/N) + (1 - alpha) * (V_i / sum(V))
+
+    Parameters:
+        total_quantity: Total quantity to execute (positive for buys).
+        market_volumes: Expected market volume per interval.  Shape
+            determines the number of intervals.
+        alpha: Urgency parameter in [0, 1].  Controls the balance
+            between front-loading (high alpha, TWAP-like urgency) and
+            volume-tracking (low alpha, VWAP-like patience):
+
+            - ``0.0`` -- pure VWAP (follow volume exactly).
+            - ``0.5`` -- balanced (default).
+            - ``1.0`` -- pure TWAP (ignore volume, equal slices).
+
+    Returns:
+        Quantity to execute in each interval.  Sum equals
+        *total_quantity*.
+
+    Example:
+        >>> import numpy as np
+        >>> volumes = np.array([1000, 2000, 1500, 3000, 2500])
+        >>> schedule = is_schedule(10_000, volumes, alpha=0.5)
+        >>> np.isclose(schedule.sum(), 10_000)
+        True
+        >>> schedule_urgent = is_schedule(10_000, volumes, alpha=0.9)
+        >>> np.std(schedule_urgent) < np.std(is_schedule(10_000, volumes, alpha=0.1))
+        True
+
+    References:
+        - Almgren & Chriss (2001), "Optimal Execution of Portfolio
+          Transactions"
+
+    See Also:
+        twap_schedule: Pure time-weighted scheduling.
+        vwap_schedule: Pure volume-weighted scheduling.
+        adaptive_schedule: Spread-aware dynamic scheduling.
+    """
+    if not 0 <= alpha <= 1:
+        raise ValueError("alpha must be in [0, 1]")
+
+    vol = np.asarray(market_volumes, dtype=np.float64)
+    n = len(vol)
+
+    # Uniform (TWAP) component
+    uniform = np.ones(n, dtype=np.float64) / n
+
+    # Volume-proportional (VWAP) component
+    total_vol = np.sum(vol)
+    if total_vol <= 0:
+        vol_weights = uniform.copy()
+    else:
+        vol_weights = vol / total_vol
+
+    # Blend
+    blended = alpha * uniform + (1 - alpha) * vol_weights
+    blended = blended / np.sum(blended)  # normalise
+
+    return total_quantity * blended
+
+
+def pov_schedule(
+    total_quantity: float,
+    market_volumes: pd.Series | NDArray[np.floating],
+    pov_rate: float = 0.1,
+) -> NDArray[np.floating]:
+    """Percentage of Volume (POV) schedule with constant participation.
+
+    Use this when you need to maintain a constant participation rate
+    across all intervals.  Unlike :func:`participation_rate_schedule`
+    which caps at *total_quantity*, this function explicitly models
+    constant-rate participation and returns the quantity per interval.
+
+    Each interval's allocation is ``pov_rate * market_volume_i``, with
+    the constraint that the cumulative allocation does not exceed
+    *total_quantity*.
+
+    Parameters:
+        total_quantity: Total quantity to execute.
+        market_volumes: Expected market volume per interval.
+        pov_rate: Target participation rate in (0, 1].  Common values:
+
+            - ``0.05`` -- 5% (very passive, minimal impact).
+            - ``0.10`` -- 10% (standard institutional).
+            - ``0.20`` -- 20% (moderately aggressive).
+            - ``0.30``+ -- aggressive (significant impact risk).
+
+    Returns:
+        Quantity to execute in each interval.  Each entry is at most
+        ``pov_rate * market_volume_i``.  Total may be less than
+        *total_quantity* if cumulative volume is insufficient.
+
+    Example:
+        >>> import numpy as np
+        >>> volumes = np.array([5000, 8000, 6000, 10000, 7000])
+        >>> schedule = pov_schedule(2000, volumes, pov_rate=0.10)
+        >>> schedule[0]  # 10% of 5000
+        500.0
+        >>> schedule.sum() <= 2000
+        True
+
+    See Also:
+        participation_rate_schedule: Similar but from the algorithms module.
+        is_schedule: Urgency-based IS schedule.
+    """
+    if not 0 < pov_rate <= 1:
+        raise ValueError("pov_rate must be in (0, 1]")
+
+    vol = np.asarray(market_volumes, dtype=np.float64)
+    schedule = np.zeros_like(vol)
+    remaining = total_quantity
+
+    for i in range(len(vol)):
+        desired = pov_rate * vol[i]
+        fill = min(desired, remaining)
+        schedule[i] = fill
+        remaining -= fill
+        if remaining <= 0:
+            break
+
+    return schedule
+
+
+def close_auction_allocation(
+    total_quantity: float,
+    historical_close_volume_pct: float = 0.2,
+) -> dict[str, float]:
+    """Reserve a portion of the order for the closing auction.
+
+    Use this when you want to participate in the closing auction
+    (MOC -- Market on Close) to benefit from the closing price, which
+    is the most common benchmark for fund NAV calculations and index
+    rebalancing.
+
+    Splits the order into a continuous-market portion (to be executed
+    throughout the day using TWAP/VWAP/IS) and a closing-auction
+    portion.  The close allocation is based on the historical fraction
+    of daily volume that occurs at the close.
+
+    Parameters:
+        total_quantity: Total quantity to execute.
+        historical_close_volume_pct: Historical fraction of daily volume
+            that trades at the close (default 0.20 = 20%).  This varies
+            by market:
+
+            - US equities: ~7-15% (higher on rebalance days).
+            - European equities: ~15-25%.
+            - Index constituents on rebalance: ~30-50%.
+
+    Returns:
+        Dictionary containing:
+
+        - **continuous_quantity** (*float*) -- Quantity to execute during
+          the continuous trading session.
+        - **close_quantity** (*float*) -- Quantity reserved for the
+          closing auction.
+        - **close_pct** (*float*) -- Fraction allocated to close.
+
+    Example:
+        >>> result = close_auction_allocation(10_000, historical_close_volume_pct=0.15)
+        >>> result['close_quantity']
+        1500.0
+        >>> result['continuous_quantity']
+        8500.0
+
+    See Also:
+        vwap_schedule: Schedule the continuous portion.
+        is_schedule: Schedule with urgency control.
+    """
+    if not 0 <= historical_close_volume_pct <= 1:
+        raise ValueError("historical_close_volume_pct must be in [0, 1]")
+
+    close_qty = total_quantity * historical_close_volume_pct
+    continuous_qty = total_quantity - close_qty
+
+    return {
+        "continuous_quantity": float(continuous_qty),
+        "close_quantity": float(close_qty),
+        "close_pct": float(historical_close_volume_pct),
+    }

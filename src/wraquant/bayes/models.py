@@ -26,6 +26,7 @@ __all__ = [
     "bayesian_portfolio_bl",
     "bayesian_volatility",
     "bayesian_cointegration",
+    "bayesian_regime_inference",
     "model_comparison",
 ]
 
@@ -1724,3 +1725,264 @@ def model_comparison(
     df = df.sort_values("rank")
 
     return df
+
+
+# ---------------------------------------------------------------------------
+# Bayesian regime inference — bayes/ → regimes/ bridge
+# ---------------------------------------------------------------------------
+
+
+def bayesian_regime_inference(
+    returns: np.ndarray,
+    n_regimes: int = 2,
+    n_samples: int = 2000,
+    seed: int | None = None,
+) -> "RegimeResult":
+    """Bayesian regime detection using conjugate priors.
+
+    Alternative to frequentist HMM (``wraquant.regimes.base.detect_regimes``)
+    that provides full posterior uncertainty on regime assignments and
+    transition probabilities.  Uses a Gibbs sampler with conjugate
+    Normal-Inverse-Gamma priors for each regime's mean and variance, and
+    a Dirichlet prior for transition probabilities.
+
+    This bridges ``bayes`` and ``regimes`` by returning a ``RegimeResult``
+    (the standard container from ``wraquant.regimes.base``), so the output
+    can be fed directly into downstream regime-aware portfolio or risk
+    functions.
+
+    The generative model is:
+
+        s_t | s_{t-1} ~ Categorical(transition_matrix[s_{t-1}])
+        r_t | s_t     ~ N(mu_{s_t}, sigma^2_{s_t})
+
+    with priors:
+
+        mu_k          ~ N(0, prior_var)
+        sigma^2_k     ~ InvGamma(alpha_0, beta_0)
+        transition[k] ~ Dirichlet(1, ..., 1)
+
+    Parameters:
+        returns: Return series, shape ``(T,)``.
+        n_regimes: Number of regimes to detect (default 2).
+        n_samples: Number of Gibbs samples to draw (after a burn-in
+            of ``n_samples // 2``).  More samples give smoother
+            posterior estimates.
+        seed: Random seed for reproducibility.
+
+    Returns:
+        RegimeResult with:
+
+        - ``states`` -- MAP (most probable) regime at each time step.
+        - ``probabilities`` -- Posterior regime probabilities (T, K).
+        - ``transition_matrix`` -- Posterior mean transition matrix.
+        - ``means`` -- Posterior mean returns per regime.
+        - ``covariances`` -- Posterior variance per regime.
+        - ``statistics`` -- Per-regime summary statistics.
+
+    Example:
+        >>> import numpy as np
+        >>> rng = np.random.default_rng(42)
+        >>> # Two-regime returns: low vol and high vol
+        >>> regime = np.concatenate([np.zeros(200), np.ones(200)]).astype(int)
+        >>> mu = np.array([0.001, -0.002])
+        >>> sigma = np.array([0.01, 0.03])
+        >>> returns = rng.normal(mu[regime], sigma[regime])
+        >>> result = bayesian_regime_inference(returns, n_regimes=2, seed=42)
+        >>> result.n_regimes
+        2
+        >>> result.states.shape
+        (400,)
+
+    Notes:
+        The Gibbs sampler alternates between:
+        1. Sampling regime states via forward-filtering backward-sampling.
+        2. Sampling regime parameters (mu, sigma^2) from conjugate posteriors.
+        3. Sampling transition probabilities from Dirichlet posteriors.
+
+    References:
+        - Chib (1996), "Calculating posterior distributions and modal
+          estimates in Markov mixture models"
+        - Hamilton (1989), "A new approach to the economic analysis of
+          nonstationary time series"
+
+    See Also:
+        wraquant.regimes.base.detect_regimes: Frequentist regime detection.
+        wraquant.regimes.base.RegimeResult: Standard result container.
+        bayesian_changepoint: Changepoint detection (different model).
+    """
+    import pandas as pd
+
+    from wraquant.regimes.base import RegimeResult
+
+    rng = np.random.default_rng(seed)
+    returns = np.asarray(returns, dtype=float).ravel()
+    T = len(returns)
+    K = n_regimes
+
+    burn_in = n_samples // 2
+    total_iter = n_samples + burn_in
+
+    # --- Initialise parameters ---
+    # K-means-like initialisation: sort returns and split into K groups
+    sorted_r = np.sort(returns)
+    chunk = T // K
+    mu = np.array([np.mean(sorted_r[i * chunk : (i + 1) * chunk]) for i in range(K)])
+    sigma2 = np.array([np.var(sorted_r[i * chunk : (i + 1) * chunk], ddof=1) + 1e-8 for i in range(K)])
+
+    # Transition matrix: high self-persistence
+    trans = np.full((K, K), 0.05 / max(K - 1, 1))
+    np.fill_diagonal(trans, 0.95)
+    trans = trans / trans.sum(axis=1, keepdims=True)
+
+    # States: initialise from closest mean
+    states = np.zeros(T, dtype=int)
+    for t in range(T):
+        states[t] = int(np.argmin([abs(returns[t] - mu[k]) for k in range(K)]))
+
+    # Prior hyperparameters
+    alpha_0 = 2.0  # InvGamma shape
+    beta_0 = 0.001  # InvGamma scale
+    mu_prior = 0.0
+    mu_prior_var = 1.0
+    dirichlet_alpha = np.ones(K)  # symmetric Dirichlet
+
+    # Storage for posterior samples
+    state_samples = np.zeros((n_samples, T), dtype=int)
+    trans_samples = np.zeros((n_samples, K, K))
+    mu_samples = np.zeros((n_samples, K))
+    sigma2_samples = np.zeros((n_samples, K))
+
+    for it in range(total_iter):
+        # --- Step 1: Sample states (forward-filtering backward-sampling) ---
+        # Forward pass: compute filtered probabilities
+        log_alpha = np.zeros((T, K))
+        for k in range(K):
+            log_alpha[0, k] = -0.5 * np.log(2 * np.pi * sigma2[k]) - 0.5 * (returns[0] - mu[k]) ** 2 / sigma2[k]
+        # Normalise
+        log_alpha[0] -= np.max(log_alpha[0])
+        alpha_filt = np.exp(log_alpha[0])
+        alpha_filt /= alpha_filt.sum()
+        log_alpha[0] = np.log(alpha_filt + 1e-300)
+
+        for t in range(1, T):
+            for k in range(K):
+                log_emit = -0.5 * np.log(2 * np.pi * sigma2[k]) - 0.5 * (returns[t] - mu[k]) ** 2 / sigma2[k]
+                # Sum over previous states
+                log_trans = np.log(trans[:, k] + 1e-300)
+                log_alpha[t, k] = log_emit + np.logaddexp.reduce(log_alpha[t - 1] + log_trans)
+            # Normalise to prevent underflow
+            max_la = np.max(log_alpha[t])
+            log_alpha[t] -= max_la
+            exp_la = np.exp(log_alpha[t])
+            exp_la /= exp_la.sum()
+            log_alpha[t] = np.log(exp_la + 1e-300)
+
+        # Backward sampling
+        # Sample last state
+        prob_T = np.exp(log_alpha[T - 1])
+        prob_T /= prob_T.sum()
+        states[T - 1] = rng.choice(K, p=prob_T)
+
+        for t in range(T - 2, -1, -1):
+            log_prob = log_alpha[t] + np.log(trans[:, states[t + 1]] + 1e-300)
+            log_prob -= np.max(log_prob)
+            prob = np.exp(log_prob)
+            prob /= prob.sum()
+            states[t] = rng.choice(K, p=prob)
+
+        # --- Step 2: Sample mu, sigma^2 for each regime ---
+        for k in range(K):
+            mask = states == k
+            n_k = int(mask.sum())
+            if n_k < 2:
+                # Not enough data; keep current values
+                continue
+            r_k = returns[mask]
+            y_bar = np.mean(r_k)
+
+            # Posterior for mu | sigma^2 (conjugate normal)
+            prior_prec = 1.0 / mu_prior_var
+            data_prec = n_k / sigma2[k]
+            post_prec = prior_prec + data_prec
+            post_mean = (prior_prec * mu_prior + data_prec * y_bar) / post_prec
+            mu[k] = rng.normal(post_mean, 1.0 / np.sqrt(post_prec))
+
+            # Posterior for sigma^2 (conjugate InvGamma)
+            a_post = alpha_0 + n_k / 2.0
+            b_post = beta_0 + 0.5 * np.sum((r_k - mu[k]) ** 2)
+            sigma2[k] = 1.0 / rng.gamma(a_post, 1.0 / max(b_post, 1e-12))
+            sigma2[k] = max(sigma2[k], 1e-10)
+
+        # --- Step 3: Sample transition matrix (Dirichlet posterior) ---
+        counts = np.zeros((K, K))
+        for t in range(T - 1):
+            counts[states[t], states[t + 1]] += 1
+        for k in range(K):
+            post_alpha = dirichlet_alpha + counts[k]
+            trans[k] = rng.dirichlet(post_alpha)
+
+        # Store after burn-in
+        if it >= burn_in:
+            idx = it - burn_in
+            state_samples[idx] = states.copy()
+            trans_samples[idx] = trans.copy()
+            mu_samples[idx] = mu.copy()
+            sigma2_samples[idx] = sigma2.copy()
+
+    # --- Compute posterior summaries ---
+    # Posterior regime probabilities: fraction of samples in each regime
+    probabilities = np.zeros((T, K))
+    for k in range(K):
+        probabilities[:, k] = np.mean(state_samples == k, axis=0)
+
+    # MAP states
+    map_states = np.argmax(probabilities, axis=1)
+
+    # Re-order by ascending volatility
+    post_sigma2_mean = sigma2_samples.mean(axis=0)
+    order = np.argsort(post_sigma2_mean)
+    state_map = {int(old): new for new, old in enumerate(order)}
+
+    map_states_ordered = np.array([state_map[int(s)] for s in map_states])
+    probs_ordered = probabilities[:, order]
+    mu_ordered = mu_samples.mean(axis=0)[order]
+    sigma2_ordered = post_sigma2_mean[order]
+
+    # Reorder transition matrix
+    trans_mean = trans_samples.mean(axis=0)
+    trans_ordered = trans_mean[np.ix_(order, order)]
+
+    # Compute per-regime statistics
+    records = []
+    for k in range(K):
+        mask = map_states_ordered == k
+        n_k = int(mask.sum())
+        r_k = returns[mask]
+        records.append({
+            "regime": k,
+            "mean": float(np.mean(r_k)) if n_k > 0 else 0.0,
+            "std": float(np.std(r_k, ddof=1)) if n_k > 1 else 0.0,
+            "pct_time": float(n_k / T),
+            "n_obs": n_k,
+        })
+    statistics = pd.DataFrame(records).set_index("regime")
+
+    return RegimeResult(
+        states=map_states_ordered,
+        probabilities=probs_ordered,
+        transition_matrix=trans_ordered,
+        n_regimes=K,
+        means=mu_ordered,
+        covariances=sigma2_ordered,
+        statistics=statistics,
+        method="bayesian_gibbs",
+        model=None,
+        metadata={
+            "n_samples": n_samples,
+            "burn_in": burn_in,
+            "mu_samples": mu_samples,
+            "sigma2_samples": sigma2_samples,
+            "trans_samples": trans_samples,
+        },
+    )

@@ -167,6 +167,7 @@ from wraquant.ml.features import (
     regime_features,
     return_features,
     rolling_features,
+    ta_features,
     technical_features,
     volatility_features,
 )
@@ -199,6 +200,7 @@ __all__ = [
     "rolling_features",
     "return_features",
     "technical_features",
+    "ta_features",
     "volatility_features",
     "microstructure_features",
     "label_fixed_horizon",

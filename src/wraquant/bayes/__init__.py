@@ -24,6 +24,7 @@ from wraquant.bayes.models import (
     bayesian_linear_regression,
     bayesian_portfolio,
     bayesian_portfolio_bl,
+    bayesian_regime_inference,
     bayesian_regression,
     bayesian_sharpe,
     bayesian_var,
@@ -49,6 +50,7 @@ __all__ = [
     "bayesian_portfolio_bl",
     "bayesian_volatility",
     "bayesian_cointegration",
+    "bayesian_regime_inference",
     "model_comparison",
     # mcmc.py — MCMC utilities (original)
     "metropolis_hastings",

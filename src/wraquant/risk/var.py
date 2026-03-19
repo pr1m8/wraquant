@@ -330,3 +330,120 @@ def garch_var(
         "breach_rate": breach_rate,
         "garch_params": params,
     }
+
+
+def greeks_var(
+    portfolio_greeks: dict[str, float],
+    spot: float,
+    vol: float,
+    rf: float = 0.0,
+    dt: float = 1 / 252,
+    spot_shock: float = 0.01,
+    vol_shock: float = 0.01,
+    n_scenarios: int = 10_000,
+    confidence: float = 0.95,
+    seed: int | None = None,
+) -> dict[str, float]:
+    """VaR approximation using portfolio Greeks (delta-gamma-vega).
+
+    Approximates portfolio P&L using a second-order Taylor expansion
+    with Greeks from the ``price/`` module, then estimates VaR from the
+    resulting P&L distribution.  This bridges ``price/`` (Greeks
+    computation) and ``risk/`` (VaR estimation).
+
+    The P&L approximation is:
+
+        PnL approx delta * dS + 0.5 * gamma * dS^2 + vega * d_sigma + theta * dt
+
+    where dS and d_sigma are simulated from normal distributions with
+    standard deviations *spot_shock * spot* and *vol_shock* respectively.
+
+    When to use:
+        Use delta-gamma-vega VaR for options portfolios where the P&L
+        is nonlinear in the underlying.  Standard (delta-only) VaR
+        underestimates risk for portfolios with significant gamma or
+        vega exposure.  Full revaluation VaR is more accurate but much
+        slower; this method is a fast approximation.
+
+    Parameters:
+        portfolio_greeks: Dictionary with portfolio-level Greeks.
+            Required keys: ``'delta'``, ``'gamma'``.
+            Optional keys: ``'vega'``, ``'theta'``.
+        spot: Current spot price of the underlying.
+        vol: Current implied volatility (annualised, e.g. 0.20 for 20%).
+        rf: Risk-free rate (annualised). Used for drift in spot dynamics.
+        dt: Time step as a fraction of a year (default 1/252 for one
+            trading day).
+        spot_shock: Standard deviation of the spot return used for
+            simulation (default 0.01 = 1%).  Typically set to
+            ``vol * sqrt(dt)`` for a realistic one-day shock.
+        vol_shock: Standard deviation of the volatility change
+            (default 0.01 = 1 vol point).
+        n_scenarios: Number of Monte Carlo scenarios (default 10,000).
+        confidence: VaR confidence level (default 0.95).
+        seed: Random seed for reproducibility.
+
+    Returns:
+        Dictionary containing:
+
+        - ``'var'`` (*float*) -- Estimated VaR (positive = loss).
+        - ``'cvar'`` (*float*) -- Estimated CVaR / Expected Shortfall.
+        - ``'mean_pnl'`` (*float*) -- Mean P&L across scenarios.
+        - ``'std_pnl'`` (*float*) -- Standard deviation of P&L.
+        - ``'delta_component'`` (*float*) -- VaR contribution from delta.
+        - ``'gamma_component'`` (*float*) -- VaR contribution from gamma.
+        - ``'vega_component'`` (*float*) -- VaR contribution from vega.
+        - ``'theta_component'`` (*float*) -- Deterministic theta P&L.
+
+    Example:
+        >>> greeks = {'delta': 100, 'gamma': -50, 'vega': 200, 'theta': -10}
+        >>> result = greeks_var(greeks, spot=100, vol=0.20, seed=42)
+        >>> result['var'] > 0
+        True
+        >>> result['cvar'] >= result['var']
+        True
+
+    Notes:
+        For a single option, compute Greeks with ``wraquant.price.greeks``
+        and pass them here.  For a portfolio, sum the Greeks across
+        positions first.
+
+    See Also:
+        value_at_risk: Standard return-based VaR.
+        wraquant.price.greeks: Compute option Greeks.
+    """
+    rng = np.random.default_rng(seed)
+
+    delta = portfolio_greeks.get("delta", 0.0)
+    gamma = portfolio_greeks.get("gamma", 0.0)
+    vega = portfolio_greeks.get("vega", 0.0)
+    theta = portfolio_greeks.get("theta", 0.0)
+
+    # Simulate spot and vol changes
+    dS = rng.normal(0, spot_shock * spot, size=n_scenarios)
+    d_sigma = rng.normal(0, vol_shock, size=n_scenarios)
+
+    # Taylor expansion P&L
+    delta_pnl = delta * dS
+    gamma_pnl = 0.5 * gamma * dS ** 2
+    vega_pnl = vega * d_sigma
+    theta_pnl = theta * dt
+
+    total_pnl = delta_pnl + gamma_pnl + vega_pnl + theta_pnl
+
+    # VaR and CVaR from the P&L distribution (losses are negative PnL)
+    loss_quantile = np.percentile(total_pnl, (1 - confidence) * 100)
+    var_estimate = -loss_quantile
+    tail = total_pnl[total_pnl <= loss_quantile]
+    cvar_estimate = float(-np.mean(tail)) if len(tail) > 0 else var_estimate
+
+    return {
+        "var": float(var_estimate),
+        "cvar": float(cvar_estimate),
+        "mean_pnl": float(np.mean(total_pnl)),
+        "std_pnl": float(np.std(total_pnl)),
+        "delta_component": float(np.std(delta_pnl)),
+        "gamma_component": float(np.std(gamma_pnl)),
+        "vega_component": float(np.std(vega_pnl)),
+        "theta_component": float(theta_pnl),
+    }
