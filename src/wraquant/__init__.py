@@ -49,6 +49,15 @@ from wraquant.core.types import (
     WeightsArray,
 )
 from wraquant.frame.factory import frame, series
+from wraquant.compose import (
+    Workflow,
+    WorkflowResult,
+    ml_workflow,
+    portfolio_workflow,
+    quick_analysis_workflow,
+    risk_workflow,
+    steps,
+)
 from wraquant.frame.ops import (
     cumulative_returns,
     drawdowns,
@@ -112,6 +121,14 @@ __all__ = [
     "rolling_std",
     "ewm_mean",
     "resample",
+    # Compose
+    "Workflow",
+    "WorkflowResult",
+    "steps",
+    "quick_analysis_workflow",
+    "risk_workflow",
+    "ml_workflow",
+    "portfolio_workflow",
     # Convenience functions
     "detect_regimes",
     "forecast",
