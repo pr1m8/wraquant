@@ -59,6 +59,7 @@ from wraquant.frame.ops import (
     rolling_mean,
     rolling_std,
 )
+from wraquant.recipes import analyze
 
 __version__ = "0.1.0"
 
@@ -115,6 +116,7 @@ __all__ = [
     "detect_regimes",
     "forecast",
     "backtest",
+    "analyze",
 ]
 
 # Lazy-loaded submodules — only imported when first accessed
