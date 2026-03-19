@@ -4,6 +4,47 @@ All notable changes to wraquant will be documented in this file.
 
 ## [Unreleased]
 
+### Features
+
+- **infra**: Add project infrastructure
+- **core**: Add core foundation, types, frame abstraction
+- **data**: Add data fetching layer with provider registry
+- Add optimization, backtesting, volatility, forex modules
+- Add stats, time series, risk, and regime detection modules
+- **viz**: Add visualization module with matplotlib charts
+- Add data cleaning/validation/transforms and ML/AI modules
+- Add technical analysis, pricing, math, and I/O modules
+- Add experiment, cointegration, regression, factor, and extended optimization modules
+- **econometrics**: Add comprehensive econometrics module
+- Add factor analysis, distribution tests, backtest events/position/tearsheet
+- Add stress testing, copulas, DCC, credit/survival risk, Monte Carlo, and Plotly viz
+- Deep-integrate optional packages across all modules
+- Add microstructure, execution, causal, bayes modules and Lévy/network math
+- **ta**: Massively expand TA module to 150+ indicators
+- **ta**: Expand to 263 indicators across 19 modules
+- Fix architecture issues, add flow/scale/bayes/regimes integrations
+- Deep implementations for vol, regimes, viz, and ML modules
+- Deep implementations across vol, regimes, ts, price, backtest, ml, stats + rich docstrings
+- Cross-module integration, result dataclasses, agents/skills
+- Deepen all weak modules + GARCH dedup + KDE + ARCHITECTURE.md
+- Consolidation pass — dedup, exports, validators, rich docstrings
+- Dramatic risk overhaul + See Also cross-references
+- Cross-module integration recipes + wq.analyze()
+
+### Bug Fixes
+
+- **risk**: Add copulas/pyextremes to risk group module check
+- Patch py-vollib for Python 3.13, fix pyvinecopulib/dowhy API compat
+
+### Refactor
+
+- **deps**: Slim core dependencies, add optional groups
+
+### Documentation
+
+- **examples**: Add 10 comprehensive example scripts
+- Update CLAUDE.md with full module map, docstring standard, quality bar
+
 ### Miscellaneous
 
 - **repo**: Initial commit

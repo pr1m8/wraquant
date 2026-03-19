@@ -269,6 +269,7 @@ test-cov = "pytest tests/ --cov=wraquant --cov-report=term-missing"
 lint = "trunk check"
 fmt = "trunk fmt"
 changelog = "git-cliff -o CHANGELOG.md"
+docs = "sphinx-build docs docs/_build/html"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -287,3 +288,12 @@ disallow_untyped_defs = true
 [tool.pyright]
 pythonVersion = "3.13"
 typeCheckingMode = "basic"
+
+[tool.coverage.run]
+source = ["wraquant"]
+omit = ["*/tests/*", "*/_compat.py"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+fail_under = 60

@@ -1,0 +1,19 @@
+name: Docs
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: pip install pdm
+      - run: pdm install -G dev
+      - run: pdm run pip install sphinx sphinx-rtd-theme sphinx-autodoc-typehints myst-parser
+      - name: Build docs
+        run: pdm run sphinx-build docs docs/_build/html
