@@ -77,6 +77,29 @@ signals = rsi(prices, period=14)
 | `vol` | 28 | GARCH family, Hawkes, stochastic volatility |
 | `bayes` | 28 | Bayesian inference, MCMC, model comparison |
 
+## Interactive Dashboard
+
+wraquant includes an optional Streamlit dashboard for interactive analysis:
+
+```bash
+pip install wraquant[dashboard]
+```
+
+```python
+from wraquant.dashboard import launch
+launch()
+# Or: python -m wraquant.dashboard
+```
+
+The dashboard provides six pages:
+
+- **Experiment Browser** -- Browse and compare experiment results from the Lab API
+- **Strategy Analysis** -- Upload returns CSV for comprehensive analysis (metrics, risk, regimes, distribution)
+- **Risk Monitor** -- VaR/CVaR, rolling volatility, GARCH VaR, stress testing
+- **Regime Viewer** -- Interactive regime detection (HMM/GMM/changepoint) with overlay plots
+- **Portfolio Optimizer** -- Multi-asset optimization (MVO, risk parity) with risk decomposition
+- **TA Screener** -- Apply 265 technical indicators to OHLCV data with interactive charts
+
 ## Documentation
 
 Full API documentation: [wraquant.readthedocs.io](https://wraquant.readthedocs.io)

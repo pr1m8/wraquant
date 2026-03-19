@@ -143,6 +143,7 @@ _LAZY_SUBMODULES = {
     "microstructure",
     "execution",
     "causal",
+    "dashboard",
 }
 
 

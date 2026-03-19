@@ -255,6 +255,7 @@ viz = [
   "pyvista>=0.47.1",
 ]
 scale = ["dask>=2026.1.2", "dask-ml>=2025.1.0", "ray>=2.54.0"]
+dashboard = ["streamlit>=1.45.0", "plotly>=6.6.0"]
 [build-system]
 requires = ["pdm-backend"]
 build-backend = "pdm.backend"
