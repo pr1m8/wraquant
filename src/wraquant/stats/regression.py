@@ -36,6 +36,8 @@ import numpy as np
 import pandas as pd
 import statsmodels.api as sm
 
+from wraquant.core._coerce import coerce_array
+
 
 def ols(
     y: pd.Series | np.ndarray,
@@ -93,7 +95,7 @@ def ols(
         newey_west_ols: OLS with HAC-robust standard errors.
         rolling_ols: Time-varying coefficient estimation.
     """
-    y_arr = np.asarray(y, dtype=float)
+    y_arr = coerce_array(y, "y")
     X_arr = np.asarray(X, dtype=float)
 
     if add_constant:
@@ -278,9 +280,9 @@ def wls(
         ols: Unweighted OLS (assumes homoskedasticity).
         newey_west_ols: OLS with robust standard errors.
     """
-    y_arr = np.asarray(y, dtype=float)
+    y_arr = coerce_array(y, "y")
     X_arr = np.asarray(X, dtype=float)
-    w_arr = np.asarray(weights, dtype=float)
+    w_arr = coerce_array(weights, "weights")
 
     if add_constant:
         X_arr = sm.add_constant(X_arr)
@@ -522,7 +524,7 @@ def newey_west_ols(
           Heteroskedasticity and Autocorrelation Consistent Covariance
           Matrix"
     """
-    y_arr = np.asarray(y, dtype=float)
+    y_arr = coerce_array(y, "y")
     X_arr = np.asarray(X, dtype=float)
 
     if add_constant:

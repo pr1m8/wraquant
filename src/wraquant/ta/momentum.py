@@ -82,7 +82,7 @@ def rsi(data: pd.Series, period: int = 14) -> pd.Series:
     pd.Series
         RSI values in the range [0, 100].
     """
-    _validate_series(data)
+    data = _validate_series(data)
     _validate_period(period)
 
     delta = data.diff()
@@ -130,9 +130,9 @@ def stochastic(
     dict[str, pd.Series]
         ``k`` (%K) and ``d`` (%D), both in [0, 100].
     """
-    _validate_series(high, "high")
-    _validate_series(low, "low")
-    _validate_series(close, "close")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
+    close = _validate_series(close, "close")
 
     lowest_low = low.rolling(window=k_period, min_periods=k_period).min()
     highest_high = high.rolling(window=k_period, min_periods=k_period).max()
@@ -177,7 +177,7 @@ def stochastic_rsi(
     dict[str, pd.Series]
         ``k`` and ``d``, both in [0, 100].
     """
-    _validate_series(data)
+    data = _validate_series(data)
     _validate_period(period)
 
     rsi_val = rsi(data, period)
@@ -223,7 +223,7 @@ def macd(
     dict[str, pd.Series]
         ``macd``, ``signal``, ``histogram``.
     """
-    _validate_series(data)
+    data = _validate_series(data)
 
     fast_ema = _ema(data, fast)
     slow_ema = _ema(data, slow)
@@ -267,9 +267,9 @@ def williams_r(
     pd.Series
         Williams %R values in [-100, 0].
     """
-    _validate_series(high, "high")
-    _validate_series(low, "low")
-    _validate_series(close, "close")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
+    close = _validate_series(close, "close")
     _validate_period(period)
 
     highest_high = high.rolling(window=period, min_periods=period).max()
@@ -311,9 +311,9 @@ def cci(
     pd.Series
         CCI values (unbounded).
     """
-    _validate_series(high, "high")
-    _validate_series(low, "low")
-    _validate_series(close, "close")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
+    close = _validate_series(close, "close")
     _validate_period(period)
 
     tp = (high + low + close) / 3.0
@@ -346,7 +346,7 @@ def roc(data: pd.Series, period: int = 10) -> pd.Series:
     pd.Series
         Percentage rate of change.
     """
-    _validate_series(data)
+    data = _validate_series(data)
     _validate_period(period)
 
     result = ((data - data.shift(period)) / data.shift(period)) * 100.0
@@ -374,7 +374,7 @@ def momentum(data: pd.Series, period: int = 10) -> pd.Series:
     pd.Series
         Momentum values.
     """
-    _validate_series(data)
+    data = _validate_series(data)
     _validate_period(period)
 
     result = data - data.shift(period)
@@ -411,7 +411,7 @@ def tsi(
     dict[str, pd.Series]
         ``tsi`` and ``signal``.
     """
-    _validate_series(data)
+    data = _validate_series(data)
 
     diff = data.diff()
     double_smoothed = _ema(_ema(diff, long), short)
@@ -456,8 +456,8 @@ def awesome_oscillator(
     pd.Series
         AO values.
     """
-    _validate_series(high, "high")
-    _validate_series(low, "low")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
 
     median_price = (high + low) / 2.0
     result = (
@@ -499,7 +499,7 @@ def ppo(
     dict[str, pd.Series]
         ``ppo``, ``signal``, ``histogram``.
     """
-    _validate_series(data)
+    data = _validate_series(data)
 
     fast_ema = _ema(data, fast)
     slow_ema = _ema(data, slow)
@@ -549,9 +549,9 @@ def ultimate_oscillator(
     pd.Series
         Ultimate Oscillator values in [0, 100].
     """
-    _validate_series(high, "high")
-    _validate_series(low, "low")
-    _validate_series(close, "close")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
+    close = _validate_series(close, "close")
 
     prev_close = close.shift(1)
     buying_pressure = close - pd.concat([low, prev_close], axis=1).min(axis=1)
@@ -598,7 +598,7 @@ def cmo(data: pd.Series, period: int = 14) -> pd.Series:
     pd.Series
         CMO values in [-100, 100].
     """
-    _validate_series(data)
+    data = _validate_series(data)
     _validate_period(period)
 
     delta = data.diff()
@@ -635,7 +635,7 @@ def dpo(data: pd.Series, period: int = 20) -> pd.Series:
     pd.Series
         DPO values (unbounded).
     """
-    _validate_series(data)
+    data = _validate_series(data)
     _validate_period(period)
 
     shift_amt = period // 2 + 1
@@ -699,7 +699,7 @@ def kst(
     >>> result = kst(close)
     >>> result["kst"]
     """
-    _validate_series(data)
+    data = _validate_series(data)
 
     r1 = data.pct_change(periods=roc1) * 100.0
     r2 = data.pct_change(periods=roc2) * 100.0
@@ -758,7 +758,7 @@ def connors_rsi(
     -------
     >>> result = connors_rsi(close)
     """
-    _validate_series(data)
+    data = _validate_series(data)
     _validate_period(rsi_period, "rsi_period")
     _validate_period(streak_period, "streak_period")
     _validate_period(rank_period, "rank_period")
@@ -825,8 +825,8 @@ def fisher_transform(
     >>> result = fisher_transform(high, low)
     >>> result["fisher"]
     """
-    _validate_series(high, "high")
-    _validate_series(low, "low")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
     _validate_period(period)
 
     midpoint = (high + low) / 2.0
@@ -896,9 +896,9 @@ def elder_ray(
     >>> result = elder_ray(high, low, close)
     >>> result["bull_power"]
     """
-    _validate_series(high, "high")
-    _validate_series(low, "low")
-    _validate_series(close, "close")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
+    close = _validate_series(close, "close")
     _validate_period(period)
 
     ema_close = _ema(close, period)
@@ -945,8 +945,8 @@ def aroon_oscillator(
     -------
     >>> result = aroon_oscillator(high, low, period=25)
     """
-    _validate_series(high, "high")
-    _validate_series(low, "low")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
     _validate_period(period)
 
     aroon_up = high.rolling(window=period + 1, min_periods=period + 1).apply(
@@ -993,7 +993,7 @@ def chande_forecast_oscillator(
     -------
     >>> result = chande_forecast_oscillator(close, period=14)
     """
-    _validate_series(data)
+    data = _validate_series(data)
     _validate_period(period)
 
     def _linreg_forecast(window: np.ndarray) -> float:
@@ -1049,10 +1049,10 @@ def balance_of_power(
     -------
     >>> result = balance_of_power(open_, high, low, close)
     """
-    _validate_series(open_, "open_")
-    _validate_series(high, "high")
-    _validate_series(low, "low")
-    _validate_series(close, "close")
+    open_ = _validate_series(open_, "open_")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
+    close = _validate_series(close, "close")
     _validate_period(period)
 
     hl_range = high - low
@@ -1095,8 +1095,8 @@ def qstick(
     -------
     >>> result = qstick(open_, close, period=14)
     """
-    _validate_series(open_, "open_")
-    _validate_series(close, "close")
+    open_ = _validate_series(open_, "open_")
+    close = _validate_series(close, "close")
     _validate_period(period)
 
     co_diff = close - open_
@@ -1140,7 +1140,7 @@ def coppock_curve(
     -------
     >>> result = coppock_curve(close)
     """
-    _validate_series(data)
+    data = _validate_series(data)
     _validate_period(wma_period, "wma_period")
     _validate_period(long_roc, "long_roc")
     _validate_period(short_roc, "short_roc")
@@ -1199,10 +1199,10 @@ def relative_vigor_index(
     >>> result = relative_vigor_index(open_, high, low, close)
     >>> result["rvi"]
     """
-    _validate_series(open_, "open_")
-    _validate_series(high, "high")
-    _validate_series(low, "low")
-    _validate_series(close, "close")
+    open_ = _validate_series(open_, "open_")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
+    close = _validate_series(close, "close")
     _validate_period(period)
 
     co = close - open_
@@ -1266,7 +1266,7 @@ def schaff_momentum(
     -------
     >>> result = schaff_momentum(close, period=10)
     """
-    _validate_series(data)
+    data = _validate_series(data)
     _validate_period(period)
 
     macd_line = _ema(data, fast) - _ema(data, slow)
@@ -1347,7 +1347,7 @@ def price_momentum_oscillator(
     >>> result = price_momentum_oscillator(close)
     >>> result["pmo"]
     """
-    _validate_series(data)
+    data = _validate_series(data)
     _validate_period(short, "short")
     _validate_period(long, "long")
     _validate_period(signal, "signal")
@@ -1409,10 +1409,10 @@ def klinger_oscillator(
     >>> result = klinger_oscillator(high, low, close, volume)
     >>> result["kvo"]
     """
-    _validate_series(high, "high")
-    _validate_series(low, "low")
-    _validate_series(close, "close")
-    _validate_series(volume, "volume")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
+    close = _validate_series(close, "close")
+    volume = _validate_series(volume, "volume")
 
     hlc3 = (high + low + close) / 3.0
     trend = np.sign(hlc3 - hlc3.shift(1))
@@ -1490,9 +1490,9 @@ def stochastic_momentum_index(
     >>> result = stochastic_momentum_index(high, low, close)
     >>> result["smi"]
     """
-    _validate_series(high, "high")
-    _validate_series(low, "low")
-    _validate_series(close, "close")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
+    close = _validate_series(close, "close")
     _validate_period(period)
 
     highest_high = high.rolling(window=period, min_periods=period).max()
@@ -1554,9 +1554,9 @@ def inertia(
     -------
     >>> result = inertia(close, high, low)
     """
-    _validate_series(close, "close")
-    _validate_series(high, "high")
-    _validate_series(low, "low")
+    close = _validate_series(close, "close")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
     _validate_period(rvi_period, "rvi_period")
     _validate_period(linreg_period, "linreg_period")
 
@@ -1629,9 +1629,9 @@ def squeeze_histogram(
     -------
     >>> result = squeeze_histogram(high, low, close)
     """
-    _validate_series(high, "high")
-    _validate_series(low, "low")
-    _validate_series(close, "close")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
+    close = _validate_series(close, "close")
     _validate_period(period)
     _validate_period(linreg_period, "linreg_period")
 
@@ -1687,7 +1687,7 @@ def center_of_gravity(
     -------
     >>> result = center_of_gravity(close, period=10)
     """
-    _validate_series(data)
+    data = _validate_series(data)
     _validate_period(period)
 
     weights = np.arange(1, period + 1, dtype=float)
@@ -1734,7 +1734,7 @@ def psychological_line(
     -------
     >>> result = psychological_line(close, period=12)
     """
-    _validate_series(data)
+    data = _validate_series(data)
     _validate_period(period)
 
     up = (data.diff() > 0).astype(float)

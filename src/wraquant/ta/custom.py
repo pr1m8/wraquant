@@ -105,9 +105,9 @@ def squeeze_momentum(
     >>> lo = c - abs(np.random.randn(n) * 0.3)
     >>> result = squeeze_momentum(h, lo, c)  # doctest: +SKIP
     """
-    _validate_series(high, "high")
-    _validate_series(low, "low")
-    _validate_series(close, "close")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
+    close = _validate_series(close, "close")
 
     # Bollinger Bands
     bb_mid = _sma(close, bb_period)
@@ -195,8 +195,8 @@ def anchored_vwap(
     >>> volume = pd.Series([100, 200, 150, 300, 250, 100, 200, 150, 300, 250], dtype=float)
     >>> anchored_vwap(close, volume, anchor_index=3)  # doctest: +SKIP
     """
-    _validate_series(close, "close")
-    _validate_series(volume, "volume")
+    close = _validate_series(close, "close")
+    volume = _validate_series(volume, "volume")
 
     pv = close * volume
     result = pd.Series(np.nan, index=close.index, name="anchored_vwap")
@@ -244,7 +244,7 @@ def linear_regression_channel(
     >>> close = pd.Series(100 + np.arange(120, dtype=float) * 0.5)
     >>> result = linear_regression_channel(close, period=50)  # doctest: +SKIP
     """
-    _validate_series(data)
+    data = _validate_series(data)
     _validate_period(period)
     values = data.values.astype(float)
     n = len(values)
@@ -316,9 +316,9 @@ def pivot_points(
     >>> c = pd.Series([11, 12, 13, 12, 11], dtype=float)
     >>> result = pivot_points(h, lo, c)  # doctest: +SKIP
     """
-    _validate_series(high, "high")
-    _validate_series(low, "low")
-    _validate_series(close, "close")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
+    close = _validate_series(close, "close")
 
     h_prev = high.shift(1)
     l_prev = low.shift(1)
@@ -397,8 +397,8 @@ def market_structure(
     >>> lo = h - 2
     >>> result = market_structure(h, lo, lookback=3)  # doctest: +SKIP
     """
-    _validate_series(high, "high")
-    _validate_series(low, "low")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
     _validate_period(lookback, "lookback")
 
     n = len(high)
@@ -493,8 +493,8 @@ def swing_points(
     >>> lo = h - 2
     >>> result = swing_points(h, lo, lookback=3)  # doctest: +SKIP
     """
-    _validate_series(high, "high")
-    _validate_series(low, "low")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
     _validate_period(lookback, "lookback")
 
     n = len(high)
@@ -562,8 +562,8 @@ def volume_weighted_macd(
     >>> v = pd.Series(np.random.randint(1000, 10000, 100), dtype=float)
     >>> result = volume_weighted_macd(c, v)  # doctest: +SKIP
     """
-    _validate_series(close, "close")
-    _validate_series(volume, "volume")
+    close = _validate_series(close, "close")
+    volume = _validate_series(volume, "volume")
 
     def _vwma(price: pd.Series, vol: pd.Series, period: int) -> pd.Series:
         pv = price * vol
@@ -622,8 +622,8 @@ def ehlers_fisher(
     >>> lo = h - 2
     >>> result = ehlers_fisher(h, lo)  # doctest: +SKIP
     """
-    _validate_series(high, "high")
-    _validate_series(low, "low")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
     _validate_period(period)
 
     hl2 = (high + low) / 2.0
@@ -707,7 +707,7 @@ def adaptive_rsi(
     >>> close = pd.Series(100 + np.cumsum(np.random.randn(200) * 0.5))
     >>> adaptive_rsi(close)  # doctest: +SKIP
     """
-    _validate_series(data)
+    data = _validate_series(data)
     _validate_period(base_period)
 
     n = len(data)
@@ -781,8 +781,8 @@ def relative_strength(
     >>> index = pd.Series([1000, 1010, 1005, 1015, 1020], dtype=float)
     >>> relative_strength(stock, index)  # doctest: +SKIP
     """
-    _validate_series(data, "data")
-    _validate_series(benchmark, "benchmark")
+    data = _validate_series(data, "data")
+    benchmark = _validate_series(benchmark, "benchmark")
 
     result = data / benchmark
     result.name = "relative_strength"
@@ -825,7 +825,7 @@ def linear_regression_forecast(
     >>> close = pd.Series(100 + np.arange(50, dtype=float) * 0.5)
     >>> linear_regression_forecast(close, period=20, forecast_bars=1)  # doctest: +SKIP
     """
-    _validate_series(data)
+    data = _validate_series(data)
     _validate_period(period)
 
     values = data.values.astype(float)
@@ -886,7 +886,7 @@ def standard_error_bands(
     >>> close = pd.Series(100 + np.arange(50, dtype=float) * 0.5)
     >>> result = standard_error_bands(close, period=20)  # doctest: +SKIP
     """
-    _validate_series(data)
+    data = _validate_series(data)
     _validate_period(period)
 
     values = data.values.astype(float)
@@ -962,7 +962,7 @@ def r_squared_indicator(
     >>> close = pd.Series(100 + np.arange(50, dtype=float) * 0.5)
     >>> r_squared_indicator(close, period=14)  # doctest: +SKIP
     """
-    _validate_series(data)
+    data = _validate_series(data)
     _validate_period(period)
 
     values = data.values.astype(float)
@@ -1028,7 +1028,7 @@ def polynomial_regression(
     >>> close = pd.Series(100 + np.arange(50, dtype=float) ** 1.5 * 0.01)
     >>> polynomial_regression(close, period=20, degree=2)  # doctest: +SKIP
     """
-    _validate_series(data)
+    data = _validate_series(data)
     _validate_period(period)
     if degree < 1:
         raise ValueError(f"degree must be >= 1, got {degree}")
@@ -1081,7 +1081,7 @@ def raff_regression_channel(
     >>> close = pd.Series(100 + np.arange(80, dtype=float) * 0.5)
     >>> result = raff_regression_channel(close, period=50)  # doctest: +SKIP
     """
-    _validate_series(data)
+    data = _validate_series(data)
     _validate_period(period)
 
     values = data.values.astype(float)
@@ -1152,7 +1152,7 @@ def detrended_regression(
     >>> close = pd.Series(100 + np.arange(50, dtype=float) * 0.5)
     >>> detrended_regression(close, period=20)  # doctest: +SKIP
     """
-    _validate_series(data)
+    data = _validate_series(data)
     _validate_period(period)
 
     values = data.values.astype(float)

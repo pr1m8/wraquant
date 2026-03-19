@@ -67,9 +67,9 @@ class TestZScore:
         valid = result.dropna()
         assert valid.isna().all() or (valid.abs() < 1e-10).all()
 
-    def test_type_error(self) -> None:
-        with pytest.raises(TypeError):
-            zscore([1, 2, 3])  # type: ignore[arg-type]
+    def test_accepts_list_input(self) -> None:
+        result = zscore(list(range(1, 30)))
+        assert isinstance(result, pd.Series)
 
 
 # ---------------------------------------------------------------------------

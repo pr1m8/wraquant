@@ -30,6 +30,8 @@ import numpy as np
 import pandas as pd
 from sklearn.covariance import OAS, LedoitWolf, ShrunkCovariance
 
+from wraquant.core._coerce import coerce_array, coerce_dataframe, coerce_series
+
 
 def correlation_matrix(
     returns: pd.DataFrame,
@@ -76,6 +78,7 @@ def correlation_matrix(
         wraquant.risk.copulas.rank_correlation: Kendall/Spearman for
             copula analysis.
     """
+    returns = coerce_dataframe(returns, "returns")
     return returns.corr(method=method)
 
 
@@ -221,6 +224,8 @@ def rolling_correlation(
         wraquant.risk.dcc.rolling_correlation_dcc: DCC-GARCH-based
             dynamic correlation.
     """
+    x = coerce_series(x, "x")
+    y = coerce_series(y, "y")
     return x.rolling(window).corr(y)
 
 
@@ -386,8 +391,8 @@ def distance_correlation(
         correlation_matrix: Linear (Pearson) correlation.
         mutual_information: Information-theoretic dependence measure.
     """
-    x_arr = np.asarray(x, dtype=float).ravel()
-    y_arr = np.asarray(y, dtype=float).ravel()
+    x_arr = coerce_array(x, "x")
+    y_arr = coerce_array(y, "y")
 
     # Remove NaN pairs
     mask = ~(np.isnan(x_arr) | np.isnan(y_arr))
@@ -494,8 +499,8 @@ def kendall_tau(
     """
     from scipy import stats as sp_stats
 
-    x_arr = np.asarray(x, dtype=float).ravel()
-    y_arr = np.asarray(y, dtype=float).ravel()
+    x_arr = coerce_array(x, "x")
+    y_arr = coerce_array(y, "y")
 
     mask = ~(np.isnan(x_arr) | np.isnan(y_arr))
     x_arr = x_arr[mask]
@@ -579,8 +584,8 @@ def mutual_information(
         distance_correlation: Another non-linear dependence measure.
         correlation_matrix: Linear dependence only.
     """
-    x_arr = np.asarray(x, dtype=float).ravel()
-    y_arr = np.asarray(y, dtype=float).ravel()
+    x_arr = coerce_array(x, "x")
+    y_arr = coerce_array(y, "y")
 
     mask = ~(np.isnan(x_arr) | np.isnan(y_arr))
     x_arr = x_arr[mask]
@@ -705,8 +710,8 @@ def correlation_significance(
     """
     from scipy import stats as sp_stats
 
-    x_arr = np.asarray(x, dtype=float).ravel()
-    y_arr = np.asarray(y, dtype=float).ravel()
+    x_arr = coerce_array(x, "x")
+    y_arr = coerce_array(y, "y")
 
     mask = ~(np.isnan(x_arr) | np.isnan(y_arr))
     x_arr = x_arr[mask]

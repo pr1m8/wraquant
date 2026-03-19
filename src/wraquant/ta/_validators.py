@@ -4,12 +4,15 @@ from __future__ import annotations
 
 import pandas as pd
 
+from wraquant.core._coerce import coerce_series as _coerce
 
-def validate_series(data: pd.Series, name: str = "data") -> pd.Series:
-    """Ensure *data* is a ``pd.Series``; raise ``TypeError`` otherwise."""
-    if not isinstance(data, pd.Series):
-        raise TypeError(f"{name} must be a pd.Series, got {type(data).__name__}")
-    return data
+
+def validate_series(data, name: str = "data") -> pd.Series:
+    """Coerce input to pd.Series. Accepts Series, ndarray, list, tuple."""
+    if isinstance(data, pd.Series):
+        return data
+    # Auto-convert instead of raising
+    return _coerce(data, name=name)
 
 
 def validate_period(period: int, name: str = "period") -> int:

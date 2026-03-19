@@ -354,9 +354,9 @@ class TestKaufmanEfficiencyRatio:
 
 
 class TestValidation:
-    def test_non_series_raises(self) -> None:
-        with pytest.raises(TypeError):
-            alma([1, 2, 3], period=3)  # type: ignore[arg-type]
+    def test_accepts_list_input(self) -> None:
+        result = alma(list(range(1, 30)), period=3)
+        assert isinstance(result, pd.Series)
 
     def test_invalid_period_raises(self) -> None:
         data = pd.Series([1.0, 2.0, 3.0])

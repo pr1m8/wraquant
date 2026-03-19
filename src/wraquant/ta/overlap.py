@@ -56,7 +56,7 @@ def sma(data: pd.Series, period: int = 20) -> pd.Series:
         Simple moving average values. The first ``period - 1`` entries are
         ``NaN``.
     """
-    _validate_series(data)
+    data = _validate_series(data)
     _validate_period(period)
     return data.rolling(window=period, min_periods=period).mean()
 
@@ -78,7 +78,7 @@ def ema(data: pd.Series, period: int = 20) -> pd.Series:
     pd.Series
         Exponential moving average values.
     """
-    _validate_series(data)
+    data = _validate_series(data)
     _validate_period(period)
     return data.ewm(span=period, adjust=False, min_periods=period).mean()
 
@@ -101,7 +101,7 @@ def wma(data: pd.Series, period: int = 20) -> pd.Series:
     pd.Series
         Weighted moving average values.
     """
-    _validate_series(data)
+    data = _validate_series(data)
     _validate_period(period)
     weights = np.arange(1, period + 1, dtype=float)
 
@@ -128,7 +128,7 @@ def dema(data: pd.Series, period: int = 20) -> pd.Series:
     pd.Series
         DEMA values.
     """
-    _validate_series(data)
+    data = _validate_series(data)
     _validate_period(period)
     ema1 = ema(data, period)
     ema2 = ema(ema1, period)
@@ -152,7 +152,7 @@ def tema(data: pd.Series, period: int = 20) -> pd.Series:
     pd.Series
         TEMA values.
     """
-    _validate_series(data)
+    data = _validate_series(data)
     _validate_period(period)
     ema1 = ema(data, period)
     ema2 = ema(ema1, period)
@@ -187,7 +187,7 @@ def kama(
     pd.Series
         KAMA values.
     """
-    _validate_series(data)
+    data = _validate_series(data)
     _validate_period(period)
 
     fast_sc = 2.0 / (fast + 1)
@@ -249,10 +249,10 @@ def vwap(
     pd.Series
         Cumulative VWAP values.
     """
-    _validate_series(high, "high")
-    _validate_series(low, "low")
-    _validate_series(close, "close")
-    _validate_series(volume, "volume")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
+    close = _validate_series(close, "close")
+    volume = _validate_series(volume, "volume")
 
     typical_price = (high + low + close) / 3.0
     cum_tp_vol = (typical_price * volume).cumsum()
@@ -295,9 +295,9 @@ def supertrend(
         ``supertrend`` — the indicator line, and ``direction`` (1 for
         uptrend / bullish, -1 for downtrend / bearish).
     """
-    _validate_series(high, "high")
-    _validate_series(low, "low")
-    _validate_series(close, "close")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
+    close = _validate_series(close, "close")
     _validate_period(period)
 
     hl2 = (high + low) / 2.0
@@ -413,9 +413,9 @@ def ichimoku(
     Chikou Span is shifted backward by ``kijun`` periods, matching
     traditional charting convention.
     """
-    _validate_series(high, "high")
-    _validate_series(low, "low")
-    _validate_series(close, "close")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
+    close = _validate_series(close, "close")
 
     tenkan_sen = (
         high.rolling(window=tenkan, min_periods=tenkan).max()
@@ -477,7 +477,7 @@ def bollinger_bands(
     dict[str, pd.Series]
         ``upper``, ``middle``, ``lower``, ``bandwidth``, ``percent_b``.
     """
-    _validate_series(data)
+    data = _validate_series(data)
     _validate_period(period)
 
     middle = sma(data, period)
@@ -531,9 +531,9 @@ def keltner_channel(
     dict[str, pd.Series]
         ``upper``, ``middle``, ``lower``.
     """
-    _validate_series(high, "high")
-    _validate_series(low, "low")
-    _validate_series(close, "close")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
+    close = _validate_series(close, "close")
     _validate_period(period)
 
     middle = ema(close, period)
@@ -581,8 +581,8 @@ def donchian_channel(
     dict[str, pd.Series]
         ``upper``, ``lower``, ``middle``.
     """
-    _validate_series(high, "high")
-    _validate_series(low, "low")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
     _validate_period(period)
 
     upper = high.rolling(window=period, min_periods=period).max()

@@ -58,9 +58,9 @@ class TestHigherHighsLows:
         result = higher_highs_lows(ohlc["high"], ohlc["low"])
         assert isinstance(result, pd.Series)
 
-    def test_invalid_type(self) -> None:
-        with pytest.raises(TypeError):
-            higher_highs_lows([1.0], [2.0])  # type: ignore[arg-type]
+    def test_accepts_list_input(self) -> None:
+        result = higher_highs_lows(list(range(10, 40)), list(range(1, 31)))
+        assert isinstance(result, pd.Series)
 
 
 # ---------------------------------------------------------------------------
@@ -159,9 +159,12 @@ class TestGapAnalysis:
         result = gap_analysis(ohlc["open"], ohlc["high"], ohlc["low"], ohlc["close"])
         assert set(result["gap_direction"].unique()).issubset({-1, 0, 1})
 
-    def test_invalid_type(self) -> None:
-        with pytest.raises(TypeError):
-            gap_analysis([1.0], [2.0], [0.5], [1.5])  # type: ignore[arg-type]
+    def test_accepts_list_input(self) -> None:
+        result = gap_analysis(
+            list(range(5, 35)), list(range(10, 40)),
+            list(range(1, 31)), list(range(5, 35)),
+        )
+        assert isinstance(result, (pd.DataFrame, dict))
 
 
 # ---------------------------------------------------------------------------

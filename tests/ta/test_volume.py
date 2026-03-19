@@ -204,9 +204,9 @@ class TestVWMA:
         with pytest.raises(ValueError):
             vwma(close, volume, period=0)
 
-    def test_vwma_invalid_input(self) -> None:
-        with pytest.raises(TypeError):
-            vwma([1, 2, 3], pd.Series([10, 20, 30.0]))
+    def test_vwma_accepts_list_input(self) -> None:
+        result = vwma(list(range(1, 30)), pd.Series(range(10, 39)))
+        assert isinstance(result, pd.Series)
 
 
 # ---------------------------------------------------------------------------
@@ -316,9 +316,12 @@ class TestKlinger:
                 fast=0,
             )
 
-    def test_klinger_type_validation(self) -> None:
-        with pytest.raises(TypeError):
-            klinger([1], pd.Series([2]), pd.Series([3]), pd.Series([4]))
+    def test_klinger_accepts_list_input(self) -> None:
+        result = klinger(
+            list(range(10, 40)), list(range(10, 40)),
+            list(range(1, 31)), list(range(100, 130)),
+        )
+        assert isinstance(result, (pd.DataFrame, dict))
 
 
 # ---------------------------------------------------------------------------
@@ -356,9 +359,9 @@ class TestTakerBuyRatio:
         assert np.isnan(result.iloc[0])
         assert result.iloc[1] == pytest.approx(0.0)
 
-    def test_taker_buy_ratio_invalid_input(self) -> None:
-        with pytest.raises(TypeError):
-            taker_buy_ratio([50], pd.Series([100.0]))
+    def test_taker_buy_ratio_accepts_list_input(self) -> None:
+        result = taker_buy_ratio([50.0, 60.0, 70.0], pd.Series([100.0, 110.0, 120.0]))
+        assert isinstance(result, pd.Series)
 
 
 # ---------------------------------------------------------------------------

@@ -103,7 +103,7 @@ def hilbert_transform_dominant_period(
     >>> close = pd.Series(np.sin(np.linspace(0, 8 * np.pi, 200)) * 10 + 100)
     >>> hilbert_transform_dominant_period(close)  # doctest: +SKIP
     """
-    _validate_series(data)
+    data = _validate_series(data)
     values = data.values.astype(float)
     n = len(values)
 
@@ -214,7 +214,7 @@ def hilbert_transform_trend_mode(data: pd.Series) -> pd.Series:
     >>> close = pd.Series(np.sin(np.linspace(0, 8 * np.pi, 200)) * 10 + 100)
     >>> hilbert_transform_trend_mode(close)  # doctest: +SKIP
     """
-    _validate_series(data)
+    data = _validate_series(data)
     dc = hilbert_transform_dominant_period(data)
     values = data.values.astype(float)
     n = len(values)
@@ -265,7 +265,7 @@ def hilbert_instantaneous_phase(data: pd.Series) -> pd.Series:
     >>> close = pd.Series(np.sin(np.linspace(0, 8 * np.pi, 200)) * 10 + 100)
     >>> hilbert_instantaneous_phase(close)  # doctest: +SKIP
     """
-    _validate_series(data)
+    data = _validate_series(data)
     dc = hilbert_transform_dominant_period(data)
     values = data.values.astype(float)
     n = len(values)
@@ -309,7 +309,7 @@ def sine_wave(data: pd.Series) -> dict[str, pd.Series]:
     >>> close = pd.Series(np.sin(np.linspace(0, 8 * np.pi, 200)) * 10 + 100)
     >>> result = sine_wave(close)  # doctest: +SKIP
     """
-    _validate_series(data)
+    data = _validate_series(data)
     dc = hilbert_transform_dominant_period(data)
     n = len(data)
 
@@ -366,7 +366,7 @@ def even_better_sinewave(
     >>> close = pd.Series(np.sin(np.linspace(0, 8 * np.pi, 200)) * 10 + 100)
     >>> even_better_sinewave(close)  # doctest: +SKIP
     """
-    _validate_series(data)
+    data = _validate_series(data)
     values = data.values.astype(float)
     n = len(values)
 
@@ -432,7 +432,7 @@ def roofing_filter(
     >>> close = pd.Series(np.sin(np.linspace(0, 8 * np.pi, 200)) * 10 + 100)
     >>> roofing_filter(close)  # doctest: +SKIP
     """
-    _validate_series(data)
+    data = _validate_series(data)
     values = data.values.astype(float)
 
     hp = _highpass_filter(values, hp_period)
@@ -472,7 +472,7 @@ def decycler(data: pd.Series, hp_period: int = 125) -> pd.Series:
     >>> close = pd.Series(np.sin(np.linspace(0, 8 * np.pi, 200)) * 10 + 100)
     >>> decycler(close)  # doctest: +SKIP
     """
-    _validate_series(data)
+    data = _validate_series(data)
     values = data.values.astype(float)
 
     hp = _highpass_filter(values, hp_period)
@@ -517,7 +517,7 @@ def bandpass_filter(
     >>> close = pd.Series(np.sin(np.linspace(0, 8 * np.pi, 200)) * 10 + 100)
     >>> result = bandpass_filter(close, period=20)  # doctest: +SKIP
     """
-    _validate_series(data)
+    data = _validate_series(data)
     _validate_period(period)
     values = data.values.astype(float)
     n = len(values)

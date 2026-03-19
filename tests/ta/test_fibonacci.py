@@ -156,9 +156,11 @@ class TestFibonacciPivotPoints:
         valid = result["r1"].notna() & result["s1"].notna()
         assert (result["r1"][valid] >= result["s1"][valid] - 1e-10).all()
 
-    def test_type_error(self) -> None:
-        with pytest.raises(TypeError):
-            fibonacci_pivot_points([1], [2], [3])  # type: ignore[arg-type]
+    def test_accepts_list_input(self) -> None:
+        result = fibonacci_pivot_points(
+            list(range(10, 40)), list(range(1, 31)), list(range(5, 35))
+        )
+        assert isinstance(result, dict)
 
 
 # ---------------------------------------------------------------------------
@@ -185,9 +187,10 @@ class TestAutoFibonacci:
         result = auto_fibonacci(close_series, lookback=30)
         assert result["swing_high"] >= result["swing_low"]
 
-    def test_type_error(self) -> None:
-        with pytest.raises(TypeError):
-            auto_fibonacci([1, 2, 3])  # type: ignore[arg-type]
+    def test_accepts_list_input(self) -> None:
+        data = list(range(1, 100))
+        result = auto_fibonacci(data, lookback=30)
+        assert isinstance(result, dict)
 
     def test_small_lookback(self) -> None:
         with pytest.raises(ValueError, match="lookback"):

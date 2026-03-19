@@ -9,6 +9,8 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
+from wraquant.core._coerce import coerce_series
+
 
 def realized_volatility(
     returns: pd.Series,
@@ -27,6 +29,7 @@ def realized_volatility(
     Returns:
         Rolling realized volatility series.
     """
+    returns = coerce_series(returns, "returns")
     vol = returns.rolling(window).std()
     if annualize:
         vol = vol * np.sqrt(periods_per_year)
@@ -54,6 +57,8 @@ def parkinson(
     Returns:
         Parkinson volatility series.
     """
+    high = coerce_series(high, "high")
+    low = coerce_series(low, "low")
     log_hl = np.log(high / low)
     factor = 1.0 / (4.0 * np.log(2))
     var = factor * (log_hl**2).rolling(window).mean()
@@ -89,6 +94,10 @@ def garman_klass(
     Returns:
         Garman-Klass volatility series.
     """
+    open_ = coerce_series(open_, "open")
+    high = coerce_series(high, "high")
+    low = coerce_series(low, "low")
+    close = coerce_series(close, "close")
     log_hl = np.log(high / low)
     log_co = np.log(close / open_)
     var = (0.5 * log_hl**2 - (2 * np.log(2) - 1) * log_co**2).rolling(window).mean()
@@ -123,6 +132,10 @@ def rogers_satchell(
     Returns:
         Rogers-Satchell volatility series.
     """
+    open_ = coerce_series(open_, "open")
+    high = coerce_series(high, "high")
+    low = coerce_series(low, "low")
+    close = coerce_series(close, "close")
     log_ho = np.log(high / open_)
     log_hc = np.log(high / close)
     log_lo = np.log(low / open_)
@@ -161,6 +174,10 @@ def yang_zhang(
     Returns:
         Yang-Zhang volatility series.
     """
+    open_ = coerce_series(open_, "open")
+    high = coerce_series(high, "high")
+    low = coerce_series(low, "low")
+    close = coerce_series(close, "close")
     k = 0.34 / (1.34 + (window + 1) / (window - 1))
 
     # Overnight variance
@@ -242,6 +259,7 @@ def bipower_variation(
         realized_volatility: Standard rolling realised volatility.
         jump_test_bns: Formal jump detection test using BPV.
     """
+    returns = coerce_series(returns, "returns")
     abs_ret = returns.abs()
     # Product of consecutive absolute returns
     products = abs_ret * abs_ret.shift(1)
@@ -327,7 +345,9 @@ def jump_test_bns(
     """
     from scipy import stats as sp_stats
 
-    r = np.asarray(returns, dtype=np.float64).ravel()
+    from wraquant.core._coerce import coerce_array
+
+    r = coerce_array(returns, "returns")
     n = min(window, len(r))
     r = r[-n:]
 
@@ -436,6 +456,7 @@ def two_scale_realized_variance(
         realized_volatility: Standard RV (no noise correction).
         realized_kernel: Alternative noise-robust estimator.
     """
+    returns = coerce_series(returns, "returns")
     # Fast scale: standard RV using all returns
     rv_fast = (returns**2).rolling(window).sum()
 
@@ -548,12 +569,13 @@ def realized_kernel(
         out[mask2] = 2.0 * (1.0 - ax[mask2]) ** 3
         return out
 
-    r = np.asarray(returns, dtype=np.float64).ravel()
-    n = len(r)
+    r = coerce_series(returns, "returns")
+    r_arr = r.to_numpy(dtype=np.float64)
+    n = len(r_arr)
     out = np.full(n, np.nan)
 
     for t in range(window, n):
-        seg = r[t - window : t]
+        seg = r_arr[t - window : t]
         seg_n = len(seg)
 
         # Bandwidth: c * n^(3/5), with c = 1
@@ -573,7 +595,7 @@ def realized_kernel(
         out[t] = max(rk_val, 0.0)
 
     vol = np.sqrt(out / window)
-    result = pd.Series(vol, index=returns.index, name="realized_kernel")
+    result = pd.Series(vol, index=r.index, name="realized_kernel")
     if annualize:
         result = result * np.sqrt(periods_per_year)
     return result

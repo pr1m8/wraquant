@@ -104,9 +104,9 @@ def choppiness_index(
     -------
     >>> result = choppiness_index(high, low, close, period=14)
     """
-    _validate_series(high, "high")
-    _validate_series(low, "low")
-    _validate_series(close, "close")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
+    close = _validate_series(close, "close")
     _validate_period(period)
 
     tr = _true_range(high, low, close)
@@ -159,9 +159,9 @@ def random_walk_index(
     >>> result = random_walk_index(high, low, close, period=14)
     >>> result["rwi_high"]
     """
-    _validate_series(high, "high")
-    _validate_series(low, "low")
-    _validate_series(close, "close")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
+    close = _validate_series(close, "close")
     _validate_period(period)
 
     tr = _true_range(high, low, close)
@@ -232,7 +232,7 @@ def polarized_fractal_efficiency(
     -------
     >>> result = polarized_fractal_efficiency(close, period=10)
     """
-    _validate_series(close, "close")
+    close = _validate_series(close, "close")
     _validate_period(period)
 
     values = close.values.astype(float)
@@ -294,7 +294,7 @@ def price_zone_oscillator(
     -------
     >>> result = price_zone_oscillator(close, period=14)
     """
-    _validate_series(close, "close")
+    close = _validate_series(close, "close")
     _validate_period(period)
 
     diff = close.diff()
@@ -346,7 +346,7 @@ def ergodic_oscillator(
     >>> result = ergodic_oscillator(close)
     >>> result["ergodic"]
     """
-    _validate_series(close, "close")
+    close = _validate_series(close, "close")
     _validate_period(fast, "fast")
     _validate_period(slow, "slow")
     _validate_period(signal, "signal")
@@ -403,8 +403,8 @@ def elder_thermometer(
     -------
     >>> result = elder_thermometer(high, low, period=22)
     """
-    _validate_series(high, "high")
-    _validate_series(low, "low")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
     _validate_period(period)
 
     up_move = (high - high.shift(1)).clip(lower=0.0)
@@ -451,9 +451,9 @@ def market_facilitation_index(
     -------
     >>> result = market_facilitation_index(high, low, volume)
     """
-    _validate_series(high, "high")
-    _validate_series(low, "low")
-    _validate_series(volume, "volume")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
+    volume = _validate_series(volume, "volume")
 
     result = (high - low) / volume.replace(0.0, np.nan)
     result.name = "mfi_bw"
@@ -492,7 +492,7 @@ def efficiency_ratio(data: pd.Series, period: int = 10) -> pd.Series:
     -------
     >>> result = efficiency_ratio(close, period=10)
     """
-    _validate_series(data)
+    data = _validate_series(data)
     _validate_period(period)
 
     direction = (data - data.shift(period)).abs()
@@ -536,7 +536,7 @@ def trend_intensity_index(
     -------
     >>> result = trend_intensity_index(close, period=30)
     """
-    _validate_series(data)
+    data = _validate_series(data)
     _validate_period(period)
 
     sma_val = _sma(data, period)
@@ -589,9 +589,9 @@ def directional_movement_index(
     >>> result = directional_movement_index(high, low, close, period=14)
     >>> result["plus_di"]
     """
-    _validate_series(high, "high")
-    _validate_series(low, "low")
-    _validate_series(close, "close")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
+    close = _validate_series(close, "close")
     _validate_period(period)
 
     up_move = high - high.shift(1)
@@ -647,7 +647,7 @@ def kairi(data: pd.Series, period: int = 14) -> pd.Series:
     -------
     >>> result = kairi(close, period=14)
     """
-    _validate_series(data)
+    data = _validate_series(data)
     _validate_period(period)
 
     sma_val = _sma(data, period)
@@ -691,8 +691,8 @@ def gopalakrishnan_range(
     -------
     >>> result = gopalakrishnan_range(high, low, period=5)
     """
-    _validate_series(high, "high")
-    _validate_series(low, "low")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
     _validate_period(period)
 
     max_high = high.rolling(window=period, min_periods=period).max()
@@ -742,9 +742,9 @@ def pretty_good_oscillator(
     -------
     >>> result = pretty_good_oscillator(high, low, close, period=14)
     """
-    _validate_series(high, "high")
-    _validate_series(low, "low")
-    _validate_series(close, "close")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
+    close = _validate_series(close, "close")
     _validate_period(period)
 
     sma_val = _sma(close, period)
@@ -782,7 +782,7 @@ def connors_tps(data: pd.Series, period: int = 2) -> pd.Series:
     -------
     >>> result = connors_tps(close, period=2)
     """
-    _validate_series(data)
+    data = _validate_series(data)
     _validate_period(period)
 
     diff = data.diff()
@@ -851,7 +851,7 @@ def relative_momentum_index(
     -------
     >>> result = relative_momentum_index(close, period=14, momentum_period=4)
     """
-    _validate_series(data)
+    data = _validate_series(data)
     _validate_period(period)
     _validate_period(momentum_period, "momentum_period")
 

@@ -390,9 +390,9 @@ class TestStandardDeviation:
         valid = result.dropna()
         assert np.allclose(valid.values, 0.0, atol=1e-10)
 
-    def test_invalid_type(self) -> None:
-        with pytest.raises(TypeError):
-            standard_deviation([1.0, 2.0, 3.0])  # type: ignore[arg-type]
+    def test_accepts_list_input(self) -> None:
+        result = standard_deviation(list(range(1, 30)))
+        assert isinstance(result, pd.Series)
 
 
 # ---------------------------------------------------------------------------

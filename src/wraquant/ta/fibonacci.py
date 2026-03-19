@@ -269,9 +269,9 @@ def fibonacci_pivot_points(
     >>> c = pd.Series([11, 12, 13, 12, 11], dtype=float)
     >>> result = fibonacci_pivot_points(h, lo, c)  # doctest: +SKIP
     """
-    _validate_series(high, "high")
-    _validate_series(low, "low")
-    _validate_series(close, "close")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
+    close = _validate_series(close, "close")
 
     h_prev = high.shift(1)
     l_prev = low.shift(1)
@@ -337,7 +337,7 @@ def auto_fibonacci(
     >>> close = pd.Series(100 + np.cumsum(np.random.randn(100) * 0.5))
     >>> result = auto_fibonacci(close, lookback=30)  # doctest: +SKIP
     """
-    _validate_series(data)
+    data = _validate_series(data)
     if lookback < 2:
         raise ValueError(f"lookback must be >= 2, got {lookback}")
 

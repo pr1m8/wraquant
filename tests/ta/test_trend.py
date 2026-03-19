@@ -205,9 +205,9 @@ class TestZigZag:
         with pytest.raises(ValueError, match="pct_change"):
             zigzag(pd.Series([100, 110, 120]), pct_change=-1.0)
 
-    def test_type_error(self) -> None:
-        with pytest.raises(TypeError):
-            zigzag([100, 110, 120])  # type: ignore[arg-type]
+    def test_accepts_list_input(self) -> None:
+        result = zigzag(list(range(100, 200)))
+        assert isinstance(result, (pd.Series, pd.DataFrame, dict))
 
 
 # ---------------------------------------------------------------------------

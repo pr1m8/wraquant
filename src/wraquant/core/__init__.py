@@ -1,5 +1,11 @@
 """Core utilities: configuration, types, exceptions, logging, and decorators."""
 
+from wraquant.core._coerce import (
+    coerce_array,
+    coerce_dataframe,
+    coerce_returns,
+    coerce_series,
+)
 from wraquant.core.config import WQConfig, get_config
 from wraquant.core.decorators import cache_result, requires_extra, validate_input
 from wraquant.core.exceptions import (
@@ -21,6 +27,11 @@ from wraquant.core.types import (
 )
 
 __all__ = [
+    # Coercion
+    "coerce_array",
+    "coerce_series",
+    "coerce_returns",
+    "coerce_dataframe",
     # Config
     "WQConfig",
     "get_config",

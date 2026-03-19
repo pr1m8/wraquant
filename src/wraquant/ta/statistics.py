@@ -63,7 +63,7 @@ def zscore(data: pd.Series, period: int = 20) -> pd.Series:
     >>> close = pd.Series([10, 11, 12, 11, 10, 9, 10, 11, 12, 13])
     >>> zscore(close, period=5)  # doctest: +SKIP
     """
-    _validate_series(data)
+    data = _validate_series(data)
     _validate_period(period)
 
     rolling_mean = data.rolling(window=period, min_periods=period).mean()
@@ -102,7 +102,7 @@ def percentile_rank(data: pd.Series, period: int = 20) -> pd.Series:
     >>> close = pd.Series([10, 11, 12, 11, 10, 9, 10, 11, 12, 13])
     >>> percentile_rank(close, period=5)  # doctest: +SKIP
     """
-    _validate_series(data)
+    data = _validate_series(data)
     _validate_period(period)
 
     def _pct_rank(window: np.ndarray) -> float:
@@ -142,7 +142,7 @@ def mean_deviation(data: pd.Series, period: int = 20) -> pd.Series:
     >>> close = pd.Series([10, 11, 12, 11, 10, 9, 10, 11, 12, 13])
     >>> mean_deviation(close, period=5)  # doctest: +SKIP
     """
-    _validate_series(data)
+    data = _validate_series(data)
     _validate_period(period)
 
     result = data.rolling(window=period, min_periods=period).apply(
@@ -178,7 +178,7 @@ def median(data: pd.Series, period: int = 20) -> pd.Series:
     >>> close = pd.Series([10, 11, 12, 11, 10, 9, 10, 11, 12, 13])
     >>> median(close, period=5)  # doctest: +SKIP
     """
-    _validate_series(data)
+    data = _validate_series(data)
     _validate_period(period)
 
     result = data.rolling(window=period, min_periods=period).median()
@@ -215,7 +215,7 @@ def skewness(data: pd.Series, period: int = 20) -> pd.Series:
     >>> close = pd.Series(range(30), dtype=float)
     >>> skewness(close, period=20)  # doctest: +SKIP
     """
-    _validate_series(data)
+    data = _validate_series(data)
     _validate_period(period)
 
     result = data.rolling(window=period, min_periods=period).skew()
@@ -252,7 +252,7 @@ def kurtosis(data: pd.Series, period: int = 20) -> pd.Series:
     >>> close = pd.Series(range(30), dtype=float)
     >>> kurtosis(close, period=20)  # doctest: +SKIP
     """
-    _validate_series(data)
+    data = _validate_series(data)
     _validate_period(period)
 
     result = data.rolling(window=period, min_periods=period).kurt()
@@ -291,7 +291,7 @@ def entropy(data: pd.Series, period: int = 20, bins: int = 10) -> pd.Series:
     >>> close = pd.Series(range(30), dtype=float)
     >>> entropy(close, period=20, bins=5)  # doctest: +SKIP
     """
-    _validate_series(data)
+    data = _validate_series(data)
     _validate_period(period)
 
     changes = data.diff()
@@ -341,7 +341,7 @@ def hurst_exponent(data: pd.Series, period: int = 100) -> pd.Series:
     >>> close = pd.Series(100 + np.cumsum(np.random.randn(200)))
     >>> hurst_exponent(close, period=100)  # doctest: +SKIP
     """
-    _validate_series(data)
+    data = _validate_series(data)
     _validate_period(period)
 
     def _rs_hurst(window: np.ndarray) -> float:
@@ -434,8 +434,8 @@ def correlation(
     >>> y = pd.Series([2, 4, 6, 8, 10, 12, 14, 16, 18, 20], dtype=float)
     >>> correlation(x, y, period=5)  # doctest: +SKIP
     """
-    _validate_series(data, "data")
-    _validate_series(other, "other")
+    data = _validate_series(data, "data")
+    other = _validate_series(other, "other")
     _validate_period(period)
 
     result = data.rolling(window=period, min_periods=period).corr(other)
@@ -477,8 +477,8 @@ def beta(
     >>> market = pd.Series(100 + np.cumsum(np.random.randn(100)))
     >>> beta(stock, market, period=30)  # doctest: +SKIP
     """
-    _validate_series(data, "data")
-    _validate_series(benchmark, "benchmark")
+    data = _validate_series(data, "data")
+    benchmark = _validate_series(benchmark, "benchmark")
     _validate_period(period)
 
     data_ret = data.pct_change()
@@ -528,8 +528,8 @@ def r_squared(
     >>> market = pd.Series(100 + np.cumsum(np.random.randn(100)))
     >>> r_squared(stock, market, period=30)  # doctest: +SKIP
     """
-    _validate_series(data, "data")
-    _validate_series(benchmark, "benchmark")
+    data = _validate_series(data, "data")
+    benchmark = _validate_series(benchmark, "benchmark")
     _validate_period(period)
 
     data_ret = data.pct_change()
@@ -577,8 +577,8 @@ def information_coefficient(
     >>> actual = pd.Series([2, 1, 4, 3, 6, 5, 8, 7, 10, 9], dtype=float)
     >>> information_coefficient(forecast, actual, period=5)  # doctest: +SKIP
     """
-    _validate_series(data, "data")
-    _validate_series(other, "other")
+    data = _validate_series(data, "data")
+    other = _validate_series(other, "other")
     _validate_period(period)
 
     def _rank_corr(idx: int) -> float:

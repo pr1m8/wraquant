@@ -74,8 +74,8 @@ def find_support_resistance(
     >>> lo = h - 2
     >>> result = find_support_resistance(h, lo)  # doctest: +SKIP
     """
-    _validate_series(high, "high")
-    _validate_series(low, "low")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
     _validate_period(lookback, "lookback")
 
     n = len(high)
@@ -154,7 +154,7 @@ def price_clustering(
     >>> close = pd.Series([100, 101, 100, 99, 100, 101, 102, 100], dtype=float)
     >>> price_clustering(close, num_levels=3)  # doctest: +SKIP
     """
-    _validate_series(data)
+    data = _validate_series(data)
 
     values = data.dropna().values.astype(float)
     if len(values) == 0:
@@ -208,8 +208,8 @@ def fractal_levels(
     >>> lo = h - 2
     >>> result = fractal_levels(h, lo, period=2)  # doctest: +SKIP
     """
-    _validate_series(high, "high")
-    _validate_series(low, "low")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
     _validate_period(period, "period")
 
     n = len(high)
@@ -344,10 +344,10 @@ def supply_demand_zones(
     >>> lo = pd.concat([o, c], axis=1).min(axis=1) - 0.5
     >>> result = supply_demand_zones(o, h, lo, c)  # doctest: +SKIP
     """
-    _validate_series(open_, "open_")
-    _validate_series(high, "high")
-    _validate_series(low, "low")
-    _validate_series(close, "close")
+    open_ = _validate_series(open_, "open_")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
+    close = _validate_series(close, "close")
 
     n = len(close)
     o_vals = open_.values.astype(float)
@@ -442,8 +442,8 @@ def trendline_detection(
     >>> lo = h - 2
     >>> result = trendline_detection(h, lo, lookback=5)  # doctest: +SKIP
     """
-    _validate_series(high, "high")
-    _validate_series(low, "low")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
     _validate_period(lookback, "lookback")
 
     n = len(high)

@@ -67,9 +67,9 @@ class TestCandleBodySize:
         assert result.iloc[0] == pytest.approx(5.0)
         assert result.iloc[1] == pytest.approx(2.0)
 
-    def test_invalid_type(self) -> None:
-        with pytest.raises(TypeError):
-            candle_body_size([1.0], [2.0])  # type: ignore[arg-type]
+    def test_accepts_list_input(self) -> None:
+        result = candle_body_size([1.0, 1.5, 1.0], [2.0, 1.2, 1.5])
+        assert isinstance(result, pd.Series)
 
 
 # ---------------------------------------------------------------------------

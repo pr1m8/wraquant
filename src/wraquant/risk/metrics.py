@@ -10,6 +10,8 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
+from wraquant.core._coerce import coerce_array, coerce_series
+
 
 def sharpe_ratio(
     returns: pd.Series,
@@ -79,6 +81,7 @@ def sharpe_ratio(
         - Bailey & Lopez de Prado (2012), "The Sharpe Ratio Efficient
           Frontier"
     """
+    returns = coerce_series(returns, "returns")
     excess = returns - risk_free / periods_per_year
     mean_excess = excess.mean()
     std = excess.std()
@@ -145,6 +148,7 @@ def sortino_ratio(
         - Sortino & Satchell (2001), "Managing Downside Risk in
           Financial Markets"
     """
+    returns = coerce_series(returns, "returns")
     excess = returns - risk_free / periods_per_year
     downside = excess[excess < 0]
     if len(downside) == 0:
@@ -209,6 +213,8 @@ def information_ratio(
     References:
         - Grinold & Kahn (2000), "Active Portfolio Management"
     """
+    returns = coerce_series(returns, "returns")
+    benchmark = coerce_series(benchmark, "benchmark")
     active = returns - benchmark
     te = active.std()
     if te == 0:
@@ -268,6 +274,7 @@ def max_drawdown(prices: pd.Series) -> float:
     References:
         - Magdon-Ismail & Atiya (2004), "Maximum Drawdown"
     """
+    prices = coerce_series(prices, "prices")
     cummax = prices.cummax()
     drawdown = (prices - cummax) / cummax
     return float(drawdown.min())
@@ -311,6 +318,7 @@ def hit_ratio(returns: pd.Series) -> float:
         sharpe_ratio: Risk-adjusted return measure.
         information_ratio: Alpha per unit of tracking error.
     """
+    returns = coerce_series(returns, "returns")
     clean = returns.dropna()
     if len(clean) == 0:
         return 0.0
@@ -368,6 +376,8 @@ def treynor_ratio(
     References:
         - Treynor (1965), "How to Rate Management of Investment Funds"
     """
+    returns = coerce_series(returns, "returns")
+    benchmark = coerce_series(benchmark, "benchmark")
     excess_port = returns - risk_free / periods_per_year
     excess_bench = benchmark - risk_free / periods_per_year
 
@@ -432,6 +442,8 @@ def m_squared(
     References:
         - Modigliani & Modigliani (1997), "Risk-Adjusted Performance"
     """
+    returns = coerce_series(returns, "returns")
+    benchmark = coerce_series(benchmark, "benchmark")
     excess_bench = benchmark - risk_free / periods_per_year
 
     sr_port = sharpe_ratio(returns, risk_free, periods_per_year)
@@ -486,6 +498,8 @@ def jensens_alpha(
         - Jensen (1968), "The Performance of Mutual Funds in the Period
           1945-1964"
     """
+    returns = coerce_series(returns, "returns")
+    benchmark = coerce_series(benchmark, "benchmark")
     rf_per_period = risk_free / periods_per_year
 
     excess_port = returns - rf_per_period
@@ -549,6 +563,8 @@ def appraisal_ratio(
         - Treynor & Black (1973), "How to Use Security Analysis to
           Improve Portfolio Selection"
     """
+    returns = coerce_series(returns, "returns")
+    benchmark = coerce_series(benchmark, "benchmark")
     rf_per_period = risk_free / periods_per_year
 
     excess_port = returns - rf_per_period
@@ -628,6 +644,8 @@ def capture_ratios(
     See Also:
         treynor_ratio: Systematic risk-adjusted return.
     """
+    returns = coerce_series(returns, "returns")
+    benchmark = coerce_series(benchmark, "benchmark")
     aligned = pd.concat([returns.rename("p"), benchmark.rename("b")], axis=1).dropna()
 
     up_mask = aligned["b"] > 0

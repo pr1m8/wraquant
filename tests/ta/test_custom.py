@@ -75,9 +75,12 @@ class TestSqueezeMomentum:
         valid = result["squeeze_on"].dropna()
         assert set(valid.unique()).issubset({0.0, 1.0})
 
-    def test_type_error(self) -> None:
-        with pytest.raises(TypeError):
-            squeeze_momentum([1], [2], [3])  # type: ignore[arg-type]
+    def test_accepts_list_input(self) -> None:
+        # Lists are now auto-coerced to pd.Series
+        result = squeeze_momentum(
+            list(range(1, 30)), list(range(1, 30)), list(range(1, 30))
+        )
+        assert isinstance(result, dict)
 
 
 # ---------------------------------------------------------------------------
@@ -349,9 +352,9 @@ class TestLinearRegressionForecast:
             expected = data.iloc[i] + 2.0  # slope is 2.0
             assert abs(result.iloc[i] - expected) < 1e-8
 
-    def test_type_error(self) -> None:
-        with pytest.raises(TypeError):
-            linear_regression_forecast([1, 2, 3])  # type: ignore[arg-type]
+    def test_accepts_list_input(self) -> None:
+        result = linear_regression_forecast(list(range(1, 30)))
+        assert isinstance(result, pd.Series)
 
 
 # ---------------------------------------------------------------------------
@@ -407,9 +410,9 @@ class TestRSquaredIndicator:
         valid = result.dropna()
         assert (abs(valid - 1.0) < 1e-8).all()
 
-    def test_type_error(self) -> None:
-        with pytest.raises(TypeError):
-            r_squared_indicator([1, 2, 3])  # type: ignore[arg-type]
+    def test_accepts_list_input(self) -> None:
+        result = r_squared_indicator(list(range(1, 30)))
+        assert isinstance(result, pd.Series)
 
 
 # ---------------------------------------------------------------------------
@@ -505,6 +508,6 @@ class TestDetrendedRegression:
         valid = result.dropna()
         assert (abs(valid) < 1e-8).all()
 
-    def test_type_error(self) -> None:
-        with pytest.raises(TypeError):
-            detrended_regression([1, 2, 3])  # type: ignore[arg-type]
+    def test_accepts_list_input(self) -> None:
+        result = detrended_regression(list(range(1, 30)))
+        assert isinstance(result, pd.Series)

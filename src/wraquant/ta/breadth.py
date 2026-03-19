@@ -72,8 +72,8 @@ def advance_decline_line(
     >>> dec = pd.Series([100, 150, 220, 100, 180])
     >>> advance_decline_line(adv, dec)
     """
-    _validate_series(advancing, "advancing")
-    _validate_series(declining, "declining")
+    advancing = _validate_series(advancing, "advancing")
+    declining = _validate_series(declining, "declining")
 
     result = (advancing - declining).cumsum()
     result.name = "ad_line"
@@ -112,8 +112,8 @@ def advance_decline_ratio(
     >>> dec = pd.Series([100, 150, 220])
     >>> advance_decline_ratio(adv, dec)
     """
-    _validate_series(advancing, "advancing")
-    _validate_series(declining, "declining")
+    advancing = _validate_series(advancing, "advancing")
+    declining = _validate_series(declining, "declining")
 
     result = advancing / declining.replace(0, np.nan)
     result.name = "ad_ratio"
@@ -155,8 +155,8 @@ def mcclellan_oscillator(
     -------
     >>> result = mcclellan_oscillator(advancing, declining)
     """
-    _validate_series(advancing, "advancing")
-    _validate_series(declining, "declining")
+    advancing = _validate_series(advancing, "advancing")
+    declining = _validate_series(declining, "declining")
     _validate_period(fast, "fast")
     _validate_period(slow, "slow")
 
@@ -202,8 +202,8 @@ def mcclellan_summation(
     -------
     >>> result = mcclellan_summation(advancing, declining)
     """
-    _validate_series(advancing, "advancing")
-    _validate_series(declining, "declining")
+    advancing = _validate_series(advancing, "advancing")
+    declining = _validate_series(declining, "declining")
     _validate_period(fast, "fast")
     _validate_period(slow, "slow")
 
@@ -252,10 +252,10 @@ def arms_index(
     -------
     >>> result = arms_index(adv_issues, dec_issues, adv_vol, dec_vol)
     """
-    _validate_series(advancing_issues, "advancing_issues")
-    _validate_series(declining_issues, "declining_issues")
-    _validate_series(advancing_volume, "advancing_volume")
-    _validate_series(declining_volume, "declining_volume")
+    advancing_issues = _validate_series(advancing_issues, "advancing_issues")
+    declining_issues = _validate_series(declining_issues, "declining_issues")
+    advancing_volume = _validate_series(advancing_volume, "advancing_volume")
+    declining_volume = _validate_series(declining_volume, "declining_volume")
 
     issue_ratio = advancing_issues / declining_issues.replace(0, np.nan)
     volume_ratio = advancing_volume / declining_volume.replace(0, np.nan)
@@ -296,8 +296,8 @@ def new_highs_lows(
     >>> nl = pd.Series([20, 40, 50])
     >>> new_highs_lows(nh, nl)
     """
-    _validate_series(new_highs, "new_highs")
-    _validate_series(new_lows, "new_lows")
+    new_highs = _validate_series(new_highs, "new_highs")
+    new_lows = _validate_series(new_lows, "new_lows")
 
     result = new_highs - new_lows
     result.name = "new_highs_lows"
@@ -383,8 +383,8 @@ def high_low_index(
     >>> nl = pd.Series([20, 40, 50])
     >>> high_low_index(nh, nl)
     """
-    _validate_series(new_highs, "new_highs")
-    _validate_series(new_lows, "new_lows")
+    new_highs = _validate_series(new_highs, "new_highs")
+    new_lows = _validate_series(new_lows, "new_lows")
 
     total = (new_highs + new_lows).replace(0, np.nan)
     result = (new_highs / total) * 100.0
@@ -463,8 +463,8 @@ def cumulative_volume_index(
     >>> volume = pd.Series([1000, 1500, 1200, 1800, 1600.0])
     >>> cumulative_volume_index(close, volume)
     """
-    _validate_series(close, "close")
-    _validate_series(volume, "volume")
+    close = _validate_series(close, "close")
+    volume = _validate_series(volume, "volume")
 
     direction = np.sign(close.diff())
     direction.iloc[0] = 0

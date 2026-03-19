@@ -74,9 +74,9 @@ def true_range(
     pd.Series
         True Range values (always >= 0).
     """
-    _validate_series(high, "high")
-    _validate_series(low, "low")
-    _validate_series(close, "close")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
+    close = _validate_series(close, "close")
 
     prev_close = close.shift(1)
     tr = pd.concat(
@@ -147,7 +147,7 @@ def natr(
     pd.Series
         NATR as a percentage.
     """
-    _validate_series(close, "close")
+    close = _validate_series(close, "close")
     atr_val = atr(high, low, close, period)
     result = (atr_val / close) * 100.0
     result.name = "natr"
@@ -182,7 +182,7 @@ def bbwidth(
     pd.Series
         Bandwidth values.
     """
-    _validate_series(data)
+    data = _validate_series(data)
     _validate_period(period)
 
     middle = data.rolling(window=period, min_periods=period).mean()
@@ -228,9 +228,9 @@ def kc_width(
     pd.Series
         Keltner Channel width values.
     """
-    _validate_series(high, "high")
-    _validate_series(low, "low")
-    _validate_series(close, "close")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
+    close = _validate_series(close, "close")
     _validate_period(period)
 
     middle = _ema(close, period)
@@ -273,8 +273,8 @@ def chaikin_volatility(
     pd.Series
         Chaikin Volatility as a percentage.
     """
-    _validate_series(high, "high")
-    _validate_series(low, "low")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
     _validate_period(period)
     _validate_period(smoothing, "smoothing")
 
@@ -316,7 +316,7 @@ def historical_volatility(
     pd.Series
         Historical volatility (annualized if requested).
     """
-    _validate_series(data)
+    data = _validate_series(data)
     _validate_period(period)
 
     log_returns = np.log(data / data.shift(1))
@@ -361,8 +361,8 @@ def mass_index(
         Mass Index values. A *reversal bulge* occurs when the index
         rises above 27 and then falls below 26.5.
     """
-    _validate_series(high, "high")
-    _validate_series(low, "low")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
     _validate_period(period)
     _validate_period(trigger, "trigger")
 
@@ -420,10 +420,10 @@ def garman_klass(
     -------
     >>> gk = garman_klass(high, low, close, open_, period=21)
     """
-    _validate_series(high, "high")
-    _validate_series(low, "low")
-    _validate_series(close, "close")
-    _validate_series(open_, "open_")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
+    close = _validate_series(close, "close")
+    open_ = _validate_series(open_, "open_")
     _validate_period(period)
 
     from wraquant.vol.realized import garman_klass as _garman_klass
@@ -471,8 +471,8 @@ def parkinson(
     -------
     >>> pk = parkinson(high, low, period=21)
     """
-    _validate_series(high, "high")
-    _validate_series(low, "low")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
     _validate_period(period)
 
     from wraquant.vol.realized import parkinson as _parkinson
@@ -524,10 +524,10 @@ def rogers_satchell(
     -------
     >>> rs = rogers_satchell(high, low, close, open_, period=21)
     """
-    _validate_series(high, "high")
-    _validate_series(low, "low")
-    _validate_series(close, "close")
-    _validate_series(open_, "open_")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
+    close = _validate_series(close, "close")
+    open_ = _validate_series(open_, "open_")
     _validate_period(period)
 
     from wraquant.vol.realized import rogers_satchell as _rogers_satchell
@@ -580,10 +580,10 @@ def yang_zhang(
     -------
     >>> yz = yang_zhang(high, low, close, open_, period=21)
     """
-    _validate_series(high, "high")
-    _validate_series(low, "low")
-    _validate_series(close, "close")
-    _validate_series(open_, "open_")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
+    close = _validate_series(close, "close")
+    open_ = _validate_series(open_, "open_")
     _validate_period(period)
 
     from wraquant.vol.realized import yang_zhang as _yang_zhang
@@ -627,7 +627,7 @@ def close_to_close(
     -------
     >>> cc = close_to_close(close, period=21)
     """
-    _validate_series(data)
+    data = _validate_series(data)
     _validate_period(period)
 
     log_returns = np.log(data / data.shift(1))
@@ -671,7 +671,7 @@ def ulcer_index(
     -------
     >>> ui = ulcer_index(close, period=14)
     """
-    _validate_series(data)
+    data = _validate_series(data)
     _validate_period(period)
 
     rolling_max = data.rolling(window=period, min_periods=period).max()
@@ -720,7 +720,7 @@ def relative_volatility_index(
     -------
     >>> rvi = relative_volatility_index(close, period=10, smoothing=14)
     """
-    _validate_series(data)
+    data = _validate_series(data)
     _validate_period(period)
     _validate_period(smoothing, "smoothing")
 
@@ -784,9 +784,9 @@ def acceleration_bands(
     >>> bands = acceleration_bands(high, low, close, period=20)
     >>> upper = bands["upper"]
     """
-    _validate_series(high, "high")
-    _validate_series(low, "low")
-    _validate_series(close, "close")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
+    close = _validate_series(close, "close")
     _validate_period(period)
 
     hl_ratio = factor * (high - low) / ((high + low) / 2.0)
@@ -834,7 +834,7 @@ def standard_deviation(
     -------
     >>> sd = standard_deviation(close, period=20)
     """
-    _validate_series(data)
+    data = _validate_series(data)
     _validate_period(period)
 
     result = data.rolling(window=period, min_periods=period).std(ddof=1)
@@ -871,7 +871,7 @@ def variance(
     -------
     >>> v = variance(close, period=20)
     """
-    _validate_series(data)
+    data = _validate_series(data)
     _validate_period(period)
 
     result = data.rolling(window=period, min_periods=period).var(ddof=1)

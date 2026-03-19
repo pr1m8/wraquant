@@ -164,9 +164,11 @@ class TestPiercingPattern:
         result = piercing_pattern(open_, high, low, close)
         assert result.iloc[1] == 1
 
-    def test_invalid_type(self) -> None:
-        with pytest.raises(TypeError):
-            piercing_pattern([1.0], [2.0], [0.5], [1.5])  # type: ignore[arg-type]
+    def test_accepts_list_input(self) -> None:
+        result = piercing_pattern(
+            [1.0, 1.5, 1.0], [2.0, 2.0, 2.0], [0.5, 0.5, 0.5], [1.5, 1.2, 1.5]
+        )
+        assert isinstance(result, pd.Series)
 
 
 # ---------------------------------------------------------------------------
@@ -415,9 +417,11 @@ class TestBeltHold:
         result = belt_hold(ohlc["open"], ohlc["high"], ohlc["low"], ohlc["close"])
         assert set(result.unique()).issubset({0, 1, -1})
 
-    def test_invalid_type(self) -> None:
-        with pytest.raises(TypeError):
-            belt_hold([1.0], [2.0], [0.5], [1.5])  # type: ignore[arg-type]
+    def test_accepts_list_input(self) -> None:
+        result = belt_hold(
+            [1.0, 1.5, 1.0], [2.0, 2.0, 2.0], [0.5, 0.5, 0.5], [1.5, 1.2, 1.5]
+        )
+        assert isinstance(result, pd.Series)
 
 
 # ---------------------------------------------------------------------------

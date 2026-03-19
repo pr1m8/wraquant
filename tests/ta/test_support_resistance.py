@@ -64,9 +64,9 @@ class TestFindSupportResistance:
         assert len(result["support"]) <= 3
         assert len(result["resistance"]) <= 3
 
-    def test_type_error(self) -> None:
-        with pytest.raises(TypeError):
-            find_support_resistance([1], [2])  # type: ignore[arg-type]
+    def test_accepts_list_input(self) -> None:
+        result = find_support_resistance(list(range(10, 40)), list(range(1, 31)))
+        assert isinstance(result, dict)
 
 
 # ---------------------------------------------------------------------------
@@ -125,9 +125,9 @@ class TestFractalLevels:
         assert result["up_fractals"].sum() > 0
         assert result["down_fractals"].sum() > 0
 
-    def test_type_error(self) -> None:
-        with pytest.raises(TypeError):
-            fractal_levels([1], [2])  # type: ignore[arg-type]
+    def test_accepts_list_input(self) -> None:
+        result = fractal_levels(list(range(10, 40)), list(range(1, 31)))
+        assert isinstance(result, (pd.DataFrame, dict))
 
 
 # ---------------------------------------------------------------------------
@@ -188,9 +188,12 @@ class TestSupplyDemandZones:
                 assert "index" in zone
                 assert zone["zone_high"] >= zone["zone_low"]
 
-    def test_type_error(self) -> None:
-        with pytest.raises(TypeError):
-            supply_demand_zones([1], [2], [3], [4])  # type: ignore[arg-type]
+    def test_accepts_list_input(self) -> None:
+        result = supply_demand_zones(
+            list(range(5, 35)), list(range(10, 40)),
+            list(range(1, 31)), list(range(5, 35)),
+        )
+        assert isinstance(result, dict)
 
 
 # ---------------------------------------------------------------------------
@@ -216,6 +219,6 @@ class TestTrendlineDetection:
                 assert "intercept" in line
                 assert "num_touches" in line
 
-    def test_type_error(self) -> None:
-        with pytest.raises(TypeError):
-            trendline_detection([1], [2])  # type: ignore[arg-type]
+    def test_accepts_list_input(self) -> None:
+        result = trendline_detection(list(range(10, 60)), list(range(1, 51)))
+        assert isinstance(result, dict)

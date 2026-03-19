@@ -406,11 +406,12 @@ class TestRelativeMomentumIndex:
 
 
 class TestValidation:
-    def test_non_series_raises(self) -> None:
-        with pytest.raises(TypeError):
-            choppiness_index(
-                [1, 2, 3], pd.Series([1, 2, 3]), pd.Series([1, 2, 3])  # type: ignore[arg-type]
-            )
+    def test_accepts_list_input(self) -> None:
+        # Lists are now auto-coerced to pd.Series
+        result = choppiness_index(
+            list(range(10, 40)), list(range(1, 31)), list(range(5, 35))
+        )
+        assert isinstance(result, pd.Series)
 
     def test_invalid_period_raises(self) -> None:
         data = pd.Series([1.0, 2.0, 3.0])

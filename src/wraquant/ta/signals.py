@@ -60,7 +60,7 @@ def crossover(series1: pd.Series, series2: pd.Series | float | int) -> pd.Series
         Boolean series — ``True`` on bars where *series1* crosses above
         *series2*.
     """
-    _validate_series(series1, "series1")
+    series1 = _validate_series(series1, "series1")
     s2 = _to_series(series2, series1)
 
     crossed = (series1 > s2) & (series1.shift(1) <= s2.shift(1))
@@ -84,7 +84,7 @@ def crossunder(series1: pd.Series, series2: pd.Series | float | int) -> pd.Serie
         Boolean series — ``True`` on bars where *series1* crosses below
         *series2*.
     """
-    _validate_series(series1, "series1")
+    series1 = _validate_series(series1, "series1")
     s2 = _to_series(series2, series1)
 
     crossed = (series1 < s2) & (series1.shift(1) >= s2.shift(1))
@@ -112,7 +112,7 @@ def above(series1: pd.Series, series2: pd.Series | float | int) -> pd.Series:
     pd.Series
         Boolean series.
     """
-    _validate_series(series1, "series1")
+    series1 = _validate_series(series1, "series1")
     s2 = _to_series(series2, series1)
     result = series1 > s2
     result.name = "above"
@@ -134,7 +134,7 @@ def below(series1: pd.Series, series2: pd.Series | float | int) -> pd.Series:
     pd.Series
         Boolean series.
     """
-    _validate_series(series1, "series1")
+    series1 = _validate_series(series1, "series1")
     s2 = _to_series(series2, series1)
     result = series1 < s2
     result.name = "below"
@@ -161,7 +161,7 @@ def rising(data: pd.Series, period: int = 1) -> pd.Series:
     pd.Series
         Boolean series.
     """
-    _validate_series(data)
+    data = _validate_series(data)
     _validate_period(period)
     result = data > data.shift(period)
     result.name = "rising"
@@ -183,7 +183,7 @@ def falling(data: pd.Series, period: int = 1) -> pd.Series:
     pd.Series
         Boolean series.
     """
-    _validate_series(data)
+    data = _validate_series(data)
     _validate_period(period)
     result = data < data.shift(period)
     result.name = "falling"
@@ -210,7 +210,7 @@ def highest(data: pd.Series, period: int = 14) -> pd.Series:
     pd.Series
         Rolling maximum.
     """
-    _validate_series(data)
+    data = _validate_series(data)
     _validate_period(period)
     result = data.rolling(window=period, min_periods=period).max()
     result.name = "highest"
@@ -232,7 +232,7 @@ def lowest(data: pd.Series, period: int = 14) -> pd.Series:
     pd.Series
         Rolling minimum.
     """
-    _validate_series(data)
+    data = _validate_series(data)
     _validate_period(period)
     result = data.rolling(window=period, min_periods=period).min()
     result.name = "lowest"
@@ -262,7 +262,7 @@ def normalize(data: pd.Series, period: int | None = None) -> pd.Series:
     pd.Series
         Z-score normalized values.
     """
-    _validate_series(data)
+    data = _validate_series(data)
 
     if period is None:
         mean = data.mean()

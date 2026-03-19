@@ -18,6 +18,7 @@ import pandas as pd
 from scipy import optimize as sp_optimize
 from scipy import stats as sp_stats
 
+from wraquant.core._coerce import coerce_array, coerce_series
 from wraquant.core.decorators import requires_extra
 
 __all__ = [
@@ -50,7 +51,7 @@ __all__ = [
 
 def _to_returns_array(returns: pd.Series | np.ndarray) -> np.ndarray:
     """Convert returns input to a 1-D float64 numpy array."""
-    arr = np.asarray(returns, dtype=np.float64).ravel()
+    arr = coerce_array(returns, "returns")
     if len(arr) < 10:
         msg = "Need at least 10 observations for volatility modeling."
         raise ValueError(msg)
@@ -214,6 +215,7 @@ def ewma_volatility(
         garch_fit: More flexible parametric volatility model.
         realized_volatility: Non-parametric rolling window estimator.
     """
+    returns = coerce_series(returns, "returns")
     var = returns.ewm(span=span).var()
     vol = np.sqrt(var)
     if annualize:

@@ -97,9 +97,10 @@ class TestAdvanceDeclineLine:
         )
         assert result.name == "ad_line"
 
-    def test_type_error(self) -> None:
-        with pytest.raises(TypeError):
-            advance_decline_line([1, 2, 3], pd.Series([1, 2, 3]))
+    def test_accepts_list_input(self) -> None:
+        # Lists are now auto-coerced to pd.Series
+        result = advance_decline_line([1, 2, 3], pd.Series([1, 2, 3]))
+        assert isinstance(result, pd.Series)
 
 
 # ---------------------------------------------------------------------------

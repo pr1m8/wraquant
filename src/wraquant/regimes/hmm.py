@@ -31,6 +31,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from wraquant.core._coerce import coerce_array
 from wraquant.core.decorators import requires_extra
 
 # ---------------------------------------------------------------------------
@@ -143,16 +144,17 @@ def fit_gaussian_hmm(
     """
     from hmmlearn.hmm import GaussianHMM
 
-    # Prepare data
-    index = None
-    if isinstance(returns, pd.Series):
-        clean = returns.dropna()
-        index = clean.index
-        X = clean.values.reshape(-1, 1)
-    else:
-        X = np.asarray(returns, dtype=np.float64).flatten()
-        mask = ~np.isnan(X)
-        X = X[mask].reshape(-1, 1)
+    # Prepare data -- preserve index if input is a Series
+    index = returns.index if isinstance(returns, pd.Series) else None
+    arr = coerce_array(returns, "returns")
+    mask = ~np.isnan(arr)
+    arr = arr[mask]
+    if index is not None:
+        # Align index with non-NaN entries
+        full_idx = returns.dropna().index
+        if len(full_idx) == len(arr):
+            index = full_idx
+    X = arr.reshape(-1, 1)
 
     T = len(X)
 
@@ -305,15 +307,15 @@ def predict_regime(
     if isinstance(model, dict) and "model" in model:
         model = model["model"]
 
-    index = None
-    if isinstance(returns, pd.Series):
-        clean = returns.dropna()
-        index = clean.index
-        X = clean.values.reshape(-1, 1)
-    else:
-        X = np.asarray(returns, dtype=np.float64).flatten()
-        mask = ~np.isnan(X)
-        X = X[mask].reshape(-1, 1)
+    index = returns.index if isinstance(returns, pd.Series) else None
+    arr = coerce_array(returns, "returns")
+    mask = ~np.isnan(arr)
+    arr = arr[mask]
+    if index is not None:
+        full_idx = returns.dropna().index
+        if len(full_idx) == len(arr):
+            index = full_idx
+    X = arr.reshape(-1, 1)
 
     states = model.predict(X)
     state_probs = model.predict_proba(X)
@@ -418,7 +420,7 @@ def fit_ms_regression(
         MarkovRegression,
     )
 
-    y = np.asarray(endog, dtype=np.float64).flatten()
+    y = coerce_array(endog, "endog")
 
     model = MarkovRegression(
         y,
@@ -534,7 +536,7 @@ def regime_statistics(
         wraquant.backtest.position.regime_conditional_sizing: Adjust positions by regime.
         regime_transition_analysis: Analyze transition dynamics.
     """
-    r = np.asarray(returns, dtype=np.float64).flatten()
+    r = coerce_array(returns, "returns")
     s = np.asarray(states, dtype=int).flatten()
 
     if len(r) != len(s):
@@ -781,15 +783,15 @@ def gaussian_mixture_regimes(
     """
     from sklearn.mixture import GaussianMixture
 
-    index = None
-    if isinstance(returns, pd.Series):
-        clean = returns.dropna()
-        index = clean.index
-        X = clean.values.reshape(-1, 1)
-    else:
-        X = np.asarray(returns, dtype=np.float64).flatten()
-        mask = ~np.isnan(X)
-        X = X[mask].reshape(-1, 1)
+    index = returns.index if isinstance(returns, pd.Series) else None
+    arr = coerce_array(returns, "returns")
+    mask = ~np.isnan(arr)
+    arr = arr[mask]
+    if index is not None:
+        full_idx = returns.dropna().index
+        if len(full_idx) == len(arr):
+            index = full_idx
+    X = arr.reshape(-1, 1)
 
     gmm = GaussianMixture(
         n_components=n_components,
@@ -1081,7 +1083,7 @@ def fit_ms_autoregression(
         MarkovAutoregression,
     )
 
-    y = np.asarray(endog, dtype=np.float64).flatten()
+    y = coerce_array(endog, "endog")
 
     model = MarkovAutoregression(
         y,

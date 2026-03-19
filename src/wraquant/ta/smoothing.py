@@ -73,7 +73,7 @@ def alma(
     -------
     >>> result = alma(close, period=9, offset=0.85, sigma=6.0)
     """
-    _validate_series(data)
+    data = _validate_series(data)
     _validate_period(period)
 
     m = offset * (period - 1)
@@ -118,7 +118,7 @@ def lsma(data: pd.Series, period: int = 25) -> pd.Series:
     -------
     >>> result = lsma(close, period=25)
     """
-    _validate_series(data)
+    data = _validate_series(data)
     _validate_period(period)
 
     def _linreg_endpoint(window: np.ndarray) -> float:
@@ -158,7 +158,7 @@ def swma(data: pd.Series) -> pd.Series:
     -------
     >>> result = swma(close)
     """
-    _validate_series(data)
+    data = _validate_series(data)
 
     weights = np.array([1.0, 2.0, 2.0, 1.0]) / 6.0
 
@@ -198,7 +198,7 @@ def sinema(data: pd.Series, period: int = 14) -> pd.Series:
     -------
     >>> result = sinema(close, period=14)
     """
-    _validate_series(data)
+    data = _validate_series(data)
     _validate_period(period)
 
     weights = np.array([np.sin(np.pi * (i + 1) / (period + 1)) for i in range(period)])
@@ -240,7 +240,7 @@ def trima(data: pd.Series, period: int = 20) -> pd.Series:
     -------
     >>> result = trima(close, period=20)
     """
-    _validate_series(data)
+    data = _validate_series(data)
     _validate_period(period)
 
     # Determine the two sub-periods
@@ -291,7 +291,7 @@ def jma(
     -------
     >>> result = jma(close, period=7, phase=50, power=2)
     """
-    _validate_series(data)
+    data = _validate_series(data)
     _validate_period(period)
 
     # Compute beta from period
@@ -374,7 +374,7 @@ def gaussian_filter(data: pd.Series, period: int = 14, poles: int = 2) -> pd.Ser
     -------
     >>> result = gaussian_filter(close, period=14)
     """
-    _validate_series(data)
+    data = _validate_series(data)
     _validate_period(period)
 
     sigma = period / (2.0 * poles)
@@ -420,7 +420,7 @@ def butterworth_filter(data: pd.Series, period: int = 14) -> pd.Series:
     -------
     >>> result = butterworth_filter(close, period=14)
     """
-    _validate_series(data)
+    data = _validate_series(data)
     _validate_period(period)
 
     # Butterworth coefficients (2-pole)
@@ -482,7 +482,7 @@ def supersmoother(data: pd.Series, period: int = 14) -> pd.Series:
     -------
     >>> result = supersmoother(close, period=14)
     """
-    _validate_series(data)
+    data = _validate_series(data)
     _validate_period(period)
 
     # Ehlers super smoother coefficients
@@ -544,7 +544,7 @@ def hann_window_ma(data: pd.Series, period: int = 14) -> pd.Series:
     -------
     >>> result = hann_window_ma(close, period=14)
     """
-    _validate_series(data)
+    data = _validate_series(data)
     _validate_period(period)
 
     if period == 1:
@@ -592,7 +592,7 @@ def hamming_window_ma(data: pd.Series, period: int = 14) -> pd.Series:
     -------
     >>> result = hamming_window_ma(close, period=14)
     """
-    _validate_series(data)
+    data = _validate_series(data)
     _validate_period(period)
 
     if period == 1:
@@ -646,7 +646,7 @@ def kaufman_efficiency_ratio(data: pd.Series, period: int = 10) -> pd.Series:
     -------
     >>> result = kaufman_efficiency_ratio(close, period=10)
     """
-    _validate_series(data)
+    data = _validate_series(data)
     _validate_period(period)
 
     direction = (data - data.shift(period)).abs()

@@ -75,8 +75,8 @@ def obv(close: pd.Series, volume: pd.Series) -> pd.Series:
     pd.Series
         OBV values.
     """
-    _validate_series(close, "close")
-    _validate_series(volume, "volume")
+    close = _validate_series(close, "close")
+    volume = _validate_series(volume, "volume")
 
     direction = np.sign(close.diff())
     # First value has no diff — treat as 0
@@ -117,10 +117,10 @@ def ad_line(
     pd.Series
         Cumulative A/D line values.
     """
-    _validate_series(high, "high")
-    _validate_series(low, "low")
-    _validate_series(close, "close")
-    _validate_series(volume, "volume")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
+    close = _validate_series(close, "close")
+    volume = _validate_series(volume, "volume")
 
     hl_range = high - low
     clv = pd.Series(
@@ -165,10 +165,10 @@ def cmf(
     pd.Series
         CMF values in [-1, 1].
     """
-    _validate_series(high, "high")
-    _validate_series(low, "low")
-    _validate_series(close, "close")
-    _validate_series(volume, "volume")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
+    close = _validate_series(close, "close")
+    volume = _validate_series(volume, "volume")
     _validate_period(period)
 
     hl_range = high - low
@@ -219,10 +219,10 @@ def mfi(
     pd.Series
         MFI values in [0, 100].
     """
-    _validate_series(high, "high")
-    _validate_series(low, "low")
-    _validate_series(close, "close")
-    _validate_series(volume, "volume")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
+    close = _validate_series(close, "close")
+    volume = _validate_series(volume, "volume")
     _validate_period(period)
 
     typical_price = (high + low + close) / 3.0
@@ -270,9 +270,9 @@ def eom(
     pd.Series
         EOM values (smoothed).
     """
-    _validate_series(high, "high")
-    _validate_series(low, "low")
-    _validate_series(volume, "volume")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
+    volume = _validate_series(volume, "volume")
     _validate_period(period)
 
     distance = ((high + low) / 2.0) - ((high.shift(1) + low.shift(1)) / 2.0)
@@ -311,8 +311,8 @@ def force_index(
     pd.Series
         Smoothed Force Index.
     """
-    _validate_series(close, "close")
-    _validate_series(volume, "volume")
+    close = _validate_series(close, "close")
+    volume = _validate_series(volume, "volume")
     _validate_period(period)
 
     raw_force = close.diff() * volume
@@ -344,8 +344,8 @@ def nvi(close: pd.Series, volume: pd.Series) -> pd.Series:
     pd.Series
         NVI values (starts at 1000).
     """
-    _validate_series(close, "close")
-    _validate_series(volume, "volume")
+    close = _validate_series(close, "close")
+    volume = _validate_series(volume, "volume")
 
     pct_change = close.pct_change()
     vol_change = volume.diff()
@@ -389,8 +389,8 @@ def pvi(close: pd.Series, volume: pd.Series) -> pd.Series:
     pd.Series
         PVI values (starts at 1000).
     """
-    _validate_series(close, "close")
-    _validate_series(volume, "volume")
+    close = _validate_series(close, "close")
+    volume = _validate_series(volume, "volume")
 
     pct_change = close.pct_change()
     vol_change = volume.diff()
@@ -433,8 +433,8 @@ def vpt(close: pd.Series, volume: pd.Series) -> pd.Series:
     pd.Series
         VPT values.
     """
-    _validate_series(close, "close")
-    _validate_series(volume, "volume")
+    close = _validate_series(close, "close")
+    volume = _validate_series(volume, "volume")
 
     pct = close.pct_change()
     result = (volume * pct).cumsum()
@@ -523,8 +523,8 @@ def vwma(
     >>> volume = pd.Series([100, 100, 100, 100, 100.0])
     >>> vwma(close, volume, period=3)  # equals SMA when volume is uniform
     """
-    _validate_series(close, "close")
-    _validate_series(volume, "volume")
+    close = _validate_series(close, "close")
+    volume = _validate_series(volume, "volume")
     _validate_period(period)
 
     cv = close * volume
@@ -571,8 +571,8 @@ def pvt(close: pd.Series, volume: pd.Series) -> pd.Series:
     >>> volume = pd.Series([100, 200, 300.0])
     >>> pvt(close, volume)
     """
-    _validate_series(close, "close")
-    _validate_series(volume, "volume")
+    close = _validate_series(close, "close")
+    volume = _validate_series(volume, "volume")
 
     pct = close.pct_change()
     result = (volume * pct).cumsum()
@@ -617,8 +617,8 @@ def vpt_smoothed(
     >>> volume = pd.Series([100, 200, 300, 400, 500.0])
     >>> vpt_smoothed(close, volume, period=3)
     """
-    _validate_series(close, "close")
-    _validate_series(volume, "volume")
+    close = _validate_series(close, "close")
+    volume = _validate_series(volume, "volume")
     _validate_period(period)
 
     raw_vpt = vpt(close, volume)
@@ -688,10 +688,10 @@ def klinger(
     >>> result["kvo"].name
     'kvo'
     """
-    _validate_series(high, "high")
-    _validate_series(low, "low")
-    _validate_series(close, "close")
-    _validate_series(volume, "volume")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
+    close = _validate_series(close, "close")
+    volume = _validate_series(volume, "volume")
     _validate_period(fast, "fast")
     _validate_period(slow, "slow")
     _validate_period(signal, "signal")
@@ -767,8 +767,8 @@ def taker_buy_ratio(
     >>> total = pd.Series([100, 100, 100.0])
     >>> taker_buy_ratio(buy, total)
     """
-    _validate_series(buy_volume, "buy_volume")
-    _validate_series(total_volume, "total_volume")
+    buy_volume = _validate_series(buy_volume, "buy_volume")
+    total_volume = _validate_series(total_volume, "total_volume")
 
     result = buy_volume / total_volume.replace(0, np.nan)
     result.name = "taker_buy_ratio"
@@ -814,8 +814,8 @@ def elder_force(
     >>> volume = pd.Series([100, 200, 150, 300, 250.0])
     >>> elder_force(close, volume, period=2)
     """
-    _validate_series(close, "close")
-    _validate_series(volume, "volume")
+    close = _validate_series(close, "close")
+    volume = _validate_series(volume, "volume")
     _validate_period(period)
 
     raw = close.diff() * volume
@@ -863,8 +863,8 @@ def volume_profile(
     >>> len(vp["volume"])
     3
     """
-    _validate_series(close, "close")
-    _validate_series(volume, "volume")
+    close = _validate_series(close, "close")
+    volume = _validate_series(volume, "volume")
     if bins < 1:
         raise ValueError(f"bins must be >= 1, got {bins}")
 
@@ -984,7 +984,7 @@ def volume_roc(
     >>> volume = pd.Series([100, 120, 110, 130, 140.0])
     >>> volume_roc(volume, period=2)
     """
-    _validate_series(volume, "volume")
+    volume = _validate_series(volume, "volume")
     _validate_period(period)
 
     shifted = volume.shift(period)

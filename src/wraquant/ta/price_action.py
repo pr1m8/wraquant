@@ -61,8 +61,8 @@ def higher_highs_lows(
     Example:
         >>> trend = higher_highs_lows(high, low, period=5)
     """
-    _validate_series(high, "high")
-    _validate_series(low, "low")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
     _validate_period(period)
 
     prev_high = high.shift(1).rolling(window=period, min_periods=period).max()
@@ -109,7 +109,7 @@ def swing_high(
     Example:
         >>> sh = swing_high(high, lookback=2, lookahead=2)
     """
-    _validate_series(high, "high")
+    high = _validate_series(high, "high")
     _validate_period(lookback, "lookback")
     _validate_period(lookahead, "lookahead")
 
@@ -150,7 +150,7 @@ def swing_low(
     Example:
         >>> sl = swing_low(low, lookback=2, lookahead=2)
     """
-    _validate_series(low, "low")
+    low = _validate_series(low, "low")
     _validate_period(lookback, "lookback")
     _validate_period(lookahead, "lookahead")
 
@@ -188,7 +188,7 @@ def trend_bars(
     Example:
         >>> streaks = trend_bars(close)
     """
-    _validate_series(close, "close")
+    close = _validate_series(close, "close")
 
     diff = close.diff()
     result = pd.Series(0, index=close.index, name="trend_bars", dtype=int)
@@ -251,10 +251,10 @@ def gap_analysis(
         >>> result = gap_analysis(open_, high, low, close)
         >>> result["gap_type"]
     """
-    _validate_series(open_, "open_")
-    _validate_series(high, "high")
-    _validate_series(low, "low")
-    _validate_series(close, "close")
+    open_ = _validate_series(open_, "open_")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
+    close = _validate_series(close, "close")
 
     prev_high = high.shift(1)
     prev_low = low.shift(1)
@@ -332,8 +332,8 @@ def range_expansion(
     Example:
         >>> expanded = range_expansion(high, low)
     """
-    _validate_series(high, "high")
-    _validate_series(low, "low")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
     _validate_period(period)
 
     rng = high - low
@@ -370,8 +370,8 @@ def narrow_range(
         >>> nr4 = narrow_range(high, low, period=4)
         >>> nr7 = narrow_range(high, low, period=7)
     """
-    _validate_series(high, "high")
-    _validate_series(low, "low")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
     _validate_period(period)
 
     rng = high - low
@@ -405,8 +405,8 @@ def wide_range_bar(
     Example:
         >>> wrb = wide_range_bar(high, low)
     """
-    _validate_series(high, "high")
-    _validate_series(low, "low")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
     _validate_period(period)
 
     rng = high - low
@@ -446,10 +446,10 @@ def key_reversal(
     Example:
         >>> kr = key_reversal(open_, high, low, close)
     """
-    _validate_series(open_, "open_")
-    _validate_series(high, "high")
-    _validate_series(low, "low")
-    _validate_series(close, "close")
+    open_ = _validate_series(open_, "open_")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
+    close = _validate_series(close, "close")
 
     prev_high = high.shift(1)
     prev_low = low.shift(1)
@@ -498,10 +498,10 @@ def pivot_reversal(
     Example:
         >>> pr = pivot_reversal(open_, high, low, close)
     """
-    _validate_series(open_, "open_")
-    _validate_series(high, "high")
-    _validate_series(low, "low")
-    _validate_series(close, "close")
+    open_ = _validate_series(open_, "open_")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
+    close = _validate_series(close, "close")
 
     # Previous bar made a lower low (swing low candidate)
     prev_lower_low = low.shift(1) < low.shift(2)

@@ -91,9 +91,9 @@ def adx(
     dict[str, pd.Series]
         ``adx``, ``plus_di``, ``minus_di`` — all in [0, 100].
     """
-    _validate_series(high, "high")
-    _validate_series(low, "low")
-    _validate_series(close, "close")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
+    close = _validate_series(close, "close")
     _validate_period(period)
 
     # True Range
@@ -161,8 +161,8 @@ def aroon(
         ``aroon_up``, ``aroon_down``, ``oscillator`` — up/down in [0, 100],
         oscillator in [-100, 100].
     """
-    _validate_series(high, "high")
-    _validate_series(low, "low")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
     _validate_period(period)
 
     def _bars_since_high(window: np.ndarray) -> float:
@@ -225,9 +225,9 @@ def psar(
         Parabolic SAR values. Values above price indicate downtrend;
         values below price indicate uptrend.
     """
-    _validate_series(high, "high")
-    _validate_series(low, "low")
-    _validate_series(close, "close")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
+    close = _validate_series(close, "close")
 
     h = high.values.astype(float)
     l = low.values.astype(float)  # noqa: E741
@@ -313,9 +313,9 @@ def vortex(
     dict[str, pd.Series]
         ``plus_vi`` and ``minus_vi``.
     """
-    _validate_series(high, "high")
-    _validate_series(low, "low")
-    _validate_series(close, "close")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
+    close = _validate_series(close, "close")
     _validate_period(period)
 
     prev_close = close.shift(1)
@@ -359,7 +359,7 @@ def trix(data: pd.Series, period: int = 15) -> pd.Series:
     pd.Series
         TRIX values.
     """
-    _validate_series(data)
+    data = _validate_series(data)
     _validate_period(period)
 
     ema1 = _ema(data, period)
@@ -396,7 +396,7 @@ def linear_regression(
         ``value`` (end-of-line prediction), ``slope``, ``intercept``,
         ``r_squared``.
     """
-    _validate_series(data)
+    data = _validate_series(data)
     _validate_period(period)
 
     n = len(data)
@@ -490,7 +490,7 @@ def zigzag(
     >>> import pandas as pd
     >>> zz = zigzag(pd.Series([100, 110, 105, 95, 100, 90]), pct_change=5.0)
     """
-    _validate_series(close, "close")
+    close = _validate_series(close, "close")
     if pct_change <= 0:
         raise ValueError(f"pct_change must be > 0, got {pct_change}")
 
@@ -602,10 +602,10 @@ def heikin_ashi(
     ...     pd.Series([104, 103]),
     ... )
     """
-    _validate_series(open_, "open_")
-    _validate_series(high, "high")
-    _validate_series(low, "low")
-    _validate_series(close, "close")
+    open_ = _validate_series(open_, "open_")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
+    close = _validate_series(close, "close")
 
     o = open_.values.astype(float)
     h = high.values.astype(float)
@@ -664,7 +664,7 @@ def mcginley_dynamic(
     >>> import pandas as pd
     >>> md = mcginley_dynamic(pd.Series([100, 102, 101, 103, 105]))
     """
-    _validate_series(data)
+    data = _validate_series(data)
     _validate_period(period)
 
     values = data.values.astype(float)
@@ -731,7 +731,7 @@ def schaff_trend_cycle(
     >>> import pandas as pd, numpy as np
     >>> stc = schaff_trend_cycle(pd.Series(np.random.randn(100).cumsum() + 100))
     """
-    _validate_series(close, "close")
+    close = _validate_series(close, "close")
     _validate_period(period)
     _validate_period(fast, "fast")
     _validate_period(slow, "slow")
@@ -793,7 +793,7 @@ def guppy_mma(
     >>> import pandas as pd, numpy as np
     >>> g = guppy_mma(pd.Series(np.random.randn(100).cumsum() + 100))
     """
-    _validate_series(data)
+    data = _validate_series(data)
 
     short_periods = [3, 5, 8, 10, 12, 15]
     long_periods = [30, 35, 40, 45, 50, 60]
@@ -842,7 +842,7 @@ def rainbow_ma(
     >>> import pandas as pd, numpy as np
     >>> rb = rainbow_ma(pd.Series(np.random.randn(100).cumsum() + 100))
     """
-    _validate_series(data)
+    data = _validate_series(data)
     _validate_period(period)
     if levels < 1:
         raise ValueError(f"levels must be >= 1, got {levels}")
@@ -885,7 +885,7 @@ def hull_ma(data: pd.Series, period: int = 16) -> pd.Series:
     >>> import pandas as pd, numpy as np
     >>> hma = hull_ma(pd.Series(np.random.randn(100).cumsum() + 100), period=16)
     """
-    _validate_series(data)
+    data = _validate_series(data)
     _validate_period(period)
 
     half_period = max(int(period / 2), 1)
@@ -928,7 +928,7 @@ def zero_lag_ema(data: pd.Series, period: int = 21) -> pd.Series:
     >>> import pandas as pd, numpy as np
     >>> zl = zero_lag_ema(pd.Series(np.random.randn(100).cumsum() + 100))
     """
-    _validate_series(data)
+    data = _validate_series(data)
     _validate_period(period)
 
     lag = int((period - 1) / 2)
@@ -974,7 +974,7 @@ def vidya(
     >>> import pandas as pd, numpy as np
     >>> v = vidya(pd.Series(np.random.randn(100).cumsum() + 100))
     """
-    _validate_series(data)
+    data = _validate_series(data)
     _validate_period(period)
     _validate_period(smooth, "smooth")
 
@@ -1046,7 +1046,7 @@ def tilson_t3(
     >>> import pandas as pd, numpy as np
     >>> t3 = tilson_t3(pd.Series(np.random.randn(100).cumsum() + 100))
     """
-    _validate_series(data)
+    data = _validate_series(data)
     _validate_period(period)
 
     vf = volume_factor
@@ -1099,7 +1099,7 @@ def fractal_adaptive_ma(
     >>> import pandas as pd, numpy as np
     >>> f = fractal_adaptive_ma(pd.Series(np.random.randn(200).cumsum() + 100))
     """
-    _validate_series(data)
+    data = _validate_series(data)
     _validate_period(period)
 
     # Ensure period is even

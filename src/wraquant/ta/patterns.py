@@ -117,10 +117,10 @@ def doji(
     pd.Series
         1 where a Doji is detected, 0 otherwise.
     """
-    _validate_series(open_, "open_")
-    _validate_series(high, "high")
-    _validate_series(low, "low")
-    _validate_series(close, "close")
+    open_ = _validate_series(open_, "open_")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
+    close = _validate_series(close, "close")
 
     body = _body(open_, close)
     rng = _range(high, low)
@@ -172,10 +172,10 @@ def hammer(
     pd.Series
         1 (bullish hammer), -1 (hanging man), or 0.
     """
-    _validate_series(open_, "open_")
-    _validate_series(high, "high")
-    _validate_series(low, "low")
-    _validate_series(close, "close")
+    open_ = _validate_series(open_, "open_")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
+    close = _validate_series(close, "close")
 
     body = _body(open_, close)
     lower = _lower_shadow(open_, low, close)
@@ -227,10 +227,10 @@ def engulfing(
     pd.Series
         1 (bullish engulfing), -1 (bearish engulfing), or 0.
     """
-    _validate_series(open_, "open_")
-    _validate_series(high, "high")
-    _validate_series(low, "low")
-    _validate_series(close, "close")
+    open_ = _validate_series(open_, "open_")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
+    close = _validate_series(close, "close")
 
     prev_open = open_.shift(1)
     prev_close = close.shift(1)
@@ -282,10 +282,10 @@ def morning_star(
     pd.Series
         1 where a Morning Star is detected, 0 otherwise.
     """
-    _validate_series(open_, "open_")
-    _validate_series(high, "high")
-    _validate_series(low, "low")
-    _validate_series(close, "close")
+    open_ = _validate_series(open_, "open_")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
+    close = _validate_series(close, "close")
 
     body = _body(open_, close)
     rng = _range(high, low)
@@ -334,10 +334,10 @@ def evening_star(
     pd.Series
         -1 where an Evening Star is detected, 0 otherwise.
     """
-    _validate_series(open_, "open_")
-    _validate_series(high, "high")
-    _validate_series(low, "low")
-    _validate_series(close, "close")
+    open_ = _validate_series(open_, "open_")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
+    close = _validate_series(close, "close")
 
     body = _body(open_, close)
     rng = _range(high, low)
@@ -390,10 +390,10 @@ def three_white_soldiers(
     pd.Series
         1 where the pattern is detected, 0 otherwise.
     """
-    _validate_series(open_, "open_")
-    _validate_series(high, "high")
-    _validate_series(low, "low")
-    _validate_series(close, "close")
+    open_ = _validate_series(open_, "open_")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
+    close = _validate_series(close, "close")
 
     # All three days bullish
     d1_bull = close.shift(2) > open_.shift(2)
@@ -447,10 +447,10 @@ def three_black_crows(
     pd.Series
         -1 where the pattern is detected, 0 otherwise.
     """
-    _validate_series(open_, "open_")
-    _validate_series(high, "high")
-    _validate_series(low, "low")
-    _validate_series(close, "close")
+    open_ = _validate_series(open_, "open_")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
+    close = _validate_series(close, "close")
 
     # All three days bearish
     d1_bear = close.shift(2) < open_.shift(2)
@@ -505,10 +505,10 @@ def harami(
     pd.Series
         1 (bullish harami), -1 (bearish harami), or 0.
     """
-    _validate_series(open_, "open_")
-    _validate_series(high, "high")
-    _validate_series(low, "low")
-    _validate_series(close, "close")
+    open_ = _validate_series(open_, "open_")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
+    close = _validate_series(close, "close")
 
     prev_body_high = pd.concat([open_.shift(1), close.shift(1)], axis=1).max(axis=1)
     prev_body_low = pd.concat([open_.shift(1), close.shift(1)], axis=1).min(axis=1)
@@ -563,10 +563,10 @@ def spinning_top(
     pd.Series
         1 where a Spinning Top is detected, 0 otherwise.
     """
-    _validate_series(open_, "open_")
-    _validate_series(high, "high")
-    _validate_series(low, "low")
-    _validate_series(close, "close")
+    open_ = _validate_series(open_, "open_")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
+    close = _validate_series(close, "close")
 
     body = _body(open_, close)
     rng = _range(high, low)
@@ -618,10 +618,10 @@ def marubozu(
     pd.Series
         1 (bullish marubozu), -1 (bearish marubozu), or 0.
     """
-    _validate_series(open_, "open_")
-    _validate_series(high, "high")
-    _validate_series(low, "low")
-    _validate_series(close, "close")
+    open_ = _validate_series(open_, "open_")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
+    close = _validate_series(close, "close")
 
     rng = _range(high, low)
     upper = _upper_shadow(open_, high, close)
@@ -679,10 +679,10 @@ def piercing_pattern(
     -------
     >>> signal = piercing_pattern(open_, high, low, close)
     """
-    _validate_series(open_, "open_")
-    _validate_series(high, "high")
-    _validate_series(low, "low")
-    _validate_series(close, "close")
+    open_ = _validate_series(open_, "open_")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
+    close = _validate_series(close, "close")
 
     prev_bearish = close.shift(1) < open_.shift(1)
     curr_bullish = close > open_
@@ -740,10 +740,10 @@ def dark_cloud_cover(
     -------
     >>> signal = dark_cloud_cover(open_, high, low, close)
     """
-    _validate_series(open_, "open_")
-    _validate_series(high, "high")
-    _validate_series(low, "low")
-    _validate_series(close, "close")
+    open_ = _validate_series(open_, "open_")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
+    close = _validate_series(close, "close")
 
     prev_bullish = close.shift(1) > open_.shift(1)
     curr_bearish = close < open_
@@ -804,10 +804,10 @@ def hanging_man(
     -------
     >>> signal = hanging_man(open_, high, low, close)
     """
-    _validate_series(open_, "open_")
-    _validate_series(high, "high")
-    _validate_series(low, "low")
-    _validate_series(close, "close")
+    open_ = _validate_series(open_, "open_")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
+    close = _validate_series(close, "close")
 
     body = _body(open_, close)
     lower = _lower_shadow(open_, low, close)
@@ -863,10 +863,10 @@ def inverted_hammer(
     -------
     >>> signal = inverted_hammer(open_, high, low, close)
     """
-    _validate_series(open_, "open_")
-    _validate_series(high, "high")
-    _validate_series(low, "low")
-    _validate_series(close, "close")
+    open_ = _validate_series(open_, "open_")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
+    close = _validate_series(close, "close")
 
     body = _body(open_, close)
     upper = _upper_shadow(open_, high, close)
@@ -921,10 +921,10 @@ def shooting_star(
     -------
     >>> signal = shooting_star(open_, high, low, close)
     """
-    _validate_series(open_, "open_")
-    _validate_series(high, "high")
-    _validate_series(low, "low")
-    _validate_series(close, "close")
+    open_ = _validate_series(open_, "open_")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
+    close = _validate_series(close, "close")
 
     body = _body(open_, close)
     upper = _upper_shadow(open_, high, close)
@@ -980,10 +980,10 @@ def tweezer_top(
     -------
     >>> signal = tweezer_top(open_, high, low, close)
     """
-    _validate_series(open_, "open_")
-    _validate_series(high, "high")
-    _validate_series(low, "low")
-    _validate_series(close, "close")
+    open_ = _validate_series(open_, "open_")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
+    close = _validate_series(close, "close")
 
     prev_bullish = close.shift(1) > open_.shift(1)
     curr_bearish = close < open_
@@ -1036,10 +1036,10 @@ def tweezer_bottom(
     -------
     >>> signal = tweezer_bottom(open_, high, low, close)
     """
-    _validate_series(open_, "open_")
-    _validate_series(high, "high")
-    _validate_series(low, "low")
-    _validate_series(close, "close")
+    open_ = _validate_series(open_, "open_")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
+    close = _validate_series(close, "close")
 
     prev_bearish = close.shift(1) < open_.shift(1)
     curr_bullish = close > open_
@@ -1088,10 +1088,10 @@ def three_inside_up(
     -------
     >>> signal = three_inside_up(open_, high, low, close)
     """
-    _validate_series(open_, "open_")
-    _validate_series(high, "high")
-    _validate_series(low, "low")
-    _validate_series(close, "close")
+    open_ = _validate_series(open_, "open_")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
+    close = _validate_series(close, "close")
 
     # Day 1: large bearish candle
     d1_bearish = close.shift(2) < open_.shift(2)
@@ -1146,10 +1146,10 @@ def three_inside_down(
     -------
     >>> signal = three_inside_down(open_, high, low, close)
     """
-    _validate_series(open_, "open_")
-    _validate_series(high, "high")
-    _validate_series(low, "low")
-    _validate_series(close, "close")
+    open_ = _validate_series(open_, "open_")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
+    close = _validate_series(close, "close")
 
     # Day 1: large bullish candle
     d1_bullish = close.shift(2) > open_.shift(2)
@@ -1205,10 +1205,10 @@ def abandoned_baby(
     -------
     >>> signal = abandoned_baby(open_, high, low, close)
     """
-    _validate_series(open_, "open_")
-    _validate_series(high, "high")
-    _validate_series(low, "low")
-    _validate_series(close, "close")
+    open_ = _validate_series(open_, "open_")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
+    close = _validate_series(close, "close")
 
     body = _body(open_, close)
     rng = _range(high, low)
@@ -1279,10 +1279,10 @@ def kicking(
     -------
     >>> signal = kicking(open_, high, low, close)
     """
-    _validate_series(open_, "open_")
-    _validate_series(high, "high")
-    _validate_series(low, "low")
-    _validate_series(close, "close")
+    open_ = _validate_series(open_, "open_")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
+    close = _validate_series(close, "close")
 
     rng = _range(high, low)
     upper = _upper_shadow(open_, high, close)
@@ -1373,10 +1373,10 @@ def belt_hold(
     -------
     >>> signal = belt_hold(open_, high, low, close)
     """
-    _validate_series(open_, "open_")
-    _validate_series(high, "high")
-    _validate_series(low, "low")
-    _validate_series(close, "close")
+    open_ = _validate_series(open_, "open_")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
+    close = _validate_series(close, "close")
 
     rng = _range(high, low)
     lower = _lower_shadow(open_, low, close)
@@ -1435,10 +1435,10 @@ def rising_three_methods(
     Example:
         >>> signal = rising_three_methods(open_, high, low, close)
     """
-    _validate_series(open_, "open_")
-    _validate_series(high, "high")
-    _validate_series(low, "low")
-    _validate_series(close, "close")
+    open_ = _validate_series(open_, "open_")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
+    close = _validate_series(close, "close")
 
     result = pd.Series(0, index=close.index, name="rising_three_methods", dtype=int)
 
@@ -1511,10 +1511,10 @@ def falling_three_methods(
     Example:
         >>> signal = falling_three_methods(open_, high, low, close)
     """
-    _validate_series(open_, "open_")
-    _validate_series(high, "high")
-    _validate_series(low, "low")
-    _validate_series(close, "close")
+    open_ = _validate_series(open_, "open_")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
+    close = _validate_series(close, "close")
 
     result = pd.Series(0, index=close.index, name="falling_three_methods", dtype=int)
 
@@ -1591,10 +1591,10 @@ def tasuki_gap(
     Example:
         >>> signal = tasuki_gap(open_, high, low, close)
     """
-    _validate_series(open_, "open_")
-    _validate_series(high, "high")
-    _validate_series(low, "low")
-    _validate_series(close, "close")
+    open_ = _validate_series(open_, "open_")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
+    close = _validate_series(close, "close")
 
     # Upside Tasuki gap
     d1_bull = close.shift(2) > open_.shift(2)
@@ -1653,10 +1653,10 @@ def on_neck(
     Example:
         >>> signal = on_neck(open_, high, low, close)
     """
-    _validate_series(open_, "open_")
-    _validate_series(high, "high")
-    _validate_series(low, "low")
-    _validate_series(close, "close")
+    open_ = _validate_series(open_, "open_")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
+    close = _validate_series(close, "close")
 
     prev_bearish = close.shift(1) < open_.shift(1)
     curr_bullish = close > open_
@@ -1702,10 +1702,10 @@ def in_neck(
     Example:
         >>> signal = in_neck(open_, high, low, close)
     """
-    _validate_series(open_, "open_")
-    _validate_series(high, "high")
-    _validate_series(low, "low")
-    _validate_series(close, "close")
+    open_ = _validate_series(open_, "open_")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
+    close = _validate_series(close, "close")
 
     prev_bearish = close.shift(1) < open_.shift(1)
     curr_bullish = close > open_
@@ -1751,10 +1751,10 @@ def thrusting(
     Example:
         >>> signal = thrusting(open_, high, low, close)
     """
-    _validate_series(open_, "open_")
-    _validate_series(high, "high")
-    _validate_series(low, "low")
-    _validate_series(close, "close")
+    open_ = _validate_series(open_, "open_")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
+    close = _validate_series(close, "close")
 
     prev_bearish = close.shift(1) < open_.shift(1)
     curr_bullish = close > open_
@@ -1808,10 +1808,10 @@ def separating_lines(
     Example:
         >>> signal = separating_lines(open_, high, low, close)
     """
-    _validate_series(open_, "open_")
-    _validate_series(high, "high")
-    _validate_series(low, "low")
-    _validate_series(close, "close")
+    open_ = _validate_series(open_, "open_")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
+    close = _validate_series(close, "close")
 
     prev_open = open_.shift(1)
     same_open = ((open_ - prev_open).abs() / prev_open) <= tolerance
@@ -1859,10 +1859,10 @@ def closing_marubozu(
     Example:
         >>> signal = closing_marubozu(open_, high, low, close)
     """
-    _validate_series(open_, "open_")
-    _validate_series(high, "high")
-    _validate_series(low, "low")
-    _validate_series(close, "close")
+    open_ = _validate_series(open_, "open_")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
+    close = _validate_series(close, "close")
 
     rng = _range(high, low)
     upper = _upper_shadow(open_, high, close)
@@ -1913,10 +1913,10 @@ def rickshaw_man(
     Example:
         >>> signal = rickshaw_man(open_, high, low, close)
     """
-    _validate_series(open_, "open_")
-    _validate_series(high, "high")
-    _validate_series(low, "low")
-    _validate_series(close, "close")
+    open_ = _validate_series(open_, "open_")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
+    close = _validate_series(close, "close")
 
     body = _body(open_, close)
     rng = _range(high, low)
@@ -1974,10 +1974,10 @@ def long_legged_doji(
     Example:
         >>> signal = long_legged_doji(open_, high, low, close)
     """
-    _validate_series(open_, "open_")
-    _validate_series(high, "high")
-    _validate_series(low, "low")
-    _validate_series(close, "close")
+    open_ = _validate_series(open_, "open_")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
+    close = _validate_series(close, "close")
 
     body = _body(open_, close)
     rng = _range(high, low)
@@ -2028,10 +2028,10 @@ def dragonfly_doji(
     Example:
         >>> signal = dragonfly_doji(open_, high, low, close)
     """
-    _validate_series(open_, "open_")
-    _validate_series(high, "high")
-    _validate_series(low, "low")
-    _validate_series(close, "close")
+    open_ = _validate_series(open_, "open_")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
+    close = _validate_series(close, "close")
 
     body = _body(open_, close)
     rng = _range(high, low)
@@ -2082,10 +2082,10 @@ def gravestone_doji(
     Example:
         >>> signal = gravestone_doji(open_, high, low, close)
     """
-    _validate_series(open_, "open_")
-    _validate_series(high, "high")
-    _validate_series(low, "low")
-    _validate_series(close, "close")
+    open_ = _validate_series(open_, "open_")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
+    close = _validate_series(close, "close")
 
     body = _body(open_, close)
     rng = _range(high, low)
@@ -2135,10 +2135,10 @@ def tri_star(
     Example:
         >>> signal = tri_star(open_, high, low, close)
     """
-    _validate_series(open_, "open_")
-    _validate_series(high, "high")
-    _validate_series(low, "low")
-    _validate_series(close, "close")
+    open_ = _validate_series(open_, "open_")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
+    close = _validate_series(close, "close")
 
     body = _body(open_, close)
     rng = _range(high, low)
@@ -2190,10 +2190,10 @@ def unique_three_river(
     Example:
         >>> signal = unique_three_river(open_, high, low, close)
     """
-    _validate_series(open_, "open_")
-    _validate_series(high, "high")
-    _validate_series(low, "low")
-    _validate_series(close, "close")
+    open_ = _validate_series(open_, "open_")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
+    close = _validate_series(close, "close")
 
     body = _body(open_, close)
     rng = _range(high, low)
@@ -2258,10 +2258,10 @@ def concealing_baby_swallow(
     Example:
         >>> signal = concealing_baby_swallow(open_, high, low, close)
     """
-    _validate_series(open_, "open_")
-    _validate_series(high, "high")
-    _validate_series(low, "low")
-    _validate_series(close, "close")
+    open_ = _validate_series(open_, "open_")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
+    close = _validate_series(close, "close")
 
     rng = _range(high, low)
     upper = _upper_shadow(open_, high, close)

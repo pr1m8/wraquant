@@ -76,8 +76,8 @@ def candle_body_size(
     Example:
         >>> body = candle_body_size(open_, close)
     """
-    _validate_series(open_, "open_")
-    _validate_series(close, "close")
+    open_ = _validate_series(open_, "open_")
+    close = _validate_series(close, "close")
 
     result = _body(open_, close)
     result.name = "candle_body_size"
@@ -105,8 +105,8 @@ def candle_range(
     Example:
         >>> rng = candle_range(high, low)
     """
-    _validate_series(high, "high")
-    _validate_series(low, "low")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
 
     result = _range(high, low)
     result.name = "candle_range"
@@ -140,10 +140,10 @@ def upper_shadow_ratio(
     Example:
         >>> ratio = upper_shadow_ratio(open_, high, low, close)
     """
-    _validate_series(open_, "open_")
-    _validate_series(high, "high")
-    _validate_series(low, "low")
-    _validate_series(close, "close")
+    open_ = _validate_series(open_, "open_")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
+    close = _validate_series(close, "close")
 
     upper = _upper_shadow(open_, high, close)
     rng = _range(high, low)
@@ -182,10 +182,10 @@ def lower_shadow_ratio(
     Example:
         >>> ratio = lower_shadow_ratio(open_, high, low, close)
     """
-    _validate_series(open_, "open_")
-    _validate_series(high, "high")
-    _validate_series(low, "low")
-    _validate_series(close, "close")
+    open_ = _validate_series(open_, "open_")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
+    close = _validate_series(close, "close")
 
     lower = _lower_shadow(open_, low, close)
     rng = _range(high, low)
@@ -224,10 +224,10 @@ def body_to_range_ratio(
     Example:
         >>> ratio = body_to_range_ratio(open_, high, low, close)
     """
-    _validate_series(open_, "open_")
-    _validate_series(high, "high")
-    _validate_series(low, "low")
-    _validate_series(close, "close")
+    open_ = _validate_series(open_, "open_")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
+    close = _validate_series(close, "close")
 
     body = _body(open_, close)
     rng = _range(high, low)
@@ -263,8 +263,8 @@ def candle_direction(
     Example:
         >>> direction = candle_direction(open_, close)
     """
-    _validate_series(open_, "open_")
-    _validate_series(close, "close")
+    open_ = _validate_series(open_, "open_")
+    close = _validate_series(close, "close")
 
     diff = close - open_
     result = np.where(
@@ -298,8 +298,8 @@ def average_candle_body(
     Example:
         >>> avg_body = average_candle_body(open_, close, period=14)
     """
-    _validate_series(open_, "open_")
-    _validate_series(close, "close")
+    open_ = _validate_series(open_, "open_")
+    close = _validate_series(close, "close")
     if period < 1:
         raise ValueError(f"period must be >= 1, got {period}")
 
@@ -335,8 +335,8 @@ def candle_momentum(
     Example:
         >>> mom = candle_momentum(open_, close, period=5)
     """
-    _validate_series(open_, "open_")
-    _validate_series(close, "close")
+    open_ = _validate_series(open_, "open_")
+    close = _validate_series(close, "close")
     if period < 1:
         raise ValueError(f"period must be >= 1, got {period}")
 
@@ -370,8 +370,8 @@ def body_gap(
     Example:
         >>> gap = body_gap(open_, close)
     """
-    _validate_series(open_, "open_")
-    _validate_series(close, "close")
+    open_ = _validate_series(open_, "open_")
+    close = _validate_series(close, "close")
 
     result = open_ - close.shift(1)
     result.name = "body_gap"
@@ -403,8 +403,8 @@ def inside_bar(
     Example:
         >>> ib = inside_bar(high, low)
     """
-    _validate_series(high, "high")
-    _validate_series(low, "low")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
 
     result = (high < high.shift(1)) & (low > low.shift(1))
     return pd.Series(result, index=high.index, name="inside_bar", dtype=bool)
@@ -435,8 +435,8 @@ def outside_bar(
     Example:
         >>> ob = outside_bar(high, low)
     """
-    _validate_series(high, "high")
-    _validate_series(low, "low")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
 
     result = (high > high.shift(1)) & (low < low.shift(1))
     return pd.Series(result, index=high.index, name="outside_bar", dtype=bool)
@@ -473,10 +473,10 @@ def pin_bar(
     Example:
         >>> pb = pin_bar(open_, high, low, close)
     """
-    _validate_series(open_, "open_")
-    _validate_series(high, "high")
-    _validate_series(low, "low")
-    _validate_series(close, "close")
+    open_ = _validate_series(open_, "open_")
+    high = _validate_series(high, "high")
+    low = _validate_series(low, "low")
+    close = _validate_series(close, "close")
 
     body = _body(open_, close)
     upper = _upper_shadow(open_, high, close)

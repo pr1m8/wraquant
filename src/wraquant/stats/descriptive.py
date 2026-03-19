@@ -6,6 +6,8 @@ import numpy as np
 import pandas as pd
 from scipy import stats as sp_stats
 
+from wraquant.core._coerce import coerce_series
+
 
 def summary_stats(returns: pd.Series) -> dict:
     """Compute summary statistics for a return series.
@@ -16,6 +18,7 @@ def summary_stats(returns: pd.Series) -> dict:
     Returns:
         Dictionary with mean, std, skew, kurtosis, min, max, and count.
     """
+    returns = coerce_series(returns, "returns")
     return {
         "mean": float(returns.mean()),
         "std": float(returns.std()),
@@ -40,6 +43,7 @@ def annualized_return(
     Returns:
         Annualized return as a float.
     """
+    returns = coerce_series(returns, "returns")
     total = (1 + returns).prod()
     n = len(returns)
     return float(total ** (periods_per_year / n) - 1)
@@ -58,6 +62,7 @@ def annualized_volatility(
     Returns:
         Annualized volatility as a float.
     """
+    returns = coerce_series(returns, "returns")
     return float(returns.std() * np.sqrt(periods_per_year))
 
 
@@ -88,6 +93,7 @@ def calmar_ratio(
     Returns:
         Calmar ratio as a float.
     """
+    returns = coerce_series(returns, "returns")
     prices = (1 + returns).cumprod()
     mdd = max_drawdown(prices)
     if mdd == 0:
@@ -109,6 +115,7 @@ def omega_ratio(returns: pd.Series, threshold: float = 0.0) -> float:
     Returns:
         Omega ratio as a float.
     """
+    returns = coerce_series(returns, "returns")
     excess = returns - threshold
     gains = excess[excess > 0].sum()
     losses = -excess[excess <= 0].sum()
@@ -182,6 +189,7 @@ def rolling_sharpe(
         annualized_volatility: Annualised standard deviation.
         calmar_ratio: Drawdown-based risk-adjusted return.
     """
+    returns = coerce_series(returns, "returns")
     excess = returns - risk_free_rate
     rolling_mean = excess.rolling(window).mean()
     rolling_std = returns.rolling(window).std(ddof=1)
@@ -251,6 +259,7 @@ def rolling_drawdown(
         max_drawdown: Full-sample maximum drawdown.
         calmar_ratio: Return / drawdown ratio.
     """
+    returns = coerce_series(returns, "returns")
     result = pd.Series(np.nan, index=returns.index, name="rolling_drawdown")
 
     for i in range(window - 1, len(returns)):

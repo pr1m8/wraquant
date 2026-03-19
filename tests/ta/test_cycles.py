@@ -72,9 +72,9 @@ class TestHilbertDominantPeriod:
             assert (converged >= 6 - 1e-10).all()
             assert (converged <= 50 + 1e-10).all()
 
-    def test_type_error(self) -> None:
-        with pytest.raises(TypeError):
-            hilbert_transform_dominant_period([1, 2, 3])  # type: ignore[arg-type]
+    def test_accepts_list_input(self) -> None:
+        result = hilbert_transform_dominant_period(list(range(1, 100)))
+        assert isinstance(result, pd.Series)
 
 
 # ---------------------------------------------------------------------------
@@ -226,6 +226,6 @@ class TestBandpassFilter:
         valid = bp.iloc[30:]  # Skip warmup
         assert abs(valid.mean()) < 5.0
 
-    def test_type_error(self) -> None:
-        with pytest.raises(TypeError):
-            bandpass_filter([1, 2, 3])  # type: ignore[arg-type]
+    def test_accepts_list_input(self) -> None:
+        result = bandpass_filter(list(range(1, 100)))
+        assert isinstance(result, dict)

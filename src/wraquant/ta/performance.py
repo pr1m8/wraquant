@@ -66,8 +66,8 @@ def relative_performance(
     >>> bench = pd.Series([100, 102, 104])
     >>> relative_performance(asset, bench)
     """
-    _validate_series(asset, "asset")
-    _validate_series(benchmark, "benchmark")
+    asset = _validate_series(asset, "asset")
+    benchmark = _validate_series(benchmark, "benchmark")
 
     ratio = asset / benchmark.replace(0, np.nan)
     # Normalize so the first valid ratio equals 100
@@ -115,8 +115,8 @@ def mansfield_rsi(
     -------
     >>> result = mansfield_rsi(asset, benchmark, period=52)
     """
-    _validate_series(asset, "asset")
-    _validate_series(benchmark, "benchmark")
+    asset = _validate_series(asset, "asset")
+    benchmark = _validate_series(benchmark, "benchmark")
     _validate_period(period)
 
     ratio = asset / benchmark.replace(0, np.nan)
@@ -162,8 +162,8 @@ def alpha(
     -------
     >>> result = alpha(asset, benchmark, window=60)
     """
-    _validate_series(asset, "asset")
-    _validate_series(benchmark, "benchmark")
+    asset = _validate_series(asset, "asset")
+    benchmark = _validate_series(benchmark, "benchmark")
     _validate_period(window, "window")
 
     asset_ret = asset.pct_change() - risk_free
@@ -234,8 +234,8 @@ def tracking_error(
     -------
     >>> result = tracking_error(asset, benchmark, window=60)
     """
-    _validate_series(asset, "asset")
-    _validate_series(benchmark, "benchmark")
+    asset = _validate_series(asset, "asset")
+    benchmark = _validate_series(benchmark, "benchmark")
     _validate_period(window, "window")
 
     asset_ret = asset.pct_change()
@@ -277,8 +277,8 @@ def up_down_capture(
     >>> result = up_down_capture(asset, benchmark)
     >>> result["up_capture"]
     """
-    _validate_series(asset, "asset")
-    _validate_series(benchmark, "benchmark")
+    asset = _validate_series(asset, "asset")
+    benchmark = _validate_series(benchmark, "benchmark")
 
     asset_ret = asset.pct_change().dropna()
     bench_ret = benchmark.pct_change().dropna()
@@ -340,7 +340,7 @@ def drawdown(data: pd.Series) -> pd.Series:
     >>> prices = pd.Series([100, 105, 102, 108, 103])
     >>> drawdown(prices)
     """
-    _validate_series(data)
+    data = _validate_series(data)
 
     running_max = data.cummax()
     result = (data - running_max) / running_max.replace(0, np.nan)
@@ -378,7 +378,7 @@ def max_drawdown_rolling(
     -------
     >>> result = max_drawdown_rolling(prices, window=60)
     """
-    _validate_series(data)
+    data = _validate_series(data)
     _validate_period(window, "window")
 
     def _max_dd(chunk: np.ndarray) -> float:
@@ -428,7 +428,7 @@ def pain_index(
     -------
     >>> result = pain_index(prices, window=60)
     """
-    _validate_series(data)
+    data = _validate_series(data)
     _validate_period(window, "window")
 
     dd = drawdown(data)
@@ -467,7 +467,7 @@ def gain_loss_ratio(
     -------
     >>> result = gain_loss_ratio(prices, window=20)
     """
-    _validate_series(data)
+    data = _validate_series(data)
     _validate_period(window, "window")
 
     returns = data.pct_change()
@@ -512,7 +512,7 @@ def profit_factor(
     -------
     >>> result = profit_factor(prices, window=20)
     """
-    _validate_series(data)
+    data = _validate_series(data)
     _validate_period(window, "window")
 
     returns = data.pct_change()
