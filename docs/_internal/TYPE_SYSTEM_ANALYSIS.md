@@ -72,6 +72,47 @@ auto-converts ndarray → pd.Series. Backward compatible.
 
 vol/, regimes/, ml/, price/, backtest/, econometrics/
 
+## frame/ Module Redesign
+
+The current frame/ is generic protocols with zero financial awareness.
+It should be rebuilt to understand financial data natively:
+
+### What frame/ SHOULD provide:
+
+1. **Financial Series types** (thin wrappers, not new dtypes):
+   - `PriceSeries` — auto-detects frequency, validates non-negative, knows about splits/dividends
+   - `ReturnSeries` — knows if simple or log, carries annualization factor
+   - `VolSeries` — non-negative, carries model source (realized/implied/GARCH)
+
+2. **Financial DataFrame types**:
+   - `OHLCVFrame` — validates column names, provides `.close`, `.volume` accessors
+   - `FactorFrame` — named factors with metadata (source, frequency)
+   - `PortfolioFrame` — weights + returns, auto-computes portfolio return
+
+3. **Time series awareness**:
+   - Auto-detect frequency from DatetimeIndex (daily, hourly, minute)
+   - `periods_per_year` property (252 for daily, 52 for weekly, etc.)
+   - Timezone handling
+   - Trading calendar integration
+   - Gap/holiday detection
+
+4. **Model results** (already started with RegimeResult, GARCHResult, etc.):
+   - Standardized `.plot()` method on all results
+   - `.to_dataframe()` for tabular export
+   - `.summary()` for text report
+   - Serialization (`.save()` / `.load()`)
+
+5. **Auto-conversion between types**:
+   - `PriceSeries.to_returns()` → `ReturnSeries`
+   - `ReturnSeries.to_prices(initial=100)` → `PriceSeries`
+   - `OHLCVFrame.close` → `PriceSeries`
+
+### Implementation approach:
+- Thin wrappers around pd.Series/DataFrame (NOT custom ExtensionDtype)
+- Use `pd.Series.attrs` for metadata
+- Validation at construction, not on every operation
+- Backward compatible: plain pd.Series still works everywhere
+
 ## Performance Notes
 
 - ta/ indicators called millions of times in backtests
