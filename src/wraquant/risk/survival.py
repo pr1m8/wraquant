@@ -64,7 +64,6 @@ from __future__ import annotations
 import numpy as np
 from scipy import stats as sp_stats
 
-
 __all__ = [
     "cox_partial_likelihood",
     "exponential_survival",
@@ -110,7 +109,7 @@ def kaplan_meier(
     e_sorted = event_observed[order]
 
     unique_times = np.unique(t_sorted)
-    n_total = len(durations)
+    len(durations)
 
     survival = np.ones(len(unique_times))
     variance = np.zeros(len(unique_times))
@@ -125,7 +124,9 @@ def kaplan_meier(
 
         if at_risk > 0 and events > 0:
             s *= 1.0 - events / at_risk
-            var_sum += events / (at_risk * (at_risk - events)) if at_risk > events else 0.0
+            var_sum += (
+                events / (at_risk * (at_risk - events)) if at_risk > events else 0.0
+            )
 
         survival[idx] = s
         variance[idx] = s**2 * var_sum
@@ -285,7 +286,7 @@ def cox_partial_likelihood(
 
     # Sort by duration descending (for risk set computation)
     order = np.argsort(-durations)
-    t = durations[order]
+    durations[order]
     e = event_observed[order]
     X = X[order]
 

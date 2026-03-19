@@ -213,9 +213,7 @@ def historical_stress_test(
     periods_found: list[str] = []
 
     for name, (start, end) in crisis_periods.items():
-        mask = (ret.index >= pd.Timestamp(start)) & (
-            ret.index <= pd.Timestamp(end)
-        )
+        mask = (ret.index >= pd.Timestamp(start)) & (ret.index <= pd.Timestamp(end))
         subset = ret.loc[mask]
         if len(subset) == 0:
             continue
@@ -694,12 +692,12 @@ def joint_stress_test(
     stressed_cov = D @ stressed_corr @ D
 
     return {
-        "stressed_mean": dict(zip(assets, stressed_mu.tolist())),
-        "stressed_vol": dict(zip(assets, stressed_sigma.tolist())),
+        "stressed_mean": dict(zip(assets, stressed_mu.tolist(), strict=False)),
+        "stressed_vol": dict(zip(assets, stressed_sigma.tolist(), strict=False)),
         "stressed_corr": stressed_corr,
         "stressed_cov": stressed_cov,
-        "base_mean": dict(zip(assets, mu.tolist())),
-        "base_vol": dict(zip(assets, sigma.tolist())),
+        "base_mean": dict(zip(assets, mu.tolist(), strict=False)),
+        "base_vol": dict(zip(assets, sigma.tolist(), strict=False)),
     }
 
 
@@ -778,14 +776,14 @@ def marginal_stress_contribution(
     contributions = portfolio_weights * scenario_vec
     total_loss = float(np.sum(contributions))
 
-    asset_contribs = dict(zip(assets, contributions.tolist()))
+    asset_contribs = dict(zip(assets, contributions.tolist(), strict=False))
 
     # Percentage contributions
     if abs(total_loss) > 1e-15:
         pct = contributions / total_loss
     else:
         pct = np.zeros_like(contributions)
-    pct_contribs = dict(zip(assets, pct.tolist()))
+    pct_contribs = dict(zip(assets, pct.tolist(), strict=False))
 
     # Worst asset is the one with the most negative contribution
     worst_idx = int(np.argmin(contributions))
@@ -796,4 +794,354 @@ def marginal_stress_contribution(
         "asset_contributions": asset_contribs,
         "pct_contributions": pct_contribs,
         "worst_asset": worst_asset,
+    }
+
+
+def correlation_stress(
+    returns: pd.DataFrame,
+    shock_levels: list[float] | None = None,
+) -> dict[str, Any]:
+    """Stress test portfolio by increasing pairwise correlations.
+
+    Blends the empirical correlation matrix toward perfect correlation
+    at various shock levels, recomputes the covariance matrix, and
+    measures the resulting portfolio volatility. This reveals how much
+    diversification benefit the portfolio loses as correlations rise.
+
+    When to use:
+        Use correlation stress for:
+        - Evaluating diversification fragility: how much does portfolio
+          risk increase if diversification breaks down?
+        - Regulatory stress testing: correlation breakdown is a standard
+          CCAR scenario.
+        - Risk committee presentations: "if all correlations jump to 0.8,
+          our portfolio vol goes from X% to Y%."
+
+    Parameters:
+        returns: Multi-asset return DataFrame (columns = assets).
+        shock_levels: Blend factors toward perfect correlation. 0 =
+            unchanged, 1 = all correlations set to 1.0. Defaults to
+            ``[0.0, 0.25, 0.5, 0.75, 1.0]``.
+
+    Returns:
+        Dict with keys:
+
+        * ``"results"`` -- dict mapping shock level to a dict with
+          ``"portfolio_vol"`` (equal-weighted portfolio volatility),
+          ``"avg_correlation"`` (mean off-diagonal correlation),
+          ``"stressed_corr"`` (the stressed correlation matrix).
+        * ``"base_vol"`` -- equal-weighted portfolio vol with no shock.
+
+    Example:
+        >>> import pandas as pd, numpy as np
+        >>> np.random.seed(42)
+        >>> returns = pd.DataFrame({
+        ...     "A": np.random.normal(0, 0.01, 252),
+        ...     "B": np.random.normal(0, 0.012, 252),
+        ...     "C": np.random.normal(0, 0.008, 252),
+        ... })
+        >>> result = correlation_stress(returns, shock_levels=[0.0, 0.5, 1.0])
+        >>> result["results"][1.0]["portfolio_vol"] >= result["base_vol"]
+        True
+
+    See Also:
+        joint_stress_test: Combined vol, spot, and correlation shocks.
+        vol_stress_test: Volatility-only scaling.
+    """
+    if shock_levels is None:
+        shock_levels = [0.0, 0.25, 0.5, 0.75, 1.0]
+
+    clean = returns.dropna()
+    n_assets = clean.shape[1]
+    vols = clean.std().values
+    corr = clean.corr().values
+    eq_weights = np.ones(n_assets) / n_assets
+
+    results: dict[float, dict[str, Any]] = {}
+    base_vol = None
+
+    for level in shock_levels:
+        ones_mat = np.ones_like(corr)
+        stressed_corr = (1 - level) * corr + level * ones_mat
+        np.fill_diagonal(stressed_corr, 1.0)
+
+        # Reconstruct cov
+        D = np.diag(vols)
+        stressed_cov = D @ stressed_corr @ D
+
+        port_vol = float(np.sqrt(eq_weights @ stressed_cov @ eq_weights))
+        if level == 0.0:
+            base_vol = port_vol
+
+        # Average off-diagonal correlation
+        mask = ~np.eye(n_assets, dtype=bool)
+        avg_corr = float(np.mean(stressed_corr[mask]))
+
+        results[level] = {
+            "portfolio_vol": port_vol,
+            "avg_correlation": avg_corr,
+            "stressed_corr": stressed_corr,
+        }
+
+    if base_vol is None:
+        base_vol = 0.0
+
+    return {
+        "results": results,
+        "base_vol": base_vol,
+    }
+
+
+def liquidity_stress(
+    returns: pd.DataFrame,
+    volumes: pd.DataFrame | None = None,
+    liquidity_haircuts: dict[str, float] | None = None,
+    portfolio_value: float = 1_000_000.0,
+) -> dict[str, Any]:
+    """Estimate liquidation cost under adverse market conditions.
+
+    Models the cost of unwinding a portfolio under stressed liquidity
+    conditions. If volume data is provided, uses a market-impact model;
+    otherwise, applies user-defined haircuts to each asset.
+
+    When to use:
+        Use liquidity stress for:
+        - Estimating portfolio liquidation costs during crises.
+        - Measuring liquidity-adjusted VaR (LVaR).
+        - Satisfying regulatory requirements for liquidity stress testing
+          (e.g., SEC Rule 22e-4 for mutual funds).
+
+    Parameters:
+        returns: Multi-asset return DataFrame (columns = assets).
+        volumes: Optional DataFrame of trading volumes (same shape and
+            index as *returns*). If provided, liquidity cost is estimated
+            as spread * sqrt(position / ADV).
+        liquidity_haircuts: Optional dict mapping asset name to
+            liquidation cost (e.g., ``{"AAPL": 0.001, "ILLIQ": 0.05}``).
+            If neither *volumes* nor *haircuts* are provided, uses
+            volatility as a proxy.
+        portfolio_value: Total portfolio value for position sizing.
+
+    Returns:
+        Dict with keys:
+
+        * ``"total_cost"`` -- Estimated total liquidation cost ($).
+        * ``"total_cost_pct"`` -- Cost as a fraction of portfolio value.
+        * ``"asset_costs"`` -- dict mapping asset to its liquidation cost.
+        * ``"days_to_liquidate"`` -- estimated days to liquidate if
+          limited to 10% of ADV per day (only if *volumes* provided).
+
+    Example:
+        >>> import pandas as pd, numpy as np
+        >>> np.random.seed(42)
+        >>> returns = pd.DataFrame({
+        ...     "A": np.random.normal(0, 0.01, 252),
+        ...     "B": np.random.normal(0, 0.02, 252),
+        ... })
+        >>> result = liquidity_stress(returns, portfolio_value=1_000_000)
+        >>> result["total_cost"] > 0
+        True
+
+    See Also:
+        vol_stress_test: Volatility scaling stress test.
+        wraquant.execution.cost: Transaction cost modeling.
+    """
+    clean = returns.dropna()
+    assets = clean.columns.tolist()
+    n_assets = len(assets)
+    eq_weights = np.ones(n_assets) / n_assets
+    position_values = eq_weights * portfolio_value
+
+    asset_costs: dict[str, float] = {}
+    days_to_liquidate: dict[str, float] = {}
+
+    if liquidity_haircuts is not None:
+        for asset in assets:
+            haircut = liquidity_haircuts.get(asset, 0.01)
+            cost = position_values[assets.index(asset)] * haircut
+            asset_costs[asset] = cost
+
+    elif volumes is not None:
+        vol_clean = volumes.reindex(clean.index).dropna()
+        for i, asset in enumerate(assets):
+            if asset in vol_clean.columns:
+                adv = float(vol_clean[asset].mean())
+                asset_vol = float(clean[asset].std())
+                position = position_values[i]
+                # Square-root market impact: cost ~ sigma * sqrt(Q/V)
+                if adv > 0:
+                    impact = asset_vol * np.sqrt(position / adv)
+                    cost = position * impact
+                    # Days to liquidate at 10% of ADV
+                    days = position / (0.1 * adv) if adv > 0 else float("inf")
+                    days_to_liquidate[asset] = float(days)
+                else:
+                    cost = position * asset_vol
+                asset_costs[asset] = float(cost)
+            else:
+                asset_costs[asset] = float(position_values[i] * clean[asset].std())
+    else:
+        # Use volatility as proxy for bid-ask spread
+        for i, asset in enumerate(assets):
+            asset_vol = float(clean[asset].std())
+            # Stressed spread ~ 3x daily vol
+            cost = position_values[i] * asset_vol * 3
+            asset_costs[asset] = float(cost)
+
+    total_cost = sum(asset_costs.values())
+    total_cost_pct = total_cost / portfolio_value if portfolio_value > 0 else 0.0
+
+    result: dict[str, Any] = {
+        "total_cost": total_cost,
+        "total_cost_pct": total_cost_pct,
+        "asset_costs": asset_costs,
+    }
+    if days_to_liquidate:
+        result["days_to_liquidate"] = days_to_liquidate
+
+    return result
+
+
+# Pre-defined scenario library
+_SCENARIO_LIBRARY: dict[str, dict[str, float]] = {
+    "gfc_2008": {
+        "equity_shock": -0.40,
+        "credit_spread_widening": 0.03,
+        "vol_multiplier": 3.0,
+        "correlation_shock": 0.7,
+        "description_rate_change": -0.02,
+    },
+    "covid_2020": {
+        "equity_shock": -0.34,
+        "credit_spread_widening": 0.025,
+        "vol_multiplier": 4.0,
+        "correlation_shock": 0.6,
+        "description_rate_change": -0.015,
+    },
+    "dot_com_2000": {
+        "equity_shock": -0.49,
+        "credit_spread_widening": 0.02,
+        "vol_multiplier": 2.0,
+        "correlation_shock": 0.3,
+        "description_rate_change": -0.03,
+    },
+    "rate_hike_2022": {
+        "equity_shock": -0.25,
+        "credit_spread_widening": 0.015,
+        "vol_multiplier": 1.5,
+        "correlation_shock": 0.5,
+        "description_rate_change": 0.03,
+    },
+    "stagflation": {
+        "equity_shock": -0.30,
+        "credit_spread_widening": 0.02,
+        "vol_multiplier": 2.0,
+        "correlation_shock": 0.4,
+        "description_rate_change": 0.02,
+    },
+    "flash_crash": {
+        "equity_shock": -0.10,
+        "credit_spread_widening": 0.005,
+        "vol_multiplier": 5.0,
+        "correlation_shock": 0.8,
+        "description_rate_change": -0.005,
+    },
+    "em_crisis": {
+        "equity_shock": -0.35,
+        "credit_spread_widening": 0.04,
+        "vol_multiplier": 2.5,
+        "correlation_shock": 0.5,
+        "description_rate_change": 0.01,
+    },
+}
+
+
+def scenario_library(
+    returns: pd.DataFrame,
+    scenarios: list[str] | None = None,
+) -> dict[str, Any]:
+    """Apply pre-defined crisis scenarios from the built-in library.
+
+    Provides a curated set of stress scenarios calibrated to historical
+    crises. Each scenario specifies equity shocks, volatility multipliers,
+    and correlation shocks. The function applies each scenario to the
+    provided returns and reports the stressed portfolio metrics.
+
+    When to use:
+        Use the scenario library for:
+        - Quick stress testing without designing custom scenarios.
+        - Regulatory reporting: standard scenarios that regulators
+          expect to see.
+        - Benchmarking: compare your portfolio's sensitivity to
+          well-known crises.
+
+    Available scenarios:
+        - ``"gfc_2008"`` -- Global Financial Crisis
+        - ``"covid_2020"`` -- COVID-19 crash
+        - ``"dot_com_2000"`` -- Dot-com bubble burst
+        - ``"rate_hike_2022"`` -- 2022 rate hiking cycle
+        - ``"stagflation"`` -- Stagflation scenario
+        - ``"flash_crash"`` -- Flash crash (intraday)
+        - ``"em_crisis"`` -- Emerging markets crisis
+
+    Parameters:
+        returns: Multi-asset return DataFrame (columns = assets).
+        scenarios: List of scenario names from the library. If None,
+            all scenarios are applied.
+
+    Returns:
+        Dict with keys:
+
+        * ``"scenario_results"`` -- dict mapping scenario name to a dict
+          with ``"stressed_portfolio_return"`` (equity shock applied),
+          ``"stressed_vol"`` (vol-scaled portfolio volatility),
+          ``"scenario_params"`` (the raw scenario parameters).
+        * ``"available_scenarios"`` -- list of all available scenario names.
+
+    Example:
+        >>> import pandas as pd, numpy as np
+        >>> np.random.seed(42)
+        >>> returns = pd.DataFrame({
+        ...     "SPY": np.random.normal(0.0005, 0.01, 252),
+        ...     "TLT": np.random.normal(0.0002, 0.005, 252),
+        ... })
+        >>> result = scenario_library(returns, scenarios=["gfc_2008", "covid_2020"])
+        >>> "gfc_2008" in result["scenario_results"]
+        True
+
+    See Also:
+        historical_stress_test: Replay actual crisis returns.
+        joint_stress_test: Custom multi-factor stress test.
+    """
+    if scenarios is None:
+        scenarios = list(_SCENARIO_LIBRARY.keys())
+
+    clean = returns.dropna()
+    n_assets = clean.shape[1]
+    eq_weights = np.ones(n_assets) / n_assets
+
+    base_vol = float(np.sqrt(eq_weights @ clean.cov().values @ eq_weights))
+
+    results: dict[str, dict[str, Any]] = {}
+
+    for name in scenarios:
+        if name not in _SCENARIO_LIBRARY:
+            continue
+
+        params = _SCENARIO_LIBRARY[name]
+        equity_shock = params.get("equity_shock", 0.0)
+        vol_mult = params.get("vol_multiplier", 1.0)
+
+        stressed_return = float(clean.mean().mean() + equity_shock)
+        stressed_vol = base_vol * vol_mult
+
+        results[name] = {
+            "stressed_portfolio_return": stressed_return,
+            "stressed_vol": float(stressed_vol),
+            "scenario_params": params,
+        }
+
+    return {
+        "scenario_results": results,
+        "available_scenarios": list(_SCENARIO_LIBRARY.keys()),
     }

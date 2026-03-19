@@ -71,6 +71,8 @@ def sharpe_ratio(
     See Also:
         sortino_ratio: Uses downside deviation only.
         information_ratio: Measures alpha relative to a benchmark.
+        wraquant.backtest.tearsheet.comprehensive_tearsheet: Full report including Sharpe.
+        wraquant.stats.descriptive.rolling_sharpe: Time-varying Sharpe ratio.
 
     References:
         - Sharpe (1966), "Mutual Fund Performance"
@@ -260,6 +262,8 @@ def max_drawdown(prices: pd.Series) -> float:
     See Also:
         sharpe_ratio: Risk-adjusted return measure.
         sortino_ratio: Downside-only risk-adjusted return.
+        wraquant.backtest.tearsheet.comprehensive_tearsheet: Full report with drawdowns.
+        wraquant.stats.descriptive.rolling_drawdown: Time-varying drawdown.
 
     References:
         - Magdon-Ismail & Atiya (2004), "Maximum Drawdown"
@@ -311,3 +315,340 @@ def hit_ratio(returns: pd.Series) -> float:
     if len(clean) == 0:
         return 0.0
     return float((clean > 0).sum() / len(clean))
+
+
+def treynor_ratio(
+    returns: pd.Series,
+    benchmark: pd.Series,
+    risk_free: float = 0.0,
+    periods_per_year: int = 252,
+) -> float:
+    """Treynor ratio: excess return per unit of systematic (beta) risk.
+
+    The Treynor ratio is similar to the Sharpe ratio but uses beta
+    (systematic risk) rather than total standard deviation in the
+    denominator. It is the appropriate performance measure for
+    well-diversified portfolios where specific risk has been
+    diversified away.
+
+    When to use:
+        Use Treynor for comparing portfolios that are *part of* a larger
+        diversified portfolio (so only systematic risk matters). If the
+        portfolio is the investor's entire wealth, use Sharpe instead.
+
+    Mathematical formulation:
+        Treynor = (R_p - R_f) / beta_p
+
+        where R_p is annualized portfolio return, R_f is the risk-free
+        rate, and beta_p is the portfolio's beta vs the benchmark.
+
+    Parameters:
+        returns: Portfolio return series.
+        benchmark: Benchmark return series (same frequency and index).
+        risk_free: Annual risk-free rate.
+        periods_per_year: Trading periods per year.
+
+    Returns:
+        Treynor ratio as a float. Higher is better. Negative indicates
+        the portfolio underperformed the risk-free rate.
+
+    Example:
+        >>> import pandas as pd, numpy as np
+        >>> np.random.seed(42)
+        >>> market = pd.Series(np.random.normal(0.0005, 0.01, 252))
+        >>> portfolio = 1.2 * market + np.random.normal(0.0001, 0.005, 252)
+        >>> tr = treynor_ratio(portfolio, market, risk_free=0.04)
+        >>> isinstance(tr, float)
+        True
+
+    See Also:
+        sharpe_ratio: Total risk-adjusted return.
+        jensens_alpha: Excess return above CAPM prediction.
+
+    References:
+        - Treynor (1965), "How to Rate Management of Investment Funds"
+    """
+    excess_port = returns - risk_free / periods_per_year
+    excess_bench = benchmark - risk_free / periods_per_year
+
+    aligned = pd.concat(
+        [excess_port.rename("p"), excess_bench.rename("b")], axis=1
+    ).dropna()
+
+    cov_pb = np.cov(aligned["p"].values, aligned["b"].values, ddof=1)
+    beta = cov_pb[0, 1] / cov_pb[1, 1] if cov_pb[1, 1] != 0 else 0.0
+
+    if beta == 0:
+        return 0.0
+
+    ann_return = float(aligned["p"].mean() * periods_per_year)
+    return ann_return / beta
+
+
+def m_squared(
+    returns: pd.Series,
+    benchmark: pd.Series,
+    risk_free: float = 0.0,
+    periods_per_year: int = 252,
+) -> float:
+    """M-squared (Modigliani-Modigliani) risk-adjusted performance.
+
+    M-squared leverages or deleverages the portfolio to match the
+    benchmark's volatility, then measures the excess return at that
+    risk level. The result is in return units (basis points / percent),
+    making it easier to interpret than the dimensionless Sharpe ratio.
+
+    When to use:
+        Use M-squared when you want to compare two portfolios with
+        different risk levels on a common scale. M-squared answers:
+        "if both portfolios had the same risk as the benchmark, which
+        would earn more?"
+
+    Mathematical formulation:
+        M^2 = SR_p * sigma_b + R_f
+
+    Parameters:
+        returns: Portfolio return series.
+        benchmark: Benchmark return series.
+        risk_free: Annual risk-free rate.
+        periods_per_year: Trading periods per year.
+
+    Returns:
+        M-squared as an annualized return (float). Positive means the
+        portfolio outperforms the benchmark on a risk-adjusted basis.
+
+    Example:
+        >>> import pandas as pd, numpy as np
+        >>> np.random.seed(42)
+        >>> portfolio = pd.Series(np.random.normal(0.0006, 0.01, 252))
+        >>> benchmark = pd.Series(np.random.normal(0.0004, 0.009, 252))
+        >>> m2 = m_squared(portfolio, benchmark, risk_free=0.04)
+        >>> isinstance(m2, float)
+        True
+
+    See Also:
+        sharpe_ratio: Dimensionless risk-adjusted return.
+
+    References:
+        - Modigliani & Modigliani (1997), "Risk-Adjusted Performance"
+    """
+    excess_bench = benchmark - risk_free / periods_per_year
+
+    sr_port = sharpe_ratio(returns, risk_free, periods_per_year)
+    bench_vol = float(excess_bench.std() * np.sqrt(periods_per_year))
+
+    return sr_port * bench_vol + risk_free
+
+
+def jensens_alpha(
+    returns: pd.Series,
+    benchmark: pd.Series,
+    risk_free: float = 0.0,
+    periods_per_year: int = 252,
+) -> float:
+    """Jensen's alpha: excess return above CAPM-predicted return.
+
+    Jensen's alpha measures the average return of the portfolio in
+    excess of what the Capital Asset Pricing Model (CAPM) predicts
+    given the portfolio's beta. A positive alpha indicates that the
+    manager generated return beyond what the market risk exposure
+    would explain.
+
+    Mathematical formulation:
+        alpha = R_p - [R_f + beta * (R_m - R_f)]
+
+        where R_p is the portfolio return, R_m is the benchmark return,
+        and beta is the portfolio's beta to the benchmark.
+
+    Parameters:
+        returns: Portfolio return series.
+        benchmark: Benchmark return series.
+        risk_free: Annual risk-free rate.
+        periods_per_year: Trading periods per year.
+
+    Returns:
+        Annualized Jensen's alpha as a float.
+
+    Example:
+        >>> import pandas as pd, numpy as np
+        >>> np.random.seed(42)
+        >>> market = pd.Series(np.random.normal(0.0005, 0.01, 252))
+        >>> stock = 0.0002 + 1.0 * market + np.random.normal(0, 0.005, 252)
+        >>> alpha = jensens_alpha(stock, market, risk_free=0.04)
+        >>> isinstance(alpha, float)
+        True
+
+    See Also:
+        treynor_ratio: Risk-adjusted return using beta.
+        appraisal_ratio: Alpha per unit of residual risk.
+
+    References:
+        - Jensen (1968), "The Performance of Mutual Funds in the Period
+          1945-1964"
+    """
+    rf_per_period = risk_free / periods_per_year
+
+    excess_port = returns - rf_per_period
+    excess_bench = benchmark - rf_per_period
+
+    aligned = pd.concat(
+        [excess_port.rename("p"), excess_bench.rename("b")], axis=1
+    ).dropna()
+
+    cov_pb = np.cov(aligned["p"].values, aligned["b"].values, ddof=1)
+    beta = cov_pb[0, 1] / cov_pb[1, 1] if cov_pb[1, 1] != 0 else 0.0
+
+    # Alpha per period
+    alpha_per_period = aligned["p"].mean() - beta * aligned["b"].mean()
+
+    return float(alpha_per_period * periods_per_year)
+
+
+def appraisal_ratio(
+    returns: pd.Series,
+    benchmark: pd.Series,
+    risk_free: float = 0.0,
+    periods_per_year: int = 252,
+) -> float:
+    """Appraisal ratio: Jensen's alpha per unit of residual risk.
+
+    The appraisal ratio (also called the Treynor-Black appraisal ratio)
+    measures the manager's alpha relative to the risk taken to achieve
+    it (residual/idiosyncratic volatility). A high appraisal ratio
+    means the manager generates alpha efficiently.
+
+    Mathematical formulation:
+        AR = alpha / sigma_epsilon
+
+        where alpha is Jensen's alpha and sigma_epsilon is the standard
+        deviation of the regression residuals (annualized).
+
+    Parameters:
+        returns: Portfolio return series.
+        benchmark: Benchmark return series.
+        risk_free: Annual risk-free rate.
+        periods_per_year: Trading periods per year.
+
+    Returns:
+        Appraisal ratio as a float. Higher is better.
+
+    Example:
+        >>> import pandas as pd, numpy as np
+        >>> np.random.seed(42)
+        >>> market = pd.Series(np.random.normal(0.0005, 0.01, 252))
+        >>> stock = 0.0003 + 1.0 * market + np.random.normal(0, 0.005, 252)
+        >>> ar = appraisal_ratio(stock, market, risk_free=0.04)
+        >>> isinstance(ar, float)
+        True
+
+    See Also:
+        jensens_alpha: The numerator of the appraisal ratio.
+        information_ratio: Alpha per unit of tracking error.
+
+    References:
+        - Treynor & Black (1973), "How to Use Security Analysis to
+          Improve Portfolio Selection"
+    """
+    rf_per_period = risk_free / periods_per_year
+
+    excess_port = returns - rf_per_period
+    excess_bench = benchmark - rf_per_period
+
+    aligned = pd.concat(
+        [excess_port.rename("p"), excess_bench.rename("b")], axis=1
+    ).dropna()
+
+    p_vals = aligned["p"].values
+    b_vals = aligned["b"].values
+
+    # OLS regression
+    cov_pb = np.cov(p_vals, b_vals, ddof=1)
+    beta = cov_pb[0, 1] / cov_pb[1, 1] if cov_pb[1, 1] != 0 else 0.0
+    alpha_per_period = np.mean(p_vals) - beta * np.mean(b_vals)
+
+    # Residuals
+    residuals = p_vals - (alpha_per_period + beta * b_vals)
+    residual_vol = float(np.std(residuals, ddof=1) * np.sqrt(periods_per_year))
+
+    alpha_annual = float(alpha_per_period * periods_per_year)
+
+    if residual_vol == 0:
+        return 0.0
+    return alpha_annual / residual_vol
+
+
+def capture_ratios(
+    returns: pd.Series,
+    benchmark: pd.Series,
+) -> dict[str, float]:
+    """Up-capture and down-capture ratios.
+
+    Capture ratios measure how much of the benchmark's up and down
+    movements the portfolio captures. An ideal portfolio has high
+    up-capture (>100%) and low down-capture (<100%).
+
+    When to use:
+        Use capture ratios for:
+        - Evaluating defensive vs aggressive positioning: a portfolio
+          with 90% up-capture and 70% down-capture is defensively
+          positioned and will outperform in bear markets.
+        - Manager selection: compare capture ratios across funds.
+        - Style analysis: growth funds typically have high up-capture
+          and high down-capture; value funds often have lower both.
+
+    Mathematical formulation:
+        Up-capture = (mean(r_p | r_b > 0) / mean(r_b | r_b > 0)) * 100
+        Down-capture = (mean(r_p | r_b < 0) / mean(r_b | r_b < 0)) * 100
+
+        Capture ratio = up-capture / down-capture
+
+    Parameters:
+        returns: Portfolio return series.
+        benchmark: Benchmark return series (same frequency and index).
+
+    Returns:
+        Dictionary containing:
+        - **up_capture** (*float*) -- Percentage of benchmark's up
+          movements captured (>100 = amplified).
+        - **down_capture** (*float*) -- Percentage of benchmark's down
+          movements captured (<100 = dampened losses).
+        - **capture_ratio** (*float*) -- up_capture / down_capture.
+          Values > 1 indicate the portfolio adds value through
+          asymmetric participation.
+
+    Example:
+        >>> import pandas as pd, numpy as np
+        >>> np.random.seed(42)
+        >>> benchmark = pd.Series(np.random.normal(0.0005, 0.01, 252))
+        >>> portfolio = 0.8 * benchmark + np.random.normal(0.0001, 0.005, 252)
+        >>> caps = capture_ratios(portfolio, benchmark)
+        >>> caps["up_capture"] > 0
+        True
+
+    See Also:
+        treynor_ratio: Systematic risk-adjusted return.
+    """
+    aligned = pd.concat([returns.rename("p"), benchmark.rename("b")], axis=1).dropna()
+
+    up_mask = aligned["b"] > 0
+    down_mask = aligned["b"] < 0
+
+    up_bench_mean = aligned["b"][up_mask].mean()
+    up_port_mean = aligned["p"][up_mask].mean()
+
+    down_bench_mean = aligned["b"][down_mask].mean()
+    down_port_mean = aligned["p"][down_mask].mean()
+
+    up_capture = (
+        float(up_port_mean / up_bench_mean * 100) if up_bench_mean != 0 else 0.0
+    )
+    down_capture = (
+        float(down_port_mean / down_bench_mean * 100) if down_bench_mean != 0 else 0.0
+    )
+    cap_ratio = up_capture / down_capture if down_capture != 0 else float("inf")
+
+    return {
+        "up_capture": up_capture,
+        "down_capture": down_capture,
+        "capture_ratio": cap_ratio,
+    }

@@ -33,7 +33,6 @@ import pandas as pd
 
 from wraquant.core.decorators import requires_extra
 
-
 # ---------------------------------------------------------------------------
 # Gaussian HMM
 # ---------------------------------------------------------------------------
@@ -138,6 +137,9 @@ def fit_gaussian_hmm(
         gaussian_mixture_regimes: GMM-based regime classification.
         regime_statistics: Compute per-regime financial statistics.
         regime_transition_analysis: Analyze regime transition dynamics.
+        wraquant.regimes.base.detect_regimes: Unified high-level interface.
+        wraquant.backtest.position.regime_signal_filter: Gate signals by regime.
+        wraquant.viz.dashboard.regime_dashboard: Visualize regime analysis.
     """
     from hmmlearn.hmm import GaussianHMM
 
@@ -433,9 +435,7 @@ def fit_ms_regression(
         regime_params[f"mean_{k}"] = float(result.params[k])
     if switching_variance:
         for k in range(k_regimes):
-            regime_params[f"sigma2_{k}"] = float(
-                result.params[k_regimes + k]
-            )
+            regime_params[f"sigma2_{k}"] = float(result.params[k_regimes + k])
 
     # Transition matrix from result
     transmat = np.array(result.regime_transition).T
@@ -445,11 +445,17 @@ def fit_ms_regression(
     raw_filtered = np.array(result.filtered_marginal_probabilities)
 
     # Ensure shape is (T, K) regardless of statsmodels version
-    if raw_smoothed.shape[0] == k_regimes and raw_smoothed.shape[0] != raw_smoothed.shape[1]:
+    if (
+        raw_smoothed.shape[0] == k_regimes
+        and raw_smoothed.shape[0] != raw_smoothed.shape[1]
+    ):
         smoothed_probs = raw_smoothed.T
     else:
         smoothed_probs = raw_smoothed
-    if raw_filtered.shape[0] == k_regimes and raw_filtered.shape[0] != raw_filtered.shape[1]:
+    if (
+        raw_filtered.shape[0] == k_regimes
+        and raw_filtered.shape[0] != raw_filtered.shape[1]
+    ):
         filtered_probs = raw_filtered.T
     else:
         filtered_probs = raw_filtered
@@ -524,6 +530,8 @@ def regime_statistics(
 
     See Also:
         fit_gaussian_hmm: Fit HMM to obtain state assignments.
+        wraquant.regimes.base.regime_report: Comprehensive regime analysis.
+        wraquant.backtest.position.regime_conditional_sizing: Adjust positions by regime.
         regime_transition_analysis: Analyze transition dynamics.
     """
     r = np.asarray(returns, dtype=np.float64).flatten()
@@ -546,9 +554,7 @@ def regime_statistics(
 
         mean_ret = float(np.mean(regime_r))
         std_ret = float(np.std(regime_r, ddof=1)) if n_obs > 1 else 0.0
-        sharpe = (
-            (mean_ret / std_ret * np.sqrt(252)) if std_ret > 1e-12 else 0.0
-        )
+        sharpe = (mean_ret / std_ret * np.sqrt(252)) if std_ret > 1e-12 else 0.0
 
         # Sortino ratio (downside deviation only)
         downside = regime_r[regime_r < 0]
@@ -871,9 +877,7 @@ def rolling_regime_probability(
     values = clean.values.reshape(-1, 1)
 
     prob_cols = [f"prob_{k}" for k in range(n_states)]
-    result = pd.DataFrame(
-        np.nan, index=clean.index, columns=prob_cols, dtype=float
-    )
+    result = pd.DataFrame(np.nan, index=clean.index, columns=prob_cols, dtype=float)
 
     for t in range(min_window, T):
         if window is not None:
@@ -951,9 +955,7 @@ def regime_aware_portfolio(
     if probs.ndim != 1:
         raise ValueError(f"regime_probs must be 1-D, got shape {probs.shape}")
     if weights.ndim != 2:
-        raise ValueError(
-            f"regime_weights must be 2-D, got shape {weights.shape}"
-        )
+        raise ValueError(f"regime_weights must be 2-D, got shape {weights.shape}")
     if probs.shape[0] != weights.shape[0]:
         raise ValueError(
             f"Number of regimes in probs ({probs.shape[0]}) and weights "
@@ -1097,9 +1099,7 @@ def fit_ms_autoregression(
         regime_params[f"mean_{k}"] = float(result.params[k])
     if switching_variance:
         for k in range(k_regimes):
-            regime_params[f"sigma2_{k}"] = float(
-                result.params[k_regimes + k]
-            )
+            regime_params[f"sigma2_{k}"] = float(result.params[k_regimes + k])
     # AR coefficients
     if switching_ar:
         for k in range(k_regimes):
@@ -1135,11 +1135,17 @@ def fit_ms_autoregression(
     raw_smoothed = np.array(result.smoothed_marginal_probabilities)
     raw_filtered = np.array(result.filtered_marginal_probabilities)
 
-    if raw_smoothed.shape[0] == k_regimes and raw_smoothed.shape[0] != raw_smoothed.shape[1]:
+    if (
+        raw_smoothed.shape[0] == k_regimes
+        and raw_smoothed.shape[0] != raw_smoothed.shape[1]
+    ):
         smoothed_probs = raw_smoothed.T
     else:
         smoothed_probs = raw_smoothed
-    if raw_filtered.shape[0] == k_regimes and raw_filtered.shape[0] != raw_filtered.shape[1]:
+    if (
+        raw_filtered.shape[0] == k_regimes
+        and raw_filtered.shape[0] != raw_filtered.shape[1]
+    ):
         filtered_probs = raw_filtered.T
     else:
         filtered_probs = raw_filtered
@@ -1398,9 +1404,7 @@ def fit_multivariate_hmm(
             continue
 
     if best_model is None:
-        raise RuntimeError(
-            f"All {n_init} EM restarts failed for multivariate HMM."
-        )
+        raise RuntimeError(f"All {n_init} EM restarts failed for multivariate HMM.")
 
     model = best_model
 
@@ -1415,9 +1419,7 @@ def fit_multivariate_hmm(
     elif covariance_type == "diag":
         covariances = np.array([np.diag(model.covars_[k]) for k in range(n_states)])
     elif covariance_type == "spherical":
-        covariances = np.array(
-            [np.eye(d) * model.covars_[k] for k in range(n_states)]
-        )
+        covariances = np.array([np.eye(d) * model.covars_[k] for k in range(n_states)])
     elif covariance_type == "tied":
         covariances = np.array([model.covars_ for _ in range(n_states)])
     else:
@@ -1456,10 +1458,10 @@ def fit_multivariate_hmm(
         n_cov = n_states * d * (d + 1) // 2
 
     n_params = (
-        (n_states - 1)           # initial state
+        (n_states - 1)  # initial state
         + n_states * (n_states - 1)  # transition matrix
-        + n_states * d           # means
-        + n_cov                  # covariances
+        + n_states * d  # means
+        + n_cov  # covariances
     )
     log_likelihood = float(best_score)
     aic = 2 * n_params - 2 * log_likelihood
@@ -1619,9 +1621,7 @@ def _extract_variances(
         result = np.asarray(covars, dtype=np.float64).flatten()[:n_states]
     elif covariance_type in ("diag", "diagonal"):
         # Shape (n_states, n_features) -- take first feature
-        result = np.array(
-            [float(covars[k].flatten()[0]) for k in range(n_states)]
-        )
+        result = np.array([float(covars[k].flatten()[0]) for k in range(n_states)])
     elif covariance_type == "tied":
         # Same covariance for all states
         var = float(np.asarray(covars).flatten()[0])

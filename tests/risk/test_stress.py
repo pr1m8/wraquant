@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
-import pytest
 
 from wraquant.risk.stress import (
     historical_stress_test,
@@ -17,10 +16,10 @@ from wraquant.risk.stress import (
     vol_stress_test,
 )
 
-
 # ---------------------------------------------------------------------------
 # Fixtures / helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_returns(n: int = 500, seed: int = 42) -> pd.Series:
     """Synthetic daily returns."""
@@ -50,6 +49,7 @@ def _make_prices(n: int = 500, seed: int = 42) -> pd.Series:
 # ---------------------------------------------------------------------------
 # stress_test_returns
 # ---------------------------------------------------------------------------
+
 
 class TestStressTestReturns:
     def test_returns_dict_structure(self) -> None:
@@ -96,6 +96,7 @@ class TestStressTestReturns:
 # historical_stress_test
 # ---------------------------------------------------------------------------
 
+
 class TestHistoricalStressTest:
     def test_custom_crisis_period(self) -> None:
         ret = _make_returns(n=1000, seed=10)
@@ -132,6 +133,7 @@ class TestHistoricalStressTest:
 # vol_stress_test
 # ---------------------------------------------------------------------------
 
+
 class TestVolStressTest:
     def test_higher_mult_higher_vol(self) -> None:
         ret = _make_returns()
@@ -161,6 +163,7 @@ class TestVolStressTest:
 # ---------------------------------------------------------------------------
 # spot_stress_test
 # ---------------------------------------------------------------------------
+
 
 class TestSpotStressTest:
     def test_negative_shock_reduces_price(self) -> None:
@@ -196,6 +199,7 @@ class TestSpotStressTest:
 # ---------------------------------------------------------------------------
 # sensitivity_ladder
 # ---------------------------------------------------------------------------
+
 
 class TestSensitivityLadder:
     def test_ladder_keys(self) -> None:
@@ -234,6 +238,7 @@ class TestSensitivityLadder:
 # reverse_stress_test
 # ---------------------------------------------------------------------------
 
+
 class TestReverseStressTest:
     def test_finds_scenarios(self) -> None:
         ret = _make_returns(n=250, seed=42)
@@ -269,36 +274,48 @@ class TestReverseStressTest:
 # joint_stress_test
 # ---------------------------------------------------------------------------
 
+
 class TestJointStressTest:
     def test_vol_shock_increases_vol(self) -> None:
         ret = _make_multi_returns()
-        result = joint_stress_test(ret, vol_shock=2.0, spot_shock=0.0, correlation_shock=0.0)
+        result = joint_stress_test(
+            ret, vol_shock=2.0, spot_shock=0.0, correlation_shock=0.0
+        )
         for asset in ret.columns:
             assert result["stressed_vol"][asset] > result["base_vol"][asset]
 
     def test_spot_shock_shifts_mean(self) -> None:
         ret = _make_multi_returns()
-        result = joint_stress_test(ret, vol_shock=1.0, spot_shock=-0.05, correlation_shock=0.0)
+        result = joint_stress_test(
+            ret, vol_shock=1.0, spot_shock=-0.05, correlation_shock=0.0
+        )
         for asset in ret.columns:
             assert result["stressed_mean"][asset] < result["base_mean"][asset]
 
     def test_correlation_shock_toward_one(self) -> None:
         ret = _make_multi_returns()
-        result = joint_stress_test(ret, vol_shock=1.0, spot_shock=0.0, correlation_shock=1.0)
+        result = joint_stress_test(
+            ret, vol_shock=1.0, spot_shock=0.0, correlation_shock=1.0
+        )
         corr = result["stressed_corr"]
         # Off-diagonals should be 1.0 (blended fully toward ones)
         np.testing.assert_allclose(corr, np.ones_like(corr), atol=1e-10)
 
     def test_no_shock_preserves(self) -> None:
         ret = _make_multi_returns()
-        result = joint_stress_test(ret, vol_shock=1.0, spot_shock=0.0, correlation_shock=0.0)
+        result = joint_stress_test(
+            ret, vol_shock=1.0, spot_shock=0.0, correlation_shock=0.0
+        )
         for asset in ret.columns:
-            assert abs(result["stressed_vol"][asset] - result["base_vol"][asset]) < 1e-10
+            assert (
+                abs(result["stressed_vol"][asset] - result["base_vol"][asset]) < 1e-10
+            )
 
 
 # ---------------------------------------------------------------------------
 # marginal_stress_contribution
 # ---------------------------------------------------------------------------
+
 
 class TestMarginalStressContribution:
     def test_total_loss_correct(self) -> None:

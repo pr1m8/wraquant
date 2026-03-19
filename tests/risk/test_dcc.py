@@ -12,14 +12,12 @@ from wraquant.risk.dcc import (
     rolling_correlation_dcc,
 )
 
-
 # ---------------------------------------------------------------------------
 # Fixtures / helpers
 # ---------------------------------------------------------------------------
 
-def _make_garch_returns(
-    n: int = 500, k: int = 2, seed: int = 42
-) -> np.ndarray:
+
+def _make_garch_returns(n: int = 500, k: int = 2, seed: int = 42) -> np.ndarray:
     """Generate k correlated return series with mild GARCH-like clustering."""
     rng = np.random.default_rng(seed)
     # Build correlated innovations
@@ -36,7 +34,9 @@ def _make_garch_returns(
     returns[0] = eps[0]
     for t in range(1, n):
         for j in range(k):
-            sigma2[t, j] = 0.00002 + 0.05 * returns[t - 1, j] ** 2 + 0.90 * sigma2[t - 1, j]
+            sigma2[t, j] = (
+                0.00002 + 0.05 * returns[t - 1, j] ** 2 + 0.90 * sigma2[t - 1, j]
+            )
         returns[t] = eps[t] * np.sqrt(sigma2[t] / 0.0004)
 
     return returns
@@ -45,6 +45,7 @@ def _make_garch_returns(
 # ---------------------------------------------------------------------------
 # dcc_garch
 # ---------------------------------------------------------------------------
+
 
 class TestDCCGarch:
     def test_returns_correct_keys(self) -> None:
@@ -97,6 +98,7 @@ class TestDCCGarch:
 # rolling_correlation_dcc
 # ---------------------------------------------------------------------------
 
+
 class TestRollingCorrelationDCC:
     def test_output_shape(self) -> None:
         data = _make_garch_returns(n=300, k=2)
@@ -122,6 +124,7 @@ class TestRollingCorrelationDCC:
 # forecast_correlation
 # ---------------------------------------------------------------------------
 
+
 class TestForecastCorrelation:
     def test_forecast_shape(self) -> None:
         data = _make_garch_returns(n=300, k=2)
@@ -144,6 +147,7 @@ class TestForecastCorrelation:
 # ---------------------------------------------------------------------------
 # conditional_covariance
 # ---------------------------------------------------------------------------
+
 
 class TestConditionalCovariance:
     def test_output_keys(self) -> None:

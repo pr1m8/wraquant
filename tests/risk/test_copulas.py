@@ -17,10 +17,10 @@ from wraquant.risk.copulas import (
     tail_dependence,
 )
 
-
 # ---------------------------------------------------------------------------
 # Fixtures / helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_correlated_returns(
     n: int = 1000, rho: float = 0.6, seed: int = 42
@@ -31,9 +31,7 @@ def _make_correlated_returns(
     return rng.multivariate_normal([0, 0], cov, size=n)
 
 
-def _make_multivariate_returns(
-    n: int = 1000, k: int = 4, seed: int = 42
-) -> np.ndarray:
+def _make_multivariate_returns(n: int = 1000, k: int = 4, seed: int = 42) -> np.ndarray:
     """Generate k-variate normal returns."""
     rng = np.random.default_rng(seed)
     # Build a correlation matrix
@@ -56,6 +54,7 @@ def _make_uniform_pair(n: int = 1000, seed: int = 42) -> tuple[np.ndarray, np.nd
 # ---------------------------------------------------------------------------
 # Gaussian copula
 # ---------------------------------------------------------------------------
+
 
 class TestFitGaussianCopula:
     def test_returns_correlation_matrix(self) -> None:
@@ -81,6 +80,7 @@ class TestFitGaussianCopula:
 # Student-t copula
 # ---------------------------------------------------------------------------
 
+
 class TestFitTCopula:
     def test_returns_correct_df(self) -> None:
         data = _make_multivariate_returns(n=2000, k=3)
@@ -102,6 +102,7 @@ class TestFitTCopula:
 # ---------------------------------------------------------------------------
 # Clayton copula
 # ---------------------------------------------------------------------------
+
 
 class TestFitClaytonCopula:
     def test_positive_theta(self) -> None:
@@ -127,6 +128,7 @@ class TestFitClaytonCopula:
 # Gumbel copula
 # ---------------------------------------------------------------------------
 
+
 class TestFitGumbelCopula:
     def test_theta_ge_one(self) -> None:
         u, v = _make_uniform_pair(n=2000)
@@ -145,6 +147,7 @@ class TestFitGumbelCopula:
 # Frank copula
 # ---------------------------------------------------------------------------
 
+
 class TestFitFrankCopula:
     def test_nonzero_theta(self) -> None:
         u, v = _make_uniform_pair(n=2000)
@@ -162,6 +165,7 @@ class TestFitFrankCopula:
 # ---------------------------------------------------------------------------
 # Simulation
 # ---------------------------------------------------------------------------
+
 
 class TestCopulaSimulate:
     def test_gaussian_output_shape(self) -> None:
@@ -204,6 +208,7 @@ class TestCopulaSimulate:
 # Tail dependence
 # ---------------------------------------------------------------------------
 
+
 class TestTailDependence:
     def test_returns_lower_and_upper(self) -> None:
         u, v = _make_uniform_pair(n=5000)
@@ -226,6 +231,7 @@ class TestTailDependence:
 # ---------------------------------------------------------------------------
 # Rank correlation
 # ---------------------------------------------------------------------------
+
 
 class TestRankCorrelation:
     def test_both_returned(self) -> None:

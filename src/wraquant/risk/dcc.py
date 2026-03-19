@@ -12,10 +12,10 @@ from typing import Any
 import numpy as np
 from scipy import optimize
 
-
 # ---------------------------------------------------------------------------
 # Univariate GARCH(1,1)
 # ---------------------------------------------------------------------------
+
 
 def _garch11_loglik(
     params: np.ndarray,
@@ -87,6 +87,7 @@ def _fit_garch11(returns: np.ndarray) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 # DCC estimation
 # ---------------------------------------------------------------------------
+
 
 def _dcc_loglik(
     params: np.ndarray,
@@ -216,6 +217,7 @@ def dcc_garch(
 # Rolling correlation
 # ---------------------------------------------------------------------------
 
+
 def rolling_correlation_dcc(
     returns: np.ndarray,
     window: int | None = None,
@@ -278,6 +280,7 @@ def _compute_dcc_correlations(model: dict[str, Any]) -> np.ndarray:
 # Forecasting
 # ---------------------------------------------------------------------------
 
+
 def forecast_correlation(
     dcc_model: dict[str, Any],
     horizon: int = 1,
@@ -331,14 +334,11 @@ def forecast_correlation(
             gp = garch_params[j]
             if h == 0:
                 sigma2_forecast[j] = (
-                    gp["omega"]
-                    + gp["alpha"] * last_r2[j]
-                    + gp["beta"] * last_sigma2[j]
+                    gp["omega"] + gp["alpha"] * last_r2[j] + gp["beta"] * last_sigma2[j]
                 )
             else:
                 sigma2_forecast[j] = (
-                    gp["omega"]
-                    + (gp["alpha"] + gp["beta"]) * sigma2_forecast[j]
+                    gp["omega"] + (gp["alpha"] + gp["beta"]) * sigma2_forecast[j]
                 )
 
         # DCC correlation forecast: Qt -> Qbar
@@ -366,6 +366,7 @@ def forecast_correlation(
 # ---------------------------------------------------------------------------
 # Conditional covariance
 # ---------------------------------------------------------------------------
+
 
 def conditional_covariance(
     returns: np.ndarray,

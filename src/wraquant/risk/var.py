@@ -90,6 +90,8 @@ def value_at_risk(
 
     See Also:
         conditional_var: Expected loss beyond the VaR threshold (CVaR).
+        garch_var: GARCH-based time-varying VaR using conditional volatility.
+        wraquant.vol.models.garch_fit: Fit GARCH model for conditional vol.
         wraquant.risk.stress.stress_test_returns: Scenario-based analysis.
 
     References:
@@ -247,7 +249,7 @@ def garch_var(
         >>> result = garch_var(returns, alpha=0.05, vol_model="GJR", dist="t")
         >>> print(f"Breach rate: {result['breach_rate']:.3f} (target: 0.050)")
     """
-    from wraquant.vol.models import garch_fit, egarch_fit, gjr_garch_fit
+    from wraquant.vol.models import egarch_fit, garch_fit, gjr_garch_fit
 
     # Fit the appropriate GARCH variant
     _fit_funcs = {
@@ -281,8 +283,8 @@ def garch_var(
     elif dist == "t":
         nu = params.get("nu", 5.0)
         z_alpha = sp_stats.t.ppf(alpha, df=nu)
-        cvar_mult = -sp_stats.t.pdf(z_alpha, df=nu) / alpha * (
-            (nu + z_alpha**2) / (nu - 1)
+        cvar_mult = (
+            -sp_stats.t.pdf(z_alpha, df=nu) / alpha * ((nu + z_alpha**2) / (nu - 1))
         )
     elif dist == "skewt":
         # For skewed-t, fall back to empirical quantile of standardized residuals
@@ -303,12 +305,8 @@ def garch_var(
 
     # Make sure we have pandas Series output
     if isinstance(cond_vol, pd.Series):
-        var_series = pd.Series(
-            var_series, index=cond_vol.index, name="garch_var"
-        )
-        cvar_series = pd.Series(
-            cvar_series, index=cond_vol.index, name="garch_cvar"
-        )
+        var_series = pd.Series(var_series, index=cond_vol.index, name="garch_var")
+        cvar_series = pd.Series(cvar_series, index=cond_vol.index, name="garch_cvar")
 
     # Compute breaches: actual loss exceeded VaR
     # Align lengths (returns may be longer/shorter than cond_vol)
@@ -318,9 +316,7 @@ def garch_var(
 
     breaches_arr = actual_losses > var_values
     if isinstance(var_series, pd.Series):
-        breaches = pd.Series(
-            breaches_arr, index=var_series.index[-n:], name="breach"
-        )
+        breaches = pd.Series(breaches_arr, index=var_series.index[-n:], name="breach")
     else:
         breaches = pd.Series(breaches_arr, name="breach")
 

@@ -105,8 +105,7 @@ def riskfolio_portfolio(
     )
 
     weights = {
-        asset: float(weights_df.loc[asset, "weights"])
-        for asset in weights_df.index
+        asset: float(weights_df.loc[asset, "weights"]) for asset in weights_df.index
     }
 
     return {
@@ -140,7 +139,6 @@ def skfolio_optimize(
         * **weights** -- dict mapping asset names to optimal weights.
         * **objective** -- objective used.
     """
-    from skfolio import Portfolio
     from skfolio.optimization import MeanRisk
     from skfolio.prior import EmpiricalPrior
 
@@ -158,8 +156,7 @@ def skfolio_optimize(
     weights_arr = model.weights_
 
     weights = {
-        asset: float(w)
-        for asset, w in zip(returns.columns, weights_arr, strict=False)
+        asset: float(w) for asset, w in zip(returns.columns, weights_arr, strict=False)
     }
 
     return {
@@ -256,10 +253,9 @@ def vine_copula(
     from scipy.stats import rankdata
 
     n = values.shape[0]
-    u = np.column_stack([
-        rankdata(values[:, j]) / (n + 1)
-        for j in range(values.shape[1])
-    ])
+    u = np.column_stack(
+        [rankdata(values[:, j]) / (n + 1) for j in range(values.shape[1])]
+    )
 
     controls = pv.FitControlsVinecop(family_set=[pv.BicopFamily.gaussian])
     cop = pv.Vinecop(u.shape[1])
@@ -307,7 +303,7 @@ def extreme_value_analysis(
     if data.name is None:
         data = data.rename("values")
 
-    extremes = pyextremes.get_extremes(data, method="BM", block_size="365.2425D")
+    pyextremes.get_extremes(data, method="BM", block_size="365.2425D")
 
     model = pyextremes.EVA(data)
     model.get_extremes(method="BM", block_size="365.2425D")

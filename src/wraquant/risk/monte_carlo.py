@@ -9,7 +9,6 @@ from __future__ import annotations
 import numpy as np
 from scipy.stats import norm as _norm
 
-
 __all__ = [
     "antithetic_variates",
     "block_bootstrap",
@@ -63,7 +62,10 @@ def importance_sampling_var(
     samples = rng.normal(loc=mu + shift, scale=sigma, size=n_sims)
 
     # Likelihood ratios (original / importance)
-    log_ratios = -0.5 * ((samples - mu) / sigma) ** 2 + 0.5 * ((samples - mu - shift) / sigma) ** 2
+    log_ratios = (
+        -0.5 * ((samples - mu) / sigma) ** 2
+        + 0.5 * ((samples - mu - shift) / sigma) ** 2
+    )
     weights = np.exp(log_ratios)
 
     # Normalise weights
@@ -304,7 +306,11 @@ def filtered_historical_simulation(
         # Simple GARCH(1,1): sigma^2_t = omega + alpha * r_{t-1}^2 + beta * sigma^2_{t-1}
         # Estimate omega and alpha from the data
         alpha = 1.0 - decay  # alpha = 1 - beta for a simple parameterisation
-        omega = np.var(returns) * (1.0 - decay - alpha) if (1.0 - decay - alpha) > 0 else 1e-6
+        omega = (
+            np.var(returns) * (1.0 - decay - alpha)
+            if (1.0 - decay - alpha) > 0
+            else 1e-6
+        )
         omega = max(omega, 1e-10)
 
         var_t = np.zeros(n)

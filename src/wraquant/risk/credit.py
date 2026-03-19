@@ -54,7 +54,6 @@ from __future__ import annotations
 import numpy as np
 from scipy import stats as sp_stats
 
-
 __all__ = [
     "altman_z_score",
     "cds_spread",
@@ -112,13 +111,13 @@ def merton_model(
 
     # Iterative solution (fixed-point iteration)
     for _ in range(200):
-        d1 = (np.log(asset_value / debt) + (rf_rate + 0.5 * asset_vol**2) * maturity) / (
-            asset_vol * sqrt_t
-        )
+        d1 = (
+            np.log(asset_value / debt) + (rf_rate + 0.5 * asset_vol**2) * maturity
+        ) / (asset_vol * sqrt_t)
         d2 = d1 - asset_vol * sqrt_t
 
         # Equity = V * N(d1) - D * exp(-r*T) * N(d2)
-        equity_implied = asset_value * sp_stats.norm.cdf(d1) - debt * np.exp(
+        asset_value * sp_stats.norm.cdf(d1) - debt * np.exp(
             -rf_rate * maturity
         ) * sp_stats.norm.cdf(d2)
 
@@ -130,9 +129,14 @@ def merton_model(
         else:
             asset_vol_new = asset_vol
 
-        asset_value_new = equity + debt * np.exp(-rf_rate * maturity) * sp_stats.norm.cdf(d2)
+        asset_value_new = equity + debt * np.exp(
+            -rf_rate * maturity
+        ) * sp_stats.norm.cdf(d2)
 
-        if abs(asset_value_new - asset_value) < 1e-8 and abs(asset_vol_new - asset_vol) < 1e-8:
+        if (
+            abs(asset_value_new - asset_value) < 1e-8
+            and abs(asset_vol_new - asset_vol) < 1e-8
+        ):
             asset_value = asset_value_new
             asset_vol = asset_vol_new
             break

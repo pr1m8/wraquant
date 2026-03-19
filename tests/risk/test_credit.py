@@ -15,17 +15,22 @@ from wraquant.risk.credit import (
     merton_model,
 )
 
-
 # ---------------------------------------------------------------------------
 # Merton model
 # ---------------------------------------------------------------------------
+
 
 class TestMertonModel:
     def test_returns_dict(self) -> None:
         result = merton_model(equity=100, debt=80, vol=0.3, rf_rate=0.05, maturity=1)
         expected_keys = {
-            "asset_value", "asset_vol", "d1", "d2",
-            "distance_to_default", "default_probability", "credit_spread",
+            "asset_value",
+            "asset_vol",
+            "d1",
+            "d2",
+            "distance_to_default",
+            "default_probability",
+            "credit_spread",
         }
         assert set(result.keys()) == expected_keys
 
@@ -64,35 +69,56 @@ class TestMertonModel:
 # Altman Z-Score
 # ---------------------------------------------------------------------------
 
+
 class TestAltmanZScore:
     def test_safe_zone(self) -> None:
         result = altman_z_score(
-            working_capital=50, total_assets=200, retained_earnings=80,
-            ebit=40, market_cap=300, total_liabilities=100, sales=250,
+            working_capital=50,
+            total_assets=200,
+            retained_earnings=80,
+            ebit=40,
+            market_cap=300,
+            total_liabilities=100,
+            sales=250,
         )
         assert result["zone"] == "safe"
         assert result["z_score"] > 2.99
 
     def test_distress_zone(self) -> None:
         result = altman_z_score(
-            working_capital=-10, total_assets=200, retained_earnings=5,
-            ebit=2, market_cap=20, total_liabilities=180, sales=50,
+            working_capital=-10,
+            total_assets=200,
+            retained_earnings=5,
+            ebit=2,
+            market_cap=20,
+            total_liabilities=180,
+            sales=50,
         )
         assert result["zone"] == "distress"
         assert result["z_score"] < 1.81
 
     def test_grey_zone(self) -> None:
         result = altman_z_score(
-            working_capital=30, total_assets=200, retained_earnings=40,
-            ebit=15, market_cap=120, total_liabilities=100, sales=180,
+            working_capital=30,
+            total_assets=200,
+            retained_earnings=40,
+            ebit=15,
+            market_cap=120,
+            total_liabilities=100,
+            sales=180,
         )
         assert result["zone"] == "grey"
         assert 1.81 <= result["z_score"] <= 2.99
 
     def test_component_ratios(self) -> None:
         result = altman_z_score(
-            working_capital=50, total_assets=200, retained_earnings=80,
-            ebit=40, market_cap=300, total_liabilities=100, sales=250,
+            working_capital=50,
+            total_assets=200,
+            retained_earnings=80,
+            ebit=40,
+            market_cap=300,
+            total_liabilities=100,
+            sales=250,
         )
         assert result["x1"] == pytest.approx(50 / 200)
         assert result["x5"] == pytest.approx(250 / 200)
@@ -106,6 +132,7 @@ class TestAltmanZScore:
 # Default probability from transition matrix
 # ---------------------------------------------------------------------------
 
+
 class TestDefaultProbability:
     def test_identity_matrix(self) -> None:
         # No transitions — default prob should be 0 for non-default states
@@ -116,21 +143,25 @@ class TestDefaultProbability:
 
     def test_absorbing_default(self) -> None:
         # Simple 3-state matrix: AA, BB, Default
-        mat = np.array([
-            [0.9, 0.05, 0.05],
-            [0.05, 0.85, 0.10],
-            [0.0, 0.0, 1.0],
-        ])
+        mat = np.array(
+            [
+                [0.9, 0.05, 0.05],
+                [0.05, 0.85, 0.10],
+                [0.0, 0.0, 1.0],
+            ]
+        )
         probs = default_probability(mat, horizon=1)
         assert probs[0] == pytest.approx(0.05)
         assert probs[1] == pytest.approx(0.10)
 
     def test_multi_period(self) -> None:
-        mat = np.array([
-            [0.9, 0.05, 0.05],
-            [0.05, 0.85, 0.10],
-            [0.0, 0.0, 1.0],
-        ])
+        mat = np.array(
+            [
+                [0.9, 0.05, 0.05],
+                [0.05, 0.85, 0.10],
+                [0.0, 0.0, 1.0],
+            ]
+        )
         p1 = default_probability(mat, horizon=1)
         p5 = default_probability(mat, horizon=5)
         # Default prob should increase over time
@@ -144,6 +175,7 @@ class TestDefaultProbability:
 # ---------------------------------------------------------------------------
 # Credit spread
 # ---------------------------------------------------------------------------
+
 
 class TestCreditSpread:
     def test_zero_default_prob(self) -> None:
@@ -167,6 +199,7 @@ class TestCreditSpread:
 # Loss given default
 # ---------------------------------------------------------------------------
 
+
 class TestLossGivenDefault:
     def test_basic(self) -> None:
         assert loss_given_default(1_000_000, 0.4) == pytest.approx(600_000)
@@ -181,6 +214,7 @@ class TestLossGivenDefault:
 # ---------------------------------------------------------------------------
 # Expected loss
 # ---------------------------------------------------------------------------
+
 
 class TestExpectedLoss:
     def test_basic(self) -> None:
@@ -198,6 +232,7 @@ class TestExpectedLoss:
 # ---------------------------------------------------------------------------
 # CDS spread
 # ---------------------------------------------------------------------------
+
 
 class TestCDSSpread:
     def test_nonnegative(self) -> None:

@@ -24,6 +24,7 @@ def _make_returns(n: int = 500, seed: int = 42) -> np.ndarray:
 # Importance sampling VaR
 # ---------------------------------------------------------------------------
 
+
 class TestImportanceSamplingVar:
     def test_returns_positive_var(self) -> None:
         ret = _make_returns()
@@ -37,7 +38,9 @@ class TestImportanceSamplingVar:
 
     def test_var_reasonable(self) -> None:
         ret = _make_returns(n=1000)
-        result = importance_sampling_var(ret, n_sims=10000, target_quantile=0.05, seed=42)
+        result = importance_sampling_var(
+            ret, n_sims=10000, target_quantile=0.05, seed=42
+        )
         # Should be roughly consistent with empirical quantile
         empirical_var = -np.quantile(ret, 0.05)
         assert abs(result["var"] - empirical_var) / empirical_var < 1.0
@@ -46,6 +49,7 @@ class TestImportanceSamplingVar:
 # ---------------------------------------------------------------------------
 # Antithetic variates
 # ---------------------------------------------------------------------------
+
 
 class TestAntitheticVariates:
     def test_shape(self) -> None:
@@ -80,6 +84,7 @@ class TestAntitheticVariates:
 # Stratified sampling
 # ---------------------------------------------------------------------------
 
+
 class TestStratifiedSampling:
     def test_output_length(self) -> None:
         ret = _make_returns()
@@ -95,6 +100,7 @@ class TestStratifiedSampling:
 # ---------------------------------------------------------------------------
 # Block bootstrap
 # ---------------------------------------------------------------------------
+
 
 class TestBlockBootstrap:
     def test_shape(self) -> None:
@@ -119,6 +125,7 @@ class TestBlockBootstrap:
 # Stationary bootstrap
 # ---------------------------------------------------------------------------
 
+
 class TestStationaryBootstrap:
     def test_shape(self) -> None:
         ret = _make_returns(n=100)
@@ -142,15 +149,20 @@ class TestStationaryBootstrap:
 # Filtered historical simulation
 # ---------------------------------------------------------------------------
 
+
 class TestFilteredHistoricalSimulation:
     def test_ewma_shape(self) -> None:
         ret = _make_returns(n=200)
-        result = filtered_historical_simulation(ret, vol_model="ewma", n_sims=500, seed=42)
+        result = filtered_historical_simulation(
+            ret, vol_model="ewma", n_sims=500, seed=42
+        )
         assert result["simulated_returns"].shape == (500,)
 
     def test_garch_shape(self) -> None:
         ret = _make_returns(n=200)
-        result = filtered_historical_simulation(ret, vol_model="garch", n_sims=500, seed=42)
+        result = filtered_historical_simulation(
+            ret, vol_model="garch", n_sims=500, seed=42
+        )
         assert result["simulated_returns"].shape == (500,)
 
     def test_current_vol_positive(self) -> None:

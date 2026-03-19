@@ -58,12 +58,13 @@ from __future__ import annotations
 from typing import Any
 
 import numpy as np
-from scipy import optimize, stats as sp_stats
-
+from scipy import optimize
+from scipy import stats as sp_stats
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _empirical_cdf(x: np.ndarray) -> np.ndarray:
     """Convert raw observations to pseudo-observations (uniform marginals).
@@ -78,6 +79,7 @@ def _empirical_cdf(x: np.ndarray) -> np.ndarray:
 # ---------------------------------------------------------------------------
 # Gaussian copula
 # ---------------------------------------------------------------------------
+
 
 def fit_gaussian_copula(
     returns: np.ndarray,
@@ -115,6 +117,7 @@ def fit_gaussian_copula(
 # ---------------------------------------------------------------------------
 # Student-t copula
 # ---------------------------------------------------------------------------
+
 
 def fit_t_copula(
     returns: np.ndarray,
@@ -156,6 +159,7 @@ def fit_t_copula(
 # Archimedean copulas (bivariate)
 # ---------------------------------------------------------------------------
 
+
 def _clayton_cdf(u: np.ndarray, v: np.ndarray, theta: float) -> np.ndarray:
     """Clayton copula CDF: C(u,v) = (u^{-theta} + v^{-theta} - 1)^{-1/theta}."""
     return np.power(
@@ -164,9 +168,7 @@ def _clayton_cdf(u: np.ndarray, v: np.ndarray, theta: float) -> np.ndarray:
     )
 
 
-def _clayton_log_density(
-    u: np.ndarray, v: np.ndarray, theta: float
-) -> float:
+def _clayton_log_density(u: np.ndarray, v: np.ndarray, theta: float) -> float:
     """Log-likelihood of the Clayton copula density."""
     n = len(u)
     log_c = (
@@ -230,9 +232,7 @@ def fit_clayton_copula(
     }
 
 
-def _gumbel_log_density(
-    u: np.ndarray, v: np.ndarray, theta: float
-) -> float:
+def _gumbel_log_density(u: np.ndarray, v: np.ndarray, theta: float) -> float:
     """Log-likelihood of the Gumbel copula density."""
     lu = -np.log(u)
     lv = -np.log(v)
@@ -305,9 +305,7 @@ def fit_gumbel_copula(
     }
 
 
-def _frank_log_density(
-    u: np.ndarray, v: np.ndarray, theta: float
-) -> float:
+def _frank_log_density(u: np.ndarray, v: np.ndarray, theta: float) -> float:
     """Log-likelihood of the Frank copula density."""
     # c(u,v) = theta * (1 - exp(-theta)) * exp(-theta*(u+v))
     #          / (  (1-exp(-theta)) - (1-exp(-theta*u))*(1-exp(-theta*v))  )^2
@@ -375,6 +373,7 @@ def fit_frank_copula(
 # ---------------------------------------------------------------------------
 # Simulation
 # ---------------------------------------------------------------------------
+
 
 def copula_simulate(
     copula_params: dict[str, Any],
@@ -463,6 +462,7 @@ def copula_simulate(
 # Tail dependence
 # ---------------------------------------------------------------------------
 
+
 def tail_dependence(
     u: np.ndarray,
     v: np.ndarray,
@@ -510,6 +510,7 @@ def tail_dependence(
 # ---------------------------------------------------------------------------
 # Rank correlation
 # ---------------------------------------------------------------------------
+
 
 def rank_correlation(
     returns: np.ndarray,
@@ -562,6 +563,7 @@ def rank_correlation(
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
+
 
 def _ensure_uniform(x: np.ndarray) -> np.ndarray:
     """If values appear to be raw data (outside [0,1]), convert to pseudo-obs."""

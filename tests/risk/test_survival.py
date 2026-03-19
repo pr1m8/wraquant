@@ -17,9 +17,7 @@ from wraquant.risk.survival import (
 )
 
 
-def _make_survival_data(
-    n: int = 100, seed: int = 42
-) -> tuple[np.ndarray, np.ndarray]:
+def _make_survival_data(n: int = 100, seed: int = 42) -> tuple[np.ndarray, np.ndarray]:
     """Generate synthetic survival data with ~30% censoring."""
     rng = np.random.default_rng(seed)
     true_durations = rng.exponential(scale=10, size=n)
@@ -32,6 +30,7 @@ def _make_survival_data(
 # ---------------------------------------------------------------------------
 # Kaplan-Meier
 # ---------------------------------------------------------------------------
+
 
 class TestKaplanMeier:
     def test_returns_expected_keys(self) -> None:
@@ -84,6 +83,7 @@ class TestKaplanMeier:
 # Nelson-Aalen
 # ---------------------------------------------------------------------------
 
+
 class TestNelsonAalen:
     def test_returns_expected_keys(self) -> None:
         d, e = _make_survival_data()
@@ -106,6 +106,7 @@ class TestNelsonAalen:
 # Hazard rate
 # ---------------------------------------------------------------------------
 
+
 class TestHazardRate:
     def test_nonnegative(self) -> None:
         d, e = _make_survival_data()
@@ -121,6 +122,7 @@ class TestHazardRate:
 # ---------------------------------------------------------------------------
 # Cox PH model
 # ---------------------------------------------------------------------------
+
 
 class TestCoxPartialLikelihood:
     def test_returns_expected_keys(self) -> None:
@@ -157,6 +159,7 @@ class TestCoxPartialLikelihood:
 # Exponential survival
 # ---------------------------------------------------------------------------
 
+
 class TestExponentialSurvival:
     def test_at_zero(self) -> None:
         assert exponential_survival(0.1, 0.0) == pytest.approx(1.0)
@@ -180,6 +183,7 @@ class TestExponentialSurvival:
 # ---------------------------------------------------------------------------
 # Weibull survival
 # ---------------------------------------------------------------------------
+
 
 class TestWeibullSurvival:
     def test_k_one_matches_exponential(self) -> None:
@@ -207,6 +211,7 @@ class TestWeibullSurvival:
 # ---------------------------------------------------------------------------
 # Log-rank test
 # ---------------------------------------------------------------------------
+
 
 class TestLogRankTest:
     def test_same_distribution(self) -> None:
@@ -236,13 +241,17 @@ class TestLogRankTest:
         e2 = np.ones(3, dtype=int)
         result = log_rank_test(d1, e1, d2, e2)
         assert set(result.keys()) == {
-            "test_statistic", "p_value", "observed1", "expected1",
+            "test_statistic",
+            "p_value",
+            "observed1",
+            "expected1",
         }
 
 
 # ---------------------------------------------------------------------------
 # Median survival time
 # ---------------------------------------------------------------------------
+
 
 class TestMedianSurvivalTime:
     def test_finite(self) -> None:
