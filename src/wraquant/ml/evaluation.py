@@ -237,11 +237,11 @@ def financial_metrics(
     strat_returns = y_pred * returns
 
     cumulative = float(np.nansum(strat_returns))
-    mean_ret = np.nanmean(strat_returns)
-    std_ret = np.nanstd(strat_returns, ddof=1) if len(strat_returns) > 1 else np.nan
-    sharpe = (
-        float(mean_ret / std_ret * np.sqrt(252)) if std_ret and std_ret > 0 else 0.0
-    )
+
+    # Use canonical Sharpe implementation
+    from wraquant.risk.metrics import sharpe_ratio as _sharpe_ratio
+
+    sharpe = _sharpe_ratio(pd.Series(strat_returns)) if len(strat_returns) > 1 else 0.0
 
     # Hit rate: how often the predicted direction matches the actual
     correct_direction = np.sign(y_pred) == np.sign(y_true)

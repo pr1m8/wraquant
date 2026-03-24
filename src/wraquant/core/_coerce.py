@@ -60,8 +60,10 @@ def coerce_array(data: Any, name: str = "data") -> NDArray[np.floating]:
 def coerce_series(data: Any, name: str = "data") -> pd.Series:
     """Coerce any array-like input to a pd.Series.
 
-    Preserves index if input is already a pd.Series.
-    Creates integer index for other types.
+    Preserves index if input is already a pd.Series.  If the input is
+    a ``PriceSeries`` or ``ReturnSeries`` (from ``wraquant.frame``),
+    returns it directly to preserve financial metadata (frequency,
+    currency, return_type).
 
     Parameters:
         data: Input data.
@@ -80,6 +82,19 @@ def coerce_series(data: Any, name: str = "data") -> pd.Series:
         3
     """
     if isinstance(data, pd.Series):
+        # Preserve PriceSeries/ReturnSeries subclass and metadata
+        # by checking for _metadata attribute from frame types.
+        if hasattr(data, "_frequency"):
+            # Already a financial series subclass -- return as-is
+            # but ensure float dtype.
+            if data.dtype != np.float64:
+                result = data.astype(float)
+                # Copy metadata attributes
+                for attr in getattr(data, "_metadata", []):
+                    if hasattr(data, attr):
+                        setattr(result, attr, getattr(data, attr))
+                return result
+            return data
         return data.astype(float)
     if isinstance(data, pd.DataFrame):
         return data.iloc[:, 0].astype(float)

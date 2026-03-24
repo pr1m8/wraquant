@@ -83,6 +83,50 @@ class RegimeResult:
         """Expected duration in each regime: 1 / (1 - p_ii)."""
         return 1.0 / np.maximum(1.0 - np.diag(self.transition_matrix), 1e-10)
 
+    def filter_signals(
+        self,
+        signals: pd.Series | np.ndarray,
+    ) -> pd.Series | np.ndarray:
+        """Filter trading signals based on regime probabilities.
+
+        Delegates to ``wraquant.backtest.position.regime_signal_filter``
+        to zero out signals in unfavourable regimes.
+
+        Parameters:
+            signals: Raw trading signal series (same length as states).
+
+        Returns:
+            Regime-filtered signals.
+        """
+        from wraquant.backtest.position import regime_signal_filter
+
+        return regime_signal_filter(signals, self.probabilities)
+
+    def plot(self) -> Any:
+        """Plot regime detection results using viz dashboard.
+
+        Returns:
+            Plotly figure object from ``viz.dashboard.regime_dashboard``.
+        """
+        from wraquant.viz.dashboard import regime_dashboard
+
+        return regime_dashboard(self)
+
+    def summary(self) -> str:
+        """Human-readable summary of regime detection results.
+
+        Returns:
+            Multi-line string with regime statistics.
+        """
+        lines = [
+            f"RegimeResult (method={self.method}, n_regimes={self.n_regimes})",
+            f"  Current regime: {self.current_regime}",
+            f"  Expected durations: {self.expected_durations}",
+        ]
+        if self.statistics is not None and len(self.statistics) > 0:
+            lines.append(f"  Statistics:\n{self.statistics.to_string()}")
+        return "\n".join(lines)
+
 
 # ---------------------------------------------------------------------------
 # RegimeDetector — base class / protocol

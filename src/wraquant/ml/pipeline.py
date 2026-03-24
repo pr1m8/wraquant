@@ -307,10 +307,10 @@ def walk_forward_backtest(
     # PnL: long when prediction > 0, short when prediction < 0
     pnl = np.sign(predictions) * actuals
 
-    # Sharpe ratio (annualised, assuming daily periods)
-    pnl_mean = pnl.mean()
-    pnl_std = pnl.std()
-    sharpe = float(pnl_mean / pnl_std * np.sqrt(252)) if pnl_std > 0 else 0.0
+    # Sharpe ratio — delegate to canonical implementation
+    from wraquant.risk.metrics import sharpe_ratio as _sharpe_ratio
+
+    sharpe = _sharpe_ratio(pd.Series(pnl))
 
     # Hit rate: fraction of correct sign predictions
     hit_rate = float(np.mean(np.sign(predictions) == np.sign(actuals)))

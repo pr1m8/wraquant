@@ -78,11 +78,11 @@ def generate_tearsheet(
     down_std = float(downside.std() * np.sqrt(periods_per_year)) if len(downside) > 0 else 0.0
     sortino = (ann_return - risk_free) / down_std if down_std > 0 else 0.0
 
-    # Drawdown
+    # Drawdown — delegate to canonical implementation
+    from wraquant.risk.metrics import max_drawdown as _max_drawdown
+
     cum = (1 + returns).cumprod()
-    peak = cum.cummax()
-    dd = (cum - peak) / peak
-    max_dd = float(dd.min())
+    max_dd = _max_drawdown(cum)
     calmar = ann_return / abs(max_dd) if max_dd != 0 else 0.0
 
     # Skew / Kurtosis

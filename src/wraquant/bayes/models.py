@@ -193,8 +193,11 @@ def bayesian_regression(
     else:
         prior_cov = np.asarray(prior_cov, dtype=float)
 
-    # Estimate sigma^2 from OLS
-    beta_ols = np.linalg.lstsq(X, y, rcond=None)[0]
+    # Estimate sigma^2 from OLS (use canonical wraquant regression)
+    from wraquant.stats.regression import ols as _ols
+
+    _ols_result = _ols(y, X, add_constant=False)
+    beta_ols = _ols_result["coefficients"]
     resid = y - X @ beta_ols
     sigma2 = float(np.sum(resid**2) / max(n - k, 1))
 

@@ -556,7 +556,15 @@ def regime_statistics(
 
         mean_ret = float(np.mean(regime_r))
         std_ret = float(np.std(regime_r, ddof=1)) if n_obs > 1 else 0.0
-        sharpe = (mean_ret / std_ret * np.sqrt(252)) if std_ret > 1e-12 else 0.0
+
+        # Use canonical Sharpe implementation
+        from wraquant.risk.metrics import sharpe_ratio as _sharpe_ratio
+
+        sharpe = (
+            _sharpe_ratio(pd.Series(regime_r))
+            if n_obs > 2
+            else 0.0
+        )
 
         # Sortino ratio (downside deviation only)
         downside = regime_r[regime_r < 0]

@@ -68,7 +68,10 @@ def breusch_godfrey(
     # OLS(y, X).resid == resid.  Since OLS residuals are orthogonal to X,
     # any vector of the form y = X @ b + resid works; pick b = 0 for
     # simplicity, then add back the projection to make the fit non-trivial.
-    y_reconstructed = X_arr @ np.linalg.lstsq(X_arr, resid, rcond=None)[0] + resid
+    from wraquant.stats.regression import ols as _ols
+
+    _diag_ols = _ols(resid, X_arr, add_constant=False)
+    y_reconstructed = X_arr @ _diag_ols["coefficients"] + resid
 
     ols_result = sm.OLS(y_reconstructed, X_arr).fit()
 

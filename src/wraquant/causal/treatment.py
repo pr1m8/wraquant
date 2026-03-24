@@ -66,6 +66,20 @@ from dataclasses import dataclass, field
 import numpy as np
 from scipy import optimize, spatial, stats
 
+
+def _ols_coefficients(X: np.ndarray, y: np.ndarray) -> np.ndarray:
+    """Get OLS coefficients using canonical wraquant implementation.
+
+    Assumes X already contains an intercept column if needed.
+    Uses the shared stats.regression.ols implementation as the
+    single source of truth for OLS computation.
+    """
+    from wraquant.stats.regression import ols
+
+    result = ols(y, X, add_constant=False)
+    return result["coefficients"]
+
+
 __all__ = [
     "propensity_score",
     "ipw_ate",
@@ -581,13 +595,13 @@ def doubly_robust_ate(
     # Fit outcome model for treated group
     X_t = X[treated_mask]
     y_t = outcome[treated_mask]
-    beta_t = np.linalg.lstsq(X_t, y_t, rcond=None)[0]
+    beta_t = _ols_coefficients(X_t, y_t)
     mu1_hat = X @ beta_t  # predicted E[Y(1)|X] for all units
 
     # Fit outcome model for control group
     X_c = X[control_mask]
     y_c = outcome[control_mask]
-    beta_c = np.linalg.lstsq(X_c, y_c, rcond=None)[0]
+    beta_c = _ols_coefficients(X_c, y_c)
     mu0_hat = X @ beta_c  # predicted E[Y(0)|X] for all units
 
     # Step 3: Doubly robust estimator
@@ -697,11 +711,11 @@ def regression_discontinuity(
 
     # Local linear regression: left side
     X_left = np.column_stack([np.ones(n_left), r_left])
-    beta_left = np.linalg.lstsq(X_left, y_left, rcond=None)[0]
+    beta_left = _ols_coefficients(X_left, y_left)
 
     # Local linear regression: right side
     X_right = np.column_stack([np.ones(n_right), r_right])
-    beta_right = np.linalg.lstsq(X_right, y_right, rcond=None)[0]
+    beta_right = _ols_coefficients(X_right, y_right)
 
     # Treatment effect at cutoff
     ate = float(beta_right[0] - beta_left[0])
@@ -931,10 +945,10 @@ def diff_in_diff(
         delta = (post_treat_mean - pre_treat_mean) - (post_ctrl_mean - pre_ctrl_mean)
         # Compute residuals from full OLS for SE estimation
         entity = np.asarray(entity)
-        beta = np.linalg.lstsq(X, outcome, rcond=None)[0]
+        beta = _ols_coefficients(X, outcome)
         resid = outcome - X @ beta
     else:
-        beta = np.linalg.lstsq(X, outcome, rcond=None)[0]
+        beta = _ols_coefficients(X, outcome)
         resid = outcome - X @ beta
         delta = float(beta[3])  # interaction coefficient
 
@@ -1562,14 +1576,14 @@ def instrumental_variable(
     Z_full = np.column_stack([W, instruments])
 
     # --- First stage: regress endogenous on instruments + controls ---
-    beta_first = np.linalg.lstsq(Z_full, endogenous, rcond=None)[0]
+    beta_first = _ols_coefficients(Z_full, endogenous)
     x_hat = Z_full @ beta_first
     first_stage_resid = endogenous - x_hat
 
     # First-stage F-statistic (test that instrument coefficients are
     # jointly zero)
     # Restricted model: endogenous ~ W only
-    beta_restricted = np.linalg.lstsq(W, endogenous, rcond=None)[0]
+    beta_restricted = _ols_coefficients(W, endogenous)
     x_hat_restricted = W @ beta_restricted
     ssr_restricted = np.sum((endogenous - x_hat_restricted) ** 2)
     ssr_unrestricted = np.sum(first_stage_resid**2)
@@ -1582,7 +1596,7 @@ def instrumental_variable(
 
     # --- Second stage: regress outcome on x_hat + controls ---
     X_second = np.column_stack([W, x_hat])
-    beta_2sls = np.linalg.lstsq(X_second, outcome, rcond=None)[0]
+    beta_2sls = _ols_coefficients(X_second, outcome)
 
     # The 2SLS coefficient on the endogenous variable is the last one
     coef_2sls = float(beta_2sls[-1])
@@ -1599,7 +1613,7 @@ def instrumental_variable(
     z_crit = stats.norm.ppf(0.975)
 
     # --- OLS for comparison (Hausman test) ---
-    beta_ols = np.linalg.lstsq(X_orig, outcome, rcond=None)[0]
+    beta_ols = _ols_coefficients(X_orig, outcome)
     coef_ols = float(beta_ols[-1])
     resid_ols = outcome - X_orig @ beta_ols
     sigma2_ols = float(np.sum(resid_ols**2) / (n - X_orig.shape[1]))
@@ -1620,7 +1634,7 @@ def instrumental_variable(
     sargan_p = None
     if n_instruments > 1:
         # Regress 2SLS residuals on all instruments + exogenous
-        beta_sargan = np.linalg.lstsq(Z_full, resid_2sls, rcond=None)[0]
+        beta_sargan = _ols_coefficients(Z_full, resid_2sls)
         resid_sargan = resid_2sls - Z_full @ beta_sargan
         r2_sargan = 1.0 - np.sum(resid_sargan**2) / np.sum(
             (resid_2sls - np.mean(resid_2sls)) ** 2
@@ -1782,7 +1796,7 @@ def event_study(
 
         # Fit market model: R_i = alpha + beta * R_m
         X_est = np.column_stack([np.ones(len(r_est)), m_est])
-        beta_hat = np.linalg.lstsq(X_est, r_est, rcond=None)[0]
+        beta_hat = _ols_coefficients(X_est, r_est)
         alpha_hat = float(beta_hat[0])
         beta_market = float(beta_hat[1])
         resid_est = r_est - X_est @ beta_hat
@@ -2381,12 +2395,12 @@ def mediation_analysis(
 
     # Path c (total effect): Y ~ T + W
     X_c = np.column_stack([W, treatment])
-    beta_c = np.linalg.lstsq(X_c, outcome, rcond=None)[0]
+    beta_c = _ols_coefficients(X_c, outcome)
     total_effect = float(beta_c[-1])
 
     # Path a: M ~ T + W
     X_a = np.column_stack([W, treatment])
-    beta_a = np.linalg.lstsq(X_a, mediator, rcond=None)[0]
+    beta_a = _ols_coefficients(X_a, mediator)
     path_a = float(beta_a[-1])
     resid_a = mediator - X_a @ beta_a
     sigma2_a = float(np.sum(resid_a**2) / (n - X_a.shape[1]))
@@ -2395,7 +2409,7 @@ def mediation_analysis(
 
     # Paths c' and b: Y ~ T + M + W
     X_cb = np.column_stack([W, treatment, mediator])
-    beta_cb = np.linalg.lstsq(X_cb, outcome, rcond=None)[0]
+    beta_cb = _ols_coefficients(X_cb, outcome)
     direct_effect = float(beta_cb[-2])  # c' (treatment coefficient)
     path_b = float(beta_cb[-1])  # b (mediator coefficient)
     resid_cb = outcome - X_cb @ beta_cb
@@ -2488,7 +2502,7 @@ def _ik_bandwidth(
         r_sub = r[mask]
         y_sub = outcome[mask]
         X = np.column_stack([np.ones(len(r_sub)), r_sub, r_sub**2, r_sub**3])
-        beta = np.linalg.lstsq(X, y_sub, rcond=None)[0]
+        beta = _ols_coefficients(X, y_sub)
         return abs(float(2.0 * beta[2]))
 
     m2_left = _curvature(left)
@@ -2502,7 +2516,7 @@ def _ik_bandwidth(
         r_sub = r[mask]
         y_sub = outcome[mask]
         X = np.column_stack([np.ones(len(r_sub)), r_sub])
-        beta = np.linalg.lstsq(X, y_sub, rcond=None)[0]
+        beta = _ols_coefficients(X, y_sub)
         resid = y_sub - X @ beta
         return float(np.var(resid, ddof=2))
 
@@ -2575,7 +2589,7 @@ def _mccrary_test(
         bc = bin_centers[mask]
         d = density[mask]
         X = np.column_stack([np.ones(len(bc)), bc])
-        beta = np.linalg.lstsq(X, d, rcond=None)[0]
+        beta = _ols_coefficients(X, d)
         pred_at_0 = float(beta[0])
         resid = d - X @ beta
         se = float(np.std(resid, ddof=2) / np.sqrt(len(bc)))
@@ -2755,7 +2769,7 @@ def regression_discontinuity_robust(
     Xw = W_diag @ X
     yw = W_diag @ y_bw
 
-    beta = np.linalg.lstsq(Xw, yw, rcond=None)[0]
+    beta = _ols_coefficients(Xw, yw)
     ate_sharp = float(beta[1])  # coefficient on D
 
     # For fuzzy RD, also estimate the first stage
@@ -2764,7 +2778,7 @@ def regression_discontinuity_robust(
         d_actual = fuzzy_treatment[in_bw]
 
         # First stage: D_actual ~ same polynomial spec
-        beta_fs = np.linalg.lstsq(Xw, W_diag @ d_actual, rcond=None)[0]
+        beta_fs = _ols_coefficients(Xw, W_diag @ d_actual)
         first_stage_jump = float(beta_fs[1])
 
         if abs(first_stage_jump) < 1e-10:
