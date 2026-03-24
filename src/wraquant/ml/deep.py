@@ -18,6 +18,8 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from wraquant.core._coerce import coerce_array, coerce_dataframe
+
 try:
     import torch
     import torch.nn as nn
@@ -188,7 +190,7 @@ def lstm_forecast(
     """
     _check_torch()
 
-    data = np.asarray(series, dtype=np.float64).ravel()
+    data = coerce_array(series, name="series")
 
     # Normalise
     mu, sigma = data.mean(), data.std()
@@ -373,7 +375,7 @@ def transformer_forecast(
     """
     _check_torch()
 
-    data = np.asarray(series, dtype=np.float64).ravel()
+    data = coerce_array(series, name="series")
     mu, sigma = data.mean(), data.std()
     if sigma == 0:
         sigma = 1.0
@@ -564,7 +566,7 @@ def gru_forecast(
     """
     _check_torch()
 
-    data = np.asarray(series, dtype=np.float64).ravel()
+    data = coerce_array(series, name="series")
     mu, sigma_val = data.mean(), data.std()
     if sigma_val == 0:
         sigma_val = 1.0
@@ -734,7 +736,8 @@ def autoencoder_features(
     """
     _check_torch()
 
-    X_arr = np.asarray(X, dtype=np.float32)
+    X_df = coerce_dataframe(X, name="X") if hasattr(X, "columns") or isinstance(X, dict) else None
+    X_arr = X_df.values.astype(np.float32) if X_df is not None else np.asarray(X, dtype=np.float32)
     if X_arr.ndim == 1:
         X_arr = X_arr.reshape(-1, 1)
     n_samples, n_features = X_arr.shape
@@ -978,8 +981,9 @@ def multivariate_lstm_forecast(
     """
     _check_torch()
 
-    feat_arr = np.asarray(features, dtype=np.float64)
-    tgt_arr = np.asarray(target, dtype=np.float64).ravel()
+    feat_df = coerce_dataframe(features, name="features")
+    feat_arr = feat_df.values.astype(np.float64)
+    tgt_arr = coerce_array(target, name="target")
 
     if feat_arr.ndim == 1:
         feat_arr = feat_arr.reshape(-1, 1)
@@ -1188,9 +1192,10 @@ def temporal_fusion_transformer(
     """
     _check_torch()
 
-    feature_names = list(features.columns)
-    feat_arr = np.asarray(features, dtype=np.float64)
-    tgt_arr = np.asarray(target, dtype=np.float64).ravel()
+    feat_df = coerce_dataframe(features, name="features")
+    feature_names = list(feat_df.columns)
+    feat_arr = feat_df.values.astype(np.float64)
+    tgt_arr = coerce_array(target, name="target")
 
     if feat_arr.ndim == 1:
         feat_arr = feat_arr.reshape(-1, 1)

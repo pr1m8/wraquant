@@ -26,6 +26,9 @@ def monte_carlo_var(
     Returns:
         VaR as a positive float.
     """
+    from wraquant.core._coerce import coerce_array
+
+    weights = coerce_array(weights, name="weights")
     mu = returns.mean().values
     cov = returns.cov().values
 
@@ -55,6 +58,9 @@ def stress_test(
     Returns:
         Portfolio return under the stress scenario (typically negative).
     """
+    from wraquant.core._coerce import coerce_array
+
+    weights = coerce_array(weights, name="weights")
     scenario = returns.mean().copy()
     for asset, shock_val in shocks.items():
         if asset in scenario.index:

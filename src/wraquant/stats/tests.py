@@ -24,6 +24,9 @@ def test_normality(data: pd.Series, method: str = "jarque_bera") -> dict:
     Raises:
         ValueError: If *method* is not recognized.
     """
+    from wraquant.core._coerce import coerce_series
+
+    data = coerce_series(data, name="data")
     clean = data.dropna().values
 
     if method == "jarque_bera":
@@ -58,6 +61,9 @@ def test_stationarity(data: pd.Series, method: str = "adf") -> dict:
     Raises:
         ValueError: If *method* is not recognized.
     """
+    from wraquant.core._coerce import coerce_series
+
+    data = coerce_series(data, name="data")
     clean = data.dropna().values
 
     if method == "adf":
@@ -91,6 +97,9 @@ def test_autocorrelation(data: pd.Series, nlags: int = 10) -> dict:
         ``is_autocorrelated`` (at 5% significance), and the full
         ``results`` DataFrame.
     """
+    from wraquant.core._coerce import coerce_series
+
+    data = coerce_series(data, name="data")
     clean = data.dropna()
     result = acorr_ljungbox(clean, lags=nlags, return_df=True)
     last_row = result.iloc[-1]
@@ -157,7 +166,9 @@ def shapiro_wilk(data: pd.Series | np.ndarray) -> dict:
         >>> result["is_normal"]
         True
     """
-    clean = np.asarray(data, dtype=float)
+    from wraquant.core._coerce import coerce_array
+
+    clean = coerce_array(data, name="data")
     clean = clean[~np.isnan(clean)]
 
     stat, p = sp_stats.shapiro(clean)
@@ -227,7 +238,9 @@ def durbin_watson(
     import numpy as np
     from statsmodels.stats.stattools import durbin_watson as _dw
 
-    clean = np.asarray(residuals, dtype=float)
+    from wraquant.core._coerce import coerce_array
+
+    clean = coerce_array(residuals, name="residuals")
     clean = clean[~np.isnan(clean)]
 
     dw_stat = float(_dw(clean))
@@ -312,7 +325,9 @@ def breusch_pagan(
     import numpy as np
     from statsmodels.stats.diagnostic import het_breuschpagan
 
-    resid = np.asarray(residuals, dtype=float).ravel()
+    from wraquant.core._coerce import coerce_array
+
+    resid = coerce_array(residuals, name="residuals")
     X = np.asarray(exog, dtype=float)
     if X.ndim == 1:
         X = X.reshape(-1, 1)
@@ -392,7 +407,9 @@ def white_test(
     import numpy as np
     from statsmodels.stats.diagnostic import het_white
 
-    resid = np.asarray(residuals, dtype=float).ravel()
+    from wraquant.core._coerce import coerce_array
+
+    resid = coerce_array(residuals, name="residuals")
     X = np.asarray(exog, dtype=float)
     if X.ndim == 1:
         X = X.reshape(-1, 1)
@@ -484,7 +501,9 @@ def chow_test(
     import numpy as np
     import statsmodels.api as sm
 
-    y_arr = np.asarray(y, dtype=float).ravel()
+    from wraquant.core._coerce import coerce_array
+
+    y_arr = coerce_array(y, name="y")
     X_arr = np.asarray(X, dtype=float)
     if X_arr.ndim == 1:
         X_arr = X_arr.reshape(-1, 1)
@@ -599,6 +618,9 @@ def variance_inflation_factor(
     import numpy as np
     import statsmodels.api as sm
 
+    from wraquant.core._coerce import coerce_dataframe
+
+    X = coerce_dataframe(X, name="X")
     cols = X.columns.tolist()
     X_arr = X.values.astype(float)
     n_features = X_arr.shape[1]

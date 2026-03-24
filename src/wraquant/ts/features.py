@@ -82,6 +82,9 @@ def autocorrelation_features(
     from statsmodels.tsa.stattools import acf as sm_acf
     from statsmodels.tsa.stattools import pacf as sm_pacf
 
+    from wraquant.core._coerce import coerce_series
+
+    data = coerce_series(data, name="data")
     clean = data.dropna().values
     n = len(clean)
     n_lags = min(n_lags, n // 2 - 1)
@@ -186,6 +189,9 @@ def spectral_features(
     """
     from scipy.signal import periodogram
 
+    from wraquant.core._coerce import coerce_series
+
+    data = coerce_series(data, name="data")
     clean = data.dropna().values.astype(np.float64)
 
     freqs, psd = periodogram(clean, fs=fs)
@@ -308,6 +314,9 @@ def complexity_features(
         - Bandt, C. & Pompe, B. (2002), "Permutation Entropy: A
           Natural Complexity Measure for Time Series", PRL.
     """
+    from wraquant.core._coerce import coerce_series
+
+    data = coerce_series(data, name="data")
     clean = data.dropna().values.astype(np.float64)
     n = len(clean)
 

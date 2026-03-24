@@ -46,7 +46,9 @@ def importance_sampling_var(
         - ``effective_sample_size``: Effective sample size after
           reweighting, as a fraction of ``n_sims``.
     """
-    returns = np.asarray(returns, dtype=float)
+    from wraquant.core._coerce import coerce_array
+
+    returns = coerce_array(returns, name="returns")
     mu = np.mean(returns)
     sigma = np.std(returns)
 
@@ -117,6 +119,8 @@ def antithetic_variates(
         Array of shape ``(2 * n_sims, n_assets)`` containing the
         original and antithetic draws interleaved.
     """
+    from wraquant.core._coerce import coerce_array
+
     rng = np.random.default_rng(seed)
     mu = np.broadcast_to(np.asarray(mu, dtype=float), (n_assets,))
     sigma = np.broadcast_to(np.asarray(sigma, dtype=float), (n_assets,))
@@ -155,7 +159,9 @@ def stratified_sampling(
         1-D array of ``n_sims`` stratified samples drawn from the fitted
         normal distribution.
     """
-    returns = np.asarray(returns, dtype=float)
+    from wraquant.core._coerce import coerce_array
+
+    returns = coerce_array(returns, name="returns")
     mu = np.mean(returns)
     sigma = np.std(returns)
 
@@ -197,7 +203,9 @@ def block_bootstrap(
         2-D array of shape ``(n_sims, len(returns))`` where each row is
         one bootstrap replicate.
     """
-    returns = np.asarray(returns, dtype=float)
+    from wraquant.core._coerce import coerce_array
+
+    returns = coerce_array(returns, name="returns")
     n = len(returns)
     if block_size < 1 or block_size > n:
         raise ValueError("block_size must be between 1 and len(returns)")
@@ -237,7 +245,9 @@ def stationary_bootstrap(
         2-D array of shape ``(n_sims, len(returns))`` where each row is
         one bootstrap replicate.
     """
-    returns = np.asarray(returns, dtype=float)
+    from wraquant.core._coerce import coerce_array
+
+    returns = coerce_array(returns, name="returns")
     n = len(returns)
     if avg_block_size < 1:
         raise ValueError("avg_block_size must be >= 1")
@@ -290,7 +300,9 @@ def filtered_historical_simulation(
         - ``standardised_residuals``: Standardised residuals from
           the volatility model.
     """
-    returns = np.asarray(returns, dtype=float)
+    from wraquant.core._coerce import coerce_array
+
+    returns = coerce_array(returns, name="returns")
     n = len(returns)
 
     if n < 3:

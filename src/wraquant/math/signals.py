@@ -7,6 +7,8 @@ from numpy.typing import ArrayLike
 from scipy.ndimage import median_filter as _scipy_median_filter
 from scipy.signal import savgol_filter
 
+from wraquant.core._coerce import coerce_array
+
 __all__ = [
     "savitzky_golay",
     "kalman_smooth",
@@ -38,7 +40,7 @@ def savitzky_golay(
     np.ndarray
         Smoothed signal.
     """
-    data = np.asarray(data, dtype=float)
+    data = coerce_array(data, name="data")
     # Ensure window is odd
     if window % 2 == 0:
         window += 1
@@ -68,7 +70,7 @@ def kalman_smooth(
     np.ndarray
         Kalman-smoothed estimate (same length as *data*).
     """
-    data = np.asarray(data, dtype=float)
+    data = coerce_array(data, name="data")
     n = len(data)
     smoothed = np.empty(n, dtype=float)
 
@@ -131,7 +133,7 @@ def wavelet_denoise(
             "Install it with:  pip install wraquant[timeseries]"
         ) from exc
 
-    data = np.asarray(data, dtype=float)
+    data = coerce_array(data, name="data")
 
     if level is None:
         level = pywt.dwt_max_level(len(data), pywt.Wavelet(wavelet).dec_len)
@@ -167,7 +169,7 @@ def median_filter(
     np.ndarray
         Filtered signal.
     """
-    data = np.asarray(data, dtype=float)
+    data = coerce_array(data, name="data")
     return _scipy_median_filter(data, size=kernel_size).astype(float)
 
 
@@ -193,7 +195,7 @@ def exponential_smooth(
     np.ndarray
         Smoothed signal.
     """
-    data = np.asarray(data, dtype=float)
+    data = coerce_array(data, name="data")
     n = len(data)
     smoothed = np.empty(n, dtype=float)
     smoothed[0] = data[0]
@@ -223,7 +225,7 @@ def hodrick_prescott(
     tuple of np.ndarray
         ``(trend, cycle)`` where ``trend + cycle == data``.
     """
-    data = np.asarray(data, dtype=float)
+    data = coerce_array(data, name="data")
     n = len(data)
 
     # Construct the second-difference matrix K (n-2 x n)

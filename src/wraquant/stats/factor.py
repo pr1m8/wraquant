@@ -30,6 +30,9 @@ def fama_french_regression(
         factor name to coefficient), ``t_stats`` (dict mapping name to
         t-statistic), ``p_values`` (dict), and ``r_squared``.
     """
+    from wraquant.core._coerce import coerce_series
+
+    returns = coerce_series(returns, name="returns")
     common = returns.dropna().index.intersection(factors_df.dropna().index)
     y = returns.loc[common].values.astype(float)
 
@@ -78,6 +81,9 @@ def factor_attribution(
         residual return), ``total_return`` (mean of *returns*), and
         ``r_squared``.
     """
+    from wraquant.core._coerce import coerce_series
+
+    returns = coerce_series(returns, name="returns")
     common = returns.dropna().index.intersection(factor_returns.dropna().index)
     y = returns.loc[common].values.astype(float)
     factor_cols = list(factor_returns.columns)
@@ -120,8 +126,10 @@ def information_coefficient(
     Returns:
         Spearman rank correlation coefficient (between -1 and 1).
     """
-    pred_arr = np.asarray(predictions, dtype=float)
-    ret_arr = np.asarray(returns, dtype=float)
+    from wraquant.core._coerce import coerce_array
+
+    pred_arr = coerce_array(predictions, name="predictions")
+    ret_arr = coerce_array(returns, name="returns")
 
     # Remove NaN pairs
     mask = ~(np.isnan(pred_arr) | np.isnan(ret_arr))
@@ -155,6 +163,10 @@ def quantile_analysis(
         highest) with columns ``mean_return``, ``std_return``,
         ``hit_rate`` (fraction of positive returns), and ``count``.
     """
+    from wraquant.core._coerce import coerce_series
+
+    predictions = coerce_series(predictions, name="predictions")
+    returns = coerce_series(returns, name="returns")
     combined = pd.DataFrame(
         {
             "prediction": predictions,

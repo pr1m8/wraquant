@@ -13,6 +13,7 @@ import pandas as pd
 from scipy.cluster.hierarchy import fcluster, linkage
 from scipy.spatial.distance import squareform
 
+from wraquant.core._coerce import coerce_dataframe
 from wraquant.core.decorators import requires_extra
 
 __all__ = [
@@ -92,6 +93,7 @@ def correlation_clustering(
     optimal_clusters : Determine optimal cluster count.
     wraquant.ml.preprocessing.detoned_correlation : Remove market mode before clustering.
     """
+    returns = coerce_dataframe(returns, name="returns")
     corr = returns.corr().values
     n = corr.shape[0]
 

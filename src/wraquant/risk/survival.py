@@ -98,7 +98,9 @@ def kaplan_meier(
         - ``survival``: Survival probability at each event time.
         - ``variance``: Greenwood's variance estimate at each event time.
     """
-    durations = np.asarray(durations, dtype=float)
+    from wraquant.core._coerce import coerce_array
+
+    durations = coerce_array(durations, name="durations")
     event_observed = np.asarray(event_observed, dtype=bool)
     if durations.shape != event_observed.shape:
         raise ValueError("durations and event_observed must have the same shape")
@@ -109,7 +111,6 @@ def kaplan_meier(
     e_sorted = event_observed[order]
 
     unique_times = np.unique(t_sorted)
-    len(durations)
 
     survival = np.ones(len(unique_times))
     variance = np.zeros(len(unique_times))
@@ -157,7 +158,9 @@ def nelson_aalen(
         - ``cumulative_hazard``: Cumulative hazard estimate at each time.
         - ``variance``: Variance estimate at each time.
     """
-    durations = np.asarray(durations, dtype=float)
+    from wraquant.core._coerce import coerce_array
+
+    durations = coerce_array(durations, name="durations")
     event_observed = np.asarray(event_observed, dtype=bool)
     if durations.shape != event_observed.shape:
         raise ValueError("durations and event_observed must have the same shape")
@@ -213,6 +216,9 @@ def hazard_rate(
         - ``timeline``: Evaluation grid (same as Nelson-Aalen times).
         - ``hazard``: Smoothed hazard rate at each time point.
     """
+    from wraquant.core._coerce import coerce_array
+
+    durations = coerce_array(durations, name="durations")
     na = nelson_aalen(durations, event_observed)
     times = na["timeline"]
     cum_h = na["cumulative_hazard"]
@@ -273,7 +279,9 @@ def cox_partial_likelihood(
         - ``log_partial_likelihood``: Maximised log partial likelihood.
         - ``n_iter``: Number of iterations to convergence.
     """
-    durations = np.asarray(durations, dtype=float)
+    from wraquant.core._coerce import coerce_array
+
+    durations = coerce_array(durations, name="durations")
     event_observed = np.asarray(event_observed, dtype=bool)
     X = np.asarray(covariates, dtype=float)
 
@@ -371,6 +379,8 @@ def exponential_survival(
     Returns:
         Survival probability at each *t*.
     """
+    from wraquant.core._coerce import coerce_array
+
     if lambda_param < 0:
         raise ValueError("lambda_param must be non-negative")
     t = np.asarray(t, dtype=float)
@@ -393,6 +403,8 @@ def weibull_survival(
     Returns:
         Survival probability at each *t*.
     """
+    from wraquant.core._coerce import coerce_array
+
     if lambda_param <= 0:
         raise ValueError("lambda_param must be positive")
     if k <= 0:
@@ -427,9 +439,11 @@ def log_rank_test(
         - ``observed1``: Total observed events in group 1.
         - ``expected1``: Expected events in group 1 under H0.
     """
-    d1 = np.asarray(durations1, dtype=float)
+    from wraquant.core._coerce import coerce_array
+
+    d1 = coerce_array(durations1, name="durations1")
     e1 = np.asarray(event1, dtype=bool)
-    d2 = np.asarray(durations2, dtype=float)
+    d2 = coerce_array(durations2, name="durations2")
     e2 = np.asarray(event2, dtype=bool)
 
     # Combine all unique event times
@@ -499,6 +513,9 @@ def median_survival_time(
         Median survival time, or ``np.inf`` if the survival curve never
         drops to 0.5.
     """
+    from wraquant.core._coerce import coerce_array
+
+    durations = coerce_array(durations, name="durations")
     km = kaplan_meier(durations, event_observed)
     timeline = km["timeline"]
     survival = km["survival"]

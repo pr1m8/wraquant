@@ -11,6 +11,7 @@ from typing import Any, Callable
 
 import numpy as np
 
+from wraquant.core._coerce import coerce_array
 from wraquant.experiment.grid import ParameterGrid
 
 
@@ -157,6 +158,7 @@ def walk_forward_optimize(
     if isinstance(param_grid, dict):
         param_grid = ParameterGrid(param_grid)
 
+    data = coerce_array(data, name="data")
     n_samples = len(data)
 
     if anchored:

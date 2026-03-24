@@ -13,6 +13,7 @@ import numpy as np
 import numpy.typing as npt
 from scipy import optimize
 
+from wraquant.core._coerce import coerce_array  # noqa: F401 — wired for type-system consistency
 from wraquant.core.decorators import requires_extra
 
 

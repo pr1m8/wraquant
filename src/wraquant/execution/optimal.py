@@ -9,6 +9,8 @@ from __future__ import annotations
 import numpy as np
 from numpy.typing import NDArray
 
+from wraquant.core._coerce import coerce_array
+
 
 def almgren_chriss(
     total_qty: float,
@@ -150,6 +152,7 @@ def optimal_execution_cost(
         almgren_chriss: Compute the optimal trajectory.
         execution_frontier: Trace the cost-risk frontier.
     """
+    trajectory = coerce_array(trajectory, "trajectory")
     n = len(trajectory) - 1
     trades = -np.diff(trajectory)  # quantities sold each period (positive)
 

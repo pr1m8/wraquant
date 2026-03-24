@@ -38,6 +38,8 @@ from typing import Callable
 import numpy as np
 import numpy.typing as npt
 
+from wraquant.core._coerce import coerce_array  # noqa: F401 — wired for type-system consistency
+
 __all__ = [
     "fbsde_european",
     "deep_bsde",

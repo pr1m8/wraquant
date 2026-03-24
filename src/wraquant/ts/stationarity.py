@@ -25,6 +25,9 @@ def difference(data: pd.Series, order: int = 1) -> pd.Series:
     Returns:
         Differenced series with NaN values dropped.
     """
+    from wraquant.core._coerce import coerce_series
+
+    data = coerce_series(data, name="data")
     result = data
     for _ in range(order):
         result = result.diff()
@@ -49,6 +52,9 @@ def fractional_difference(
     Returns:
         Fractionally differenced series.
     """
+    from wraquant.core._coerce import coerce_series
+
+    data = coerce_series(data, name="data")
     # Compute binomial weights, capped at the length of the data
     n = len(data)
     weights = [1.0]
@@ -85,6 +91,9 @@ def detrend(data: pd.Series, method: str = "linear") -> pd.Series:
     Raises:
         ValueError: If *method* is not recognized.
     """
+    from wraquant.core._coerce import coerce_series
+
+    data = coerce_series(data, name="data")
     clean = data.dropna()
 
     if method in ("linear", "constant"):
@@ -170,6 +179,9 @@ def adf_test(
     """
     from statsmodels.tsa.stattools import adfuller
 
+    from wraquant.core._coerce import coerce_series
+
+    data = coerce_series(data, name="data")
     clean = data.dropna().values
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
@@ -273,6 +285,9 @@ def kpss_test(
     """
     from statsmodels.tsa.stattools import kpss as sm_kpss
 
+    from wraquant.core._coerce import coerce_series
+
+    data = coerce_series(data, name="data")
     clean = data.dropna().values
     n_lags_param = n_lags if isinstance(n_lags, int) else "auto"
 
@@ -369,6 +384,9 @@ def phillips_perron(
     """
     from statsmodels.tsa.stattools import adfuller
 
+    from wraquant.core._coerce import coerce_series
+
+    data = coerce_series(data, name="data")
     clean = data.dropna().values
     n = len(clean)
     nw_lags = int(np.floor(4 * (n / 100) ** (2 / 9)))
@@ -497,6 +515,9 @@ def optimal_differencing(
         - Hyndman, R.J. & Khandakar, Y. (2008), "Automatic Time Series
           Forecasting: The forecast Package for R", JSS.
     """
+    from wraquant.core._coerce import coerce_series
+
+    data = coerce_series(data, name="data")
     test_results: dict[int, dict] = {}
     current = data.dropna()
 
@@ -582,6 +603,9 @@ def variance_ratio_test(
           Not Follow Random Walks: Evidence from a Simple Specification
           Test", Review of Financial Studies.
     """
+    from wraquant.core._coerce import coerce_series
+
+    data = coerce_series(data, name="data")
     clean = data.dropna().values.astype(np.float64)
     n = len(clean)
     k = lags

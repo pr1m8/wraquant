@@ -8,8 +8,12 @@ Ornstein-Uhlenbeck, Cox-Ingersoll-Ross, SABR, rough Bergomi,
 
 from __future__ import annotations
 
+from typing import Any
+
 import numpy as np
 import numpy.typing as npt
+
+from wraquant.core._coerce import coerce_array
 
 __all__ = [
     "geometric_brownian_motion",

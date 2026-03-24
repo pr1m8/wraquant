@@ -254,6 +254,8 @@ def default_probability(
         rating at the given *horizon*.  Length is ``n - 1`` where *n* is the
         number of ratings (including default).
     """
+    from wraquant.core._coerce import coerce_array
+
     if horizon < 1:
         raise ValueError("horizon must be >= 1")
     mat = np.asarray(rating_transitions, dtype=float)

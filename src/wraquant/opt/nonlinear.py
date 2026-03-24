@@ -12,6 +12,8 @@ import numpy as np
 import numpy.typing as npt
 from scipy import optimize
 
+from wraquant.core._coerce import coerce_array
+
 
 def minimize(
     fun: Callable[..., float],
@@ -67,7 +69,7 @@ def minimize(
         global_minimize: Global optimization for multimodal problems.
         wraquant.opt.convex.solve_qp: Quadratic programming (convex).
     """
-    x0 = np.asarray(x0, dtype=float)
+    x0 = coerce_array(x0, "x0")
 
     result = optimize.minimize(
         fun,
@@ -208,7 +210,7 @@ def root_find(
     See Also:
         minimize: Find minimum of a function (not root).
     """
-    x0 = np.asarray(x0, dtype=float)
+    x0 = coerce_array(x0, "x0")
 
     result = optimize.root(fun, x0, method=method, jac=jac)
 

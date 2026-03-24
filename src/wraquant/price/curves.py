@@ -12,6 +12,8 @@ import numpy as np
 import numpy.typing as npt
 from scipy.interpolate import CubicSpline, interp1d
 
+from wraquant.core._coerce import coerce_array
+
 __all__ = [
     "bootstrap_zero_curve",
     "interpolate_curve",
@@ -62,8 +64,8 @@ def bootstrap_zero_curve(
         forward_rate: Derive forward rates from zero rates.
         discount_factor: Convert a zero rate to a discount factor.
     """
-    maturities_arr = np.asarray(maturities, dtype=np.float64)
-    par_rates_arr = np.asarray(par_rates, dtype=np.float64)
+    maturities_arr = coerce_array(maturities, "maturities")
+    par_rates_arr = coerce_array(par_rates, "par_rates")
 
     if len(maturities_arr) != len(par_rates_arr):
         raise ValueError("maturities and par_rates must have the same length.")
@@ -153,9 +155,9 @@ def interpolate_curve(
         bootstrap_zero_curve: Build the curve from par rates.
         forward_rate: Extract a forward rate from the curve.
     """
-    mats_arr = np.asarray(maturities, dtype=np.float64)
-    rates_arr = np.asarray(rates, dtype=np.float64)
-    targets_arr = np.asarray(target_maturities, dtype=np.float64)
+    mats_arr = coerce_array(maturities, "maturities")
+    rates_arr = coerce_array(rates, "rates")
+    targets_arr = coerce_array(target_maturities, "target_maturities")
 
     if method == "linear":
         f = interp1d(mats_arr, rates_arr, kind="linear", fill_value="extrapolate")
@@ -245,8 +247,8 @@ def forward_rate(
     if t2 <= t1:
         raise ValueError("t2 must be greater than t1.")
 
-    mats_arr = np.asarray(maturities, dtype=np.float64)
-    rates_arr = np.asarray(zero_rates, dtype=np.float64)
+    mats_arr = coerce_array(maturities, "maturities")
+    rates_arr = coerce_array(zero_rates, "zero_rates")
 
     # Interpolate to get zero rates at t1 and t2
     cs = CubicSpline(mats_arr, rates_arr, extrapolate=True)

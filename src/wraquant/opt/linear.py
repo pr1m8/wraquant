@@ -12,6 +12,8 @@ import numpy as np
 import numpy.typing as npt
 from scipy import optimize
 
+from wraquant.core._coerce import coerce_array
+
 
 def solve_lp(
     c: npt.NDArray[np.floating],
@@ -66,7 +68,7 @@ def solve_lp(
         solve_milp: Mixed-integer LP (handles integer constraints).
         wraquant.opt.convex.solve_qp: Quadratic programming.
     """
-    c = np.asarray(c, dtype=float)
+    c = coerce_array(c, "c")
 
     result = optimize.linprog(
         c,
@@ -133,7 +135,7 @@ def solve_milp(
     See Also:
         solve_lp: Continuous LP (faster, no integer constraints).
     """
-    c = np.asarray(c, dtype=float)
+    c = coerce_array(c, "c")
 
     constraints: list[optimize.LinearConstraint] = []
 
@@ -196,8 +198,8 @@ def transportation_problem(
         ValueError: If total supply does not equal total demand.
     """
     costs = np.asarray(costs, dtype=float)
-    supply = np.asarray(supply, dtype=float)
-    demand = np.asarray(demand, dtype=float)
+    supply = coerce_array(supply, "supply")
+    demand = coerce_array(demand, "demand")
 
     m, n = costs.shape
 

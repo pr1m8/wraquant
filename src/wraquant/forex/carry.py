@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import pandas as pd
 
+from wraquant.core._coerce import coerce_series
+
 
 def interest_rate_differential(
     base_rate: float,
@@ -73,6 +75,7 @@ def carry_return(
         interest_rate_differential: Raw rate differential.
         carry_attractiveness: Rank pairs by carry.
     """
+    spot_change = coerce_series(spot_change, "spot_change")
     daily_carry = (base_rate - quote_rate) / periods_per_year
     return spot_change + daily_carry
 

@@ -12,6 +12,8 @@ from typing import Callable, Sequence
 import numpy as np
 import pandas as pd
 
+from wraquant.core._coerce import coerce_array
+
 __all__ = [
     "metropolis_hastings",
     "gibbs_sampler",
@@ -96,7 +98,7 @@ def metropolis_hastings(
         convergence_diagnostics: Assess MCMC convergence.
     """
     rng = np.random.default_rng(rng_seed)
-    initial = np.asarray(initial, dtype=float).ravel()
+    initial = coerce_array(initial, name="initial")
     n_params = len(initial)
 
     if np.isscalar(proposal_std):
@@ -198,7 +200,7 @@ def gibbs_sampler(
         hamiltonian_monte_carlo: Gradient-based MCMC.
     """
     rng = np.random.default_rng(rng_seed)
-    current = np.asarray(initial, dtype=float).ravel().copy()
+    current = coerce_array(initial, name="initial").copy()
     n_params = len(current)
 
     if len(conditionals) != n_params:
@@ -498,7 +500,7 @@ def hamiltonian_monte_carlo(
         >>> print(f"Mean: {result['samples'].mean():.1f}")  # ~3.0
     """
     rng = np.random.default_rng(rng_seed)
-    q = np.asarray(initial, dtype=float).ravel().copy()
+    q = coerce_array(initial, name="initial").copy()
     d = len(q)
 
     if mass_matrix is None:

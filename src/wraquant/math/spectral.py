@@ -6,6 +6,8 @@ import numpy as np
 from numpy.typing import ArrayLike
 from scipy import signal as sp_signal
 
+from wraquant.core._coerce import coerce_array
+
 __all__ = [
     "fft_decompose",
     "dominant_frequencies",
@@ -37,7 +39,7 @@ def fft_decompose(
         ``phases``      – phase angle (radians) of each component.
         ``power``       – power spectrum (amplitude squared).
     """
-    data = np.asarray(data, dtype=float)
+    data = coerce_array(data, name="data")
     n = len(data)
     fft_vals = np.fft.rfft(data)
     freqs = np.fft.rfftfreq(n)
@@ -81,7 +83,7 @@ def dominant_frequencies(
         ``period``    – corresponding period in bars (1 / frequency).
         ``amplitude`` – amplitude of each component.
     """
-    data = np.asarray(data, dtype=float)
+    data = coerce_array(data, name="data")
     n = len(data)
     fft_vals = np.fft.rfft(data)
     freqs = np.fft.rfftfreq(n)
@@ -130,7 +132,7 @@ def spectral_density(
     ValueError
         If *method* is not recognised.
     """
-    data = np.asarray(data, dtype=float)
+    data = coerce_array(data, name="data")
 
     if method == "periodogram":
         freqs, psd = sp_signal.periodogram(data)
@@ -170,7 +172,7 @@ def bandpass_filter(
     np.ndarray
         Filtered signal.
     """
-    data = np.asarray(data, dtype=float)
+    data = coerce_array(data, name="data")
     nyquist = sampling_rate / 2.0
     low = low_freq / nyquist
     high = high_freq / nyquist
@@ -198,7 +200,7 @@ def spectral_entropy(data: ArrayLike) -> float:
     float
         Normalised spectral entropy in [0, 1].
     """
-    data = np.asarray(data, dtype=float)
+    data = coerce_array(data, name="data")
     _, psd = sp_signal.periodogram(data)
 
     # Normalise PSD to a probability distribution

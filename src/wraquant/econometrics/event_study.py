@@ -14,6 +14,8 @@ import numpy as np
 import pandas as pd
 from scipy import stats as sp_stats
 
+from wraquant.core._coerce import coerce_series
+
 
 def event_study(
     returns: pd.DataFrame | pd.Series,
@@ -60,6 +62,7 @@ def event_study(
             msg = "Pass a single-column DataFrame or Series for returns."
             raise ValueError(msg)
 
+    returns = coerce_series(returns, name="returns")
     returns = returns.sort_index()
     event_dates = pd.DatetimeIndex(event_dates)
 
@@ -179,6 +182,8 @@ def cumulative_abnormal_return(
     Returns:
         Series of cumulative abnormal returns.
     """
+    returns = coerce_series(returns, name="returns")
+    expected_returns = coerce_series(expected_returns, name="expected_returns")
     ar = returns - expected_returns
 
     if event_window is not None:
@@ -209,6 +214,8 @@ def buy_and_hold_abnormal_return(
     Returns:
         BHAR as a float.
     """
+    returns = coerce_series(returns, name="returns")
+    benchmark_returns = coerce_series(benchmark_returns, name="benchmark_returns")
     if event_window is not None:
         start, end = event_window
         ret_slice = returns.iloc[start : end + 1]

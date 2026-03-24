@@ -17,6 +17,8 @@ from scipy.optimize import minimize
 from scipy.special import kv as bessel_kv  # modified Bessel K_v
 from scipy.stats import norm
 
+from wraquant.core._coerce import coerce_array
+
 __all__ = [
     "variance_gamma_pdf",
     "variance_gamma_simulate",
@@ -68,7 +70,7 @@ def variance_gamma_pdf(
     """
     from scipy.special import gamma as gamma_fn
 
-    x = np.asarray(x, dtype=float)
+    x = coerce_array(x, name="x")
     sigma2 = sigma ** 2
 
     # Parameters for the Bessel representation
@@ -216,7 +218,7 @@ def nig_pdf(
     np.ndarray
         PDF values.
     """
-    x = np.asarray(x, dtype=float)
+    x = coerce_array(x, name="x")
     gamma_param = np.sqrt(alpha ** 2 - beta ** 2)
     q = np.sqrt(delta ** 2 + (x - mu) ** 2)
 
@@ -525,7 +527,7 @@ def fit_variance_gamma(
         ``theta`` – fitted drift.
         ``log_likelihood`` – maximised log-likelihood.
     """
-    returns = np.asarray(returns, dtype=float)
+    returns = coerce_array(returns, name="returns")
 
     # Initial guesses from moments
     mu_hat = np.mean(returns)
@@ -586,7 +588,7 @@ def fit_nig(
         ``delta`` – fitted scale.
         ``log_likelihood`` – maximised log-likelihood.
     """
-    returns = np.asarray(returns, dtype=float)
+    returns = coerce_array(returns, name="returns")
 
     mu_hat = np.mean(returns)
     sigma_hat = np.std(returns)

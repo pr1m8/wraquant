@@ -99,6 +99,12 @@ def fit_gaussian_copula(
           matrix (n_assets, n_assets).
         * ``"copula_type"`` -- ``"gaussian"``.
     """
+    from wraquant.core._coerce import coerce_array
+
+    if returns.ndim == 1:
+        returns = coerce_array(returns, name="returns").reshape(-1, 1)
+    else:
+        returns = np.asarray(returns, dtype=np.float64)
     n_obs, n_assets = returns.shape
     u = np.column_stack([_empirical_cdf(returns[:, j]) for j in range(n_assets)])
     z = sp_stats.norm.ppf(u)
@@ -141,6 +147,12 @@ def fit_t_copula(
         * ``"df"`` -- degrees of freedom.
         * ``"copula_type"`` -- ``"student_t"``.
     """
+    from wraquant.core._coerce import coerce_array
+
+    if returns.ndim == 1:
+        returns = coerce_array(returns, name="returns").reshape(-1, 1)
+    else:
+        returns = np.asarray(returns, dtype=np.float64)
     n_obs, n_assets = returns.shape
     u = np.column_stack([_empirical_cdf(returns[:, j]) for j in range(n_assets)])
     t_vals = sp_stats.t.ppf(u, df=df)
@@ -200,6 +212,10 @@ def fit_clayton_copula(
         * ``"copula_type"`` -- ``"clayton"``.
         * ``"lower_tail_dependence"`` -- ``2^{-1/theta}``.
     """
+    from wraquant.core._coerce import coerce_array
+
+    u = coerce_array(u, name="u")
+    v = coerce_array(v, name="v")
     u, v = _ensure_uniform(u), _ensure_uniform(v)
 
     def neg_ll(params: np.ndarray) -> float:
@@ -274,6 +290,10 @@ def fit_gumbel_copula(
         * ``"copula_type"`` -- ``"gumbel"``.
         * ``"upper_tail_dependence"`` -- ``2 - 2^{1/theta}``.
     """
+    from wraquant.core._coerce import coerce_array
+
+    u = coerce_array(u, name="u")
+    v = coerce_array(v, name="v")
     u, v = _ensure_uniform(u), _ensure_uniform(v)
 
     def neg_ll(params: np.ndarray) -> float:
@@ -339,6 +359,10 @@ def fit_frank_copula(
         * ``"theta"`` -- estimated Frank parameter (nonzero).
         * ``"copula_type"`` -- ``"frank"``.
     """
+    from wraquant.core._coerce import coerce_array
+
+    u = coerce_array(u, name="u")
+    v = coerce_array(v, name="v")
     u, v = _ensure_uniform(u), _ensure_uniform(v)
 
     def neg_ll(params: np.ndarray) -> float:
@@ -483,6 +507,10 @@ def tail_dependence(
     Raises:
         ValueError: If *method* is not recognized.
     """
+    from wraquant.core._coerce import coerce_array
+
+    u = coerce_array(u, name="u")
+    v = coerce_array(v, name="v")
     u, v = _ensure_uniform(u), _ensure_uniform(v)
 
     if method == "empirical":
@@ -531,6 +559,12 @@ def rank_correlation(
     Raises:
         ValueError: If *method* is not recognized.
     """
+    from wraquant.core._coerce import coerce_array
+
+    if returns.ndim == 1:
+        returns = coerce_array(returns, name="returns").reshape(-1, 1)
+    else:
+        returns = np.asarray(returns, dtype=np.float64)
     n_assets = returns.shape[1]
 
     result: dict[str, Any] = {}

@@ -51,6 +51,8 @@ import numpy as np
 import pandas as pd
 from numpy.typing import NDArray
 
+from wraquant.core._coerce import coerce_array
+
 
 def twap_schedule(
     total_qty: float,
@@ -129,7 +131,7 @@ def vwap_schedule(
         twap_schedule: Equal-time scheduling (ignores volume).
         participation_rate_schedule: Fixed participation rate.
     """
-    profile = np.asarray(historical_volume_profile, dtype=np.float64)
+    profile = coerce_array(historical_volume_profile, "historical_volume_profile")
     total_vol = np.sum(profile)
     if total_vol <= 0:
         raise ValueError("historical_volume_profile must have positive total")
@@ -190,13 +192,13 @@ def implementation_shortfall(
     See Also:
         arrival_price_benchmark: Simpler benchmark-relative cost.
     """
-    exec_p = np.asarray(execution_prices, dtype=np.float64)
+    exec_p = coerce_array(execution_prices, "execution_prices")
     n = len(exec_p)
 
     if quantities is None:
         qty = np.ones(n, dtype=np.float64) / n
     else:
-        qty = np.asarray(quantities, dtype=np.float64)
+        qty = coerce_array(quantities, "quantities")
         qty = qty / np.sum(qty)
 
     avg_exec_price = float(np.sum(exec_p * qty))
@@ -262,7 +264,7 @@ def participation_rate_schedule(
     """
     if not 0 < target_rate <= 1:
         raise ValueError("target_rate must be in (0, 1]")
-    vol = np.asarray(expected_volume, dtype=np.float64)
+    vol = coerce_array(expected_volume, "expected_volume")
     schedule = np.zeros_like(vol)
     remaining = total_qty
 
@@ -319,8 +321,8 @@ def arrival_price_benchmark(
     See Also:
         implementation_shortfall: Full cost attribution.
     """
-    exec_p = np.asarray(execution_prices, dtype=np.float64)
-    vol = np.asarray(volumes, dtype=np.float64)
+    exec_p = coerce_array(execution_prices, "execution_prices")
+    vol = coerce_array(volumes, "volumes")
 
     total_vol = np.sum(vol)
     if total_vol <= 0:
@@ -407,8 +409,8 @@ def adaptive_schedule(
     if not 0 <= urgency <= 1:
         raise ValueError("urgency must be in [0, 1]")
 
-    vol = np.asarray(market_volumes, dtype=np.float64)
-    spr = np.asarray(spread_series, dtype=np.float64)
+    vol = coerce_array(market_volumes, "market_volumes")
+    spr = coerce_array(spread_series, "spread_series")
 
     if len(vol) != len(spr):
         raise ValueError(
@@ -490,7 +492,7 @@ def is_schedule(
     if not 0 <= alpha <= 1:
         raise ValueError("alpha must be in [0, 1]")
 
-    vol = np.asarray(market_volumes, dtype=np.float64)
+    vol = coerce_array(market_volumes, "market_volumes")
     n = len(vol)
 
     # Uniform (TWAP) component
@@ -557,7 +559,7 @@ def pov_schedule(
     if not 0 < pov_rate <= 1:
         raise ValueError("pov_rate must be in (0, 1]")
 
-    vol = np.asarray(market_volumes, dtype=np.float64)
+    vol = coerce_array(market_volumes, "market_volumes")
     schedule = np.zeros_like(vol)
     remaining = total_quantity
 

@@ -11,6 +11,8 @@ import pandas as pd
 from numpy.typing import NDArray
 from scipy.optimize import minimize
 
+from wraquant.core._coerce import coerce_array, coerce_series
+
 
 def vpin(
     volume: pd.Series | NDArray[np.floating],
@@ -30,8 +32,8 @@ def vpin(
     Returns:
         VPIN values, one per bucket.
     """
-    volume = np.asarray(volume, dtype=np.float64)
-    buy_volume = np.asarray(buy_volume, dtype=np.float64)
+    volume = coerce_array(volume, "volume")
+    buy_volume = coerce_array(buy_volume, "buy_volume")
     sell_volume = volume - buy_volume
 
     total_volume = np.sum(volume)
@@ -85,8 +87,8 @@ def pin_model(
         Dictionary with keys ``'pin'``, ``'alpha'``, ``'delta'``,
         ``'mu'``, ``'eps_b'``, ``'eps_s'``.
     """
-    b = np.asarray(buy_trades, dtype=np.float64)
-    s = np.asarray(sell_trades, dtype=np.float64)
+    b = coerce_array(buy_trades, "buy_trades")
+    s = coerce_array(sell_trades, "sell_trades")
     n = len(b)
 
     # Initial parameter guesses
@@ -162,6 +164,8 @@ def order_flow_imbalance(
     Returns:
         Rolling OFI series in [-1, 1].
     """
+    buy_volume = coerce_series(buy_volume, "buy_volume")
+    sell_volume = coerce_series(sell_volume, "sell_volume")
     total = buy_volume + sell_volume
     ofi = (buy_volume - sell_volume) / total
     ofi = ofi.replace([np.inf, -np.inf], np.nan)
@@ -189,6 +193,9 @@ def trade_classification(
     Returns:
         Classification series with values +1 (buy) or -1 (sell).
     """
+    trade_prices = coerce_series(trade_prices, "trade_prices")
+    bid = coerce_series(bid, "bid")
+    ask = coerce_series(ask, "ask")
     mid = (bid + ask) / 2.0
 
     # Quote test
@@ -228,6 +235,7 @@ def information_share(
     if n_venues == 0:
         return np.array([], dtype=np.float64)
 
+    prices_list = [coerce_series(p, f"prices_{i}") for i, p in enumerate(prices_list)]
     # Align all series
     df = pd.concat(prices_list, axis=1).dropna()
     mean_price = df.mean(axis=1)
@@ -297,6 +305,10 @@ def bulk_volume_classification(
         Classification of Trading Activity." *Working Paper*, Johnson
         School Research Paper Series.
     """
+    close = coerce_series(close, "close")
+    high = coerce_series(high, "high")
+    low = coerce_series(low, "low")
+    volume = coerce_series(volume, "volume")
     hl_range = high - low
     # Avoid division by zero for doji bars
     z = np.where(hl_range > 0, (close - low) / hl_range, 0.5)
@@ -358,8 +370,8 @@ def adjusted_pin(
         Duarte, J. & Young, L. (2009). "Why is PIN Priced?" *Journal of
         Financial Economics*, 91(2), 119-138.
     """
-    b = np.asarray(buy_trades, dtype=np.float64)
-    s = np.asarray(sell_trades, dtype=np.float64)
+    b = coerce_array(buy_trades, "buy_trades")
+    s = coerce_array(sell_trades, "sell_trades")
     n = len(b)
 
     # Initial guesses
@@ -477,9 +489,9 @@ def toxicity_index(
             return np.zeros_like(arr)
         return (arr - lo) / (hi - lo)
 
-    v = _min_max(np.asarray(vpin_values, dtype=np.float64))
-    o = _min_max(np.abs(np.asarray(ofi_values, dtype=np.float64)))
-    s = _min_max(np.asarray(spread_values, dtype=np.float64))
+    v = _min_max(coerce_array(vpin_values, "vpin_values"))
+    o = _min_max(np.abs(coerce_array(ofi_values, "ofi_values")))
+    s = _min_max(coerce_array(spread_values, "spread_values"))
 
     w_v, w_o, w_s = weights
     composite = w_v * v + w_o * o + w_s * s
@@ -524,6 +536,8 @@ def informed_trading_intensity(
         Information in Securities Markets." *Journal of Financial
         Economics*, 19(1), 69-90.
     """
+    buy_volume = coerce_series(buy_volume, "buy_volume")
+    sell_volume = coerce_series(sell_volume, "sell_volume")
     total = buy_volume + sell_volume
     imbalance = np.abs(buy_volume - sell_volume)
 

@@ -9,6 +9,8 @@ import numpy as np
 from numpy.typing import ArrayLike
 from scipy.optimize import minimize
 
+from wraquant.core._coerce import coerce_array
+
 __all__ = [
     "hawkes_intensity",
     "simulate_hawkes",
@@ -48,7 +50,7 @@ def hawkes_intensity(
     np.ndarray
         Intensity evaluated at each event time.
     """
-    times = np.asarray(times, dtype=float)
+    times = coerce_array(times, name="times")
     n = len(times)
     intensity = np.empty(n, dtype=float)
 
@@ -160,7 +162,7 @@ def fit_hawkes(
         ``log_likelihood`` – maximised log-likelihood value.
         ``branching_ratio`` – ``alpha / beta``.
     """
-    times = np.asarray(times, dtype=float)
+    times = coerce_array(times, name="times")
     if T is None:
         T = float(times[-1])
     n = len(times)

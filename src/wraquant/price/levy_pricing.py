@@ -11,6 +11,8 @@ from typing import Callable
 
 import numpy as np
 
+from wraquant.core._coerce import coerce_array  # noqa: F401 — wired for type-system consistency
+
 __all__ = [
     "vg_european_fft",
     "nig_european_fft",

@@ -18,6 +18,10 @@ def portfolio_volatility(
     Returns:
         Portfolio volatility (standard deviation).
     """
+    from wraquant.core._coerce import coerce_array
+
+    weights = coerce_array(weights, name="weights")
+    cov_matrix = np.asarray(cov_matrix, dtype=np.float64)
     return float(np.sqrt(weights @ cov_matrix @ weights))
 
 
@@ -34,6 +38,10 @@ def risk_contribution(
     Returns:
         Array of fractional risk contributions that sum to 1.
     """
+    from wraquant.core._coerce import coerce_array
+
+    weights = coerce_array(weights, name="weights")
+    cov_matrix = np.asarray(cov_matrix, dtype=np.float64)
     port_vol = portfolio_volatility(weights, cov_matrix)
     if port_vol == 0:
         return np.zeros_like(weights)
@@ -59,6 +67,10 @@ def diversification_ratio(
     Returns:
         Diversification ratio (>= 1).
     """
+    from wraquant.core._coerce import coerce_array
+
+    weights = coerce_array(weights, name="weights")
+    cov_matrix = np.asarray(cov_matrix, dtype=np.float64)
     individual_vols = np.sqrt(np.diag(cov_matrix))
     weighted_avg_vol = float(weights @ individual_vols)
     port_vol = portfolio_volatility(weights, cov_matrix)

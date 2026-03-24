@@ -23,6 +23,9 @@ def detect_seasonality(
         List of detected seasonal periods (in number of observations),
         sorted by spectral power (strongest first).
     """
+    from wraquant.core._coerce import coerce_series
+
+    data = coerce_series(data, name="data")
     clean = data.dropna().values
     freqs, power = periodogram(clean)
 
@@ -185,6 +188,9 @@ def seasonal_strength(
     """
     from statsmodels.tsa.seasonal import STL as _STL
 
+    from wraquant.core._coerce import coerce_series
+
+    data = coerce_series(data, name="data")
     clean = data.dropna()
     if period is None:
         period = 7
@@ -253,6 +259,9 @@ def multi_seasonal_decompose(
     """
     from statsmodels.tsa.seasonal import STL as _STL
 
+    from wraquant.core._coerce import coerce_series
+
+    data = coerce_series(data, name="data")
     clean = data.dropna()
 
     # Try MSTL first (available in statsmodels >= 0.14)

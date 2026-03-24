@@ -53,6 +53,8 @@ import numpy as np
 import pandas as pd
 from numpy.typing import NDArray
 
+from wraquant.core._coerce import coerce_series
+
 
 def amihud_illiquidity(
     returns: pd.Series,
@@ -73,6 +75,8 @@ def amihud_illiquidity(
         Rolling Amihud illiquidity ratio (or a single float when
         *window* is *None*).
     """
+    returns = coerce_series(returns, "returns")
+    volume = coerce_series(volume, "volume")
     ratio = np.abs(returns) / volume
     ratio = ratio.replace([np.inf, -np.inf], np.nan)
     if window is None:
@@ -98,6 +102,8 @@ def kyle_lambda(
     Returns:
         Rolling Kyle's lambda series.
     """
+    prices = coerce_series(prices, "prices")
+    volume = coerce_series(volume, "volume")
     delta_p = prices.diff()
     # Rolling OLS: lambda = cov(dp, v) / var(v)
     cov_pv = delta_p.rolling(window).cov(volume)
@@ -121,6 +127,7 @@ def roll_spread(prices: pd.Series) -> float:
         Estimated implied spread. Returns *NaN* if the serial
         covariance is non-negative (model assumption violated).
     """
+    prices = coerce_series(prices, "prices")
     dp = prices.diff().dropna()
     cov = np.cov(dp.values[:-1], dp.values[1:])[0, 1]
     if cov >= 0:
@@ -141,7 +148,9 @@ def effective_spread(
     Returns:
         Per-trade effective spread, same type as the inputs.
     """
-    return 2.0 * np.abs(np.asarray(trade_prices) - np.asarray(midpoints))
+    trade_prices = coerce_series(trade_prices, "trade_prices")
+    midpoints = coerce_series(midpoints, "midpoints")
+    return 2.0 * np.abs(trade_prices - midpoints)
 
 
 def realized_spread(
@@ -162,6 +171,8 @@ def realized_spread(
     Returns:
         Per-trade realized spread series (NaN for the last *delay* rows).
     """
+    trade_prices = coerce_series(trade_prices, "trade_prices")
+    midpoints = coerce_series(midpoints, "midpoints")
     direction = np.sign(trade_prices - midpoints)
     future_mid = midpoints.shift(-delay)
     return 2.0 * direction * (trade_prices - future_mid)
@@ -185,6 +196,9 @@ def price_impact(
     Returns:
         Per-trade permanent price impact series.
     """
+    trade_prices = coerce_series(trade_prices, "trade_prices")
+    volume = coerce_series(volume, "volume")
+    direction = coerce_series(direction, "direction")
     dp = trade_prices.diff().shift(-1)
     impact = direction * dp / volume
     impact = impact.replace([np.inf, -np.inf], np.nan)
@@ -205,6 +219,7 @@ def turnover_ratio(
     Returns:
         Daily turnover ratio.
     """
+    volume = coerce_series(volume, "volume")
     ratio = volume / shares_outstanding
     ratio.name = "turnover_ratio"
     return ratio
@@ -253,6 +268,8 @@ def corwin_schultz_spread(
         Bid-Ask Spreads from Daily High and Low Prices." *Journal of
         Finance*, 67(2), 719-760.
     """
+    high = coerce_series(high, "high")
+    low = coerce_series(low, "low")
     # Natural log of high/low ratio, squared
     ln_hl = np.log(high / low)
     beta = ln_hl ** 2
@@ -315,6 +332,8 @@ def closing_quoted_spread(
         Chordia, T., Roll, R. & Subrahmanyam, A. (2001). "Market Liquidity
         and Trading Activity." *Journal of Finance*, 56(2), 501-530.
     """
+    bid_close = coerce_series(bid_close, "bid_close")
+    ask_close = coerce_series(ask_close, "ask_close")
     spread = ask_close - bid_close
     spread.name = "closing_quoted_spread"
     return spread
@@ -357,14 +376,17 @@ def depth_imbalance(
         of an Open Limit-Order Book." *Journal of Futures Markets*, 29(1),
         16-41.
     """
-    bid_arr = np.asarray(bid_depth, dtype=np.float64)
-    ask_arr = np.asarray(ask_depth, dtype=np.float64)
+    is_series = isinstance(bid_depth, pd.Series)
+    bid_series = coerce_series(bid_depth, "bid_depth")
+    ask_series = coerce_series(ask_depth, "ask_depth")
+    bid_arr = bid_series.to_numpy(dtype=np.float64)
+    ask_arr = ask_series.to_numpy(dtype=np.float64)
 
     total = bid_arr + ask_arr
     imbalance = np.where(total > 0, (bid_arr - ask_arr) / total, 0.0)
 
-    if isinstance(bid_depth, pd.Series):
-        return pd.Series(imbalance, index=bid_depth.index, name="depth_imbalance")
+    if is_series:
+        return pd.Series(imbalance, index=bid_series.index, name="depth_imbalance")
     return imbalance
 
 
@@ -406,6 +428,8 @@ def lambda_kyle_rolling(
         Kyle, A. S. (1985). "Continuous Auctions and Insider Trading."
         *Econometrica*, 53(6), 1315-1335.
     """
+    prices = coerce_series(prices, "prices")
+    volume = coerce_series(volume, "volume")
     delta_p = prices.diff()
 
     lam = pd.Series(np.nan, index=prices.index, name="lambda")
@@ -484,6 +508,8 @@ def amihud_rolling(
         and Time-Series Effects." *Journal of Financial Markets*, 5(1),
         31-56.
     """
+    returns = coerce_series(returns, "returns")
+    volume = coerce_series(volume, "volume")
     ratio = np.abs(returns) / volume
     ratio = ratio.replace([np.inf, -np.inf], np.nan)
     rolling = ratio.rolling(window).mean()
@@ -534,6 +560,8 @@ def liquidity_commonality(
         Chordia, T., Roll, R. & Subrahmanyam, A. (2000). "Commonality in
         Liquidity." *Journal of Financial Economics*, 56(1), 3-28.
     """
+    asset_illiquidity = coerce_series(asset_illiquidity, "asset_illiquidity")
+    market_illiquidity = coerce_series(market_illiquidity, "market_illiquidity")
     d_asset = asset_illiquidity.diff()
     d_market = market_illiquidity.diff()
 
@@ -624,6 +652,10 @@ def spread_decomposition(
         Bid-Ask Spread: A General Approach." *Review of Financial Studies*,
         10(4), 995-1034.
     """
+    trade_prices = coerce_series(trade_prices, "trade_prices")
+    bid = coerce_series(bid, "bid")
+    ask = coerce_series(ask, "ask")
+    direction = coerce_series(direction, "direction")
     mid = (bid + ask) / 2.0
 
     # Effective half-spread per trade

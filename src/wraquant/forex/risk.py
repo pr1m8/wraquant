@@ -9,6 +9,8 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
+from wraquant.core._coerce import coerce_dataframe
+
 
 def fx_portfolio_risk(
     positions: dict[str, float],
@@ -85,6 +87,10 @@ def fx_portfolio_risk(
         wraquant.risk.portfolio.portfolio_volatility: Asset-only vol.
         wraquant.forex.carry.carry_return: Carry trade returns.
     """
+    if returns is not None:
+        returns = coerce_dataframe(returns, "returns")
+    if fx_returns is not None:
+        fx_returns = coerce_dataframe(fx_returns, "fx_returns")
     # Convert positions to base currency
     positions_base: dict[str, float] = {}
 

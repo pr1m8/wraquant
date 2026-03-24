@@ -12,6 +12,8 @@ import pandas as pd
 from numpy.typing import ArrayLike
 from scipy import linalg as sp_linalg
 
+from wraquant.core._coerce import coerce_array, coerce_dataframe
+
 __all__ = [
     "correlation_network",
     "minimum_spanning_tree",
@@ -49,6 +51,7 @@ def correlation_network(
         ``correlation`` – (n, n) full correlation matrix.
         ``asset_names`` – list of column names.
     """
+    returns_df = coerce_dataframe(returns_df, name="returns_df")
     corr = returns_df.corr().values
     n = corr.shape[0]
     adj = (np.abs(corr) >= threshold).astype(float)
@@ -79,7 +82,7 @@ def minimum_spanning_tree(
     np.ndarray
         (n, n) adjacency matrix of the MST (symmetric, 0/1 entries).
     """
-    corr = np.asarray(correlation_matrix, dtype=float)
+    corr = np.asarray(correlation_matrix, dtype=np.float64)
     n = corr.shape[0]
 
     # Distance from correlation
@@ -138,7 +141,7 @@ def centrality_measures(
         ``eigenvector``  – eigenvector centrality.
         ``asset_names``  – node labels.
     """
-    adj = np.asarray(adjacency_matrix, dtype=float)
+    adj = np.asarray(adjacency_matrix, dtype=np.float64)
     n = adj.shape[0]
     if asset_names is None:
         asset_names = [str(i) for i in range(n)]
@@ -240,7 +243,7 @@ def community_detection(
     np.ndarray
         Integer community labels of length *n*.
     """
-    adj = np.asarray(adjacency_matrix, dtype=float)
+    adj = np.asarray(adjacency_matrix, dtype=np.float64)
     n = adj.shape[0]
     n_communities = min(n_communities, n)
 
@@ -337,6 +340,7 @@ def systemic_risk_score(
     ValueError
         If *method* is not recognised.
     """
+    returns_df = coerce_dataframe(returns_df, name="returns_df")
     if method == "mes":
         return _marginal_expected_shortfall(returns_df, quantile)
     elif method == "covar":
@@ -435,7 +439,7 @@ def contagion_simulation(
         ``rounds``        – number of propagation rounds.
         ``cascade_size``  – total number of defaults.
     """
-    adj = np.asarray(adjacency_matrix, dtype=float)
+    adj = np.asarray(adjacency_matrix, dtype=np.float64)
     n = adj.shape[0]
 
     stress = np.zeros(n)
@@ -498,6 +502,7 @@ def granger_network(
     """
     from scipy.stats import f as f_dist
 
+    returns_df = coerce_dataframe(returns_df, name="returns_df")
     cols = list(returns_df.columns)
     n = len(cols)
     data = returns_df.values

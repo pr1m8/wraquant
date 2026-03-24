@@ -14,6 +14,8 @@ import pandas as pd
 from scipy import optimize as sp_optimize
 from scipy import stats as sp_stats
 
+from wraquant.core._coerce import coerce_array
+
 
 def robust_ols(
     y: np.ndarray | pd.Series,
@@ -40,8 +42,8 @@ def robust_ols(
     """
     import statsmodels.api as sm
 
-    y_arr = np.asarray(y).ravel()
-    X_arr = np.asarray(X)
+    y_arr = coerce_array(y, name="y")
+    X_arr = np.asarray(X, dtype=np.float64)
 
     model = sm.OLS(y_arr, X_arr)
     result = model.fit(cov_type=cov_type)
@@ -82,8 +84,8 @@ def quantile_regression(
     """
     import statsmodels.api as sm
 
-    y_arr = np.asarray(y).ravel()
-    X_arr = np.asarray(X)
+    y_arr = coerce_array(y, name="y")
+    X_arr = np.asarray(X, dtype=np.float64)
 
     model = sm.QuantReg(y_arr, X_arr)
     result = model.fit(q=quantile)
@@ -129,9 +131,9 @@ def two_stage_least_squares(
         ValueError: If the order condition is violated (fewer instruments
             than endogenous variables).
     """
-    y_arr = np.asarray(y, dtype=float).ravel()
-    X_arr = np.asarray(X, dtype=float)
-    Z_excl = np.asarray(instruments, dtype=float)
+    y_arr = coerce_array(y, name="y")
+    X_arr = np.asarray(X, dtype=np.float64)
+    Z_excl = np.asarray(instruments, dtype=np.float64)
     endog_idx = np.asarray(endog_vars).ravel()
 
     n, k = X_arr.shape
@@ -313,8 +315,8 @@ def sargan_test(
         Dictionary with ``statistic``, ``p_value``, ``df``, and ``is_valid``
         (instruments are valid at 5 % level if not rejected).
     """
-    resid = np.asarray(residuals, dtype=float).ravel()
-    Z = np.asarray(instruments, dtype=float)
+    resid = coerce_array(residuals, name="residuals")
+    Z = np.asarray(instruments, dtype=np.float64)
 
     if Z.ndim == 1:
         Z = Z.reshape(-1, 1)

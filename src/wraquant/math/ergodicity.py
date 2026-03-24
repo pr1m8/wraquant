@@ -9,6 +9,8 @@ from __future__ import annotations
 import numpy as np
 from numpy.typing import ArrayLike
 
+from wraquant.core._coerce import coerce_array
+
 __all__ = [
     "ensemble_average",
     "time_average",
@@ -32,7 +34,7 @@ def ensemble_average(returns: ArrayLike) -> float:
     float
         Arithmetic mean of the returns.
     """
-    returns = np.asarray(returns, dtype=float)
+    returns = coerce_array(returns, name="returns")
     return float(np.mean(returns))
 
 
@@ -55,7 +57,7 @@ def time_average(returns: ArrayLike) -> float:
     float
         Geometric mean return per period.
     """
-    returns = np.asarray(returns, dtype=float)
+    returns = coerce_array(returns, name="returns")
     # Use log-sum for numerical stability
     log_growth = np.mean(np.log1p(returns))
     return float(np.expm1(log_growth))
@@ -98,7 +100,7 @@ def kelly_fraction(returns: ArrayLike) -> float:
         Optimal Kelly fraction (leverage).  A value of 1.0 means
         full investment; values > 1.0 indicate levered positions.
     """
-    returns = np.asarray(returns, dtype=float)
+    returns = coerce_array(returns, name="returns")
 
     # Grid search for the leverage that maximises E[log(1 + f*r)]
     fractions = np.linspace(0.0, 5.0, 5001)
@@ -137,7 +139,7 @@ def growth_optimal_leverage(
     float
         Growth-optimal leverage.
     """
-    returns = np.asarray(returns, dtype=float)
+    returns = coerce_array(returns, name="returns")
     excess = returns - risk_free
 
     fractions = np.linspace(0.0, 5.0, 5001)

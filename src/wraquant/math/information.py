@@ -7,6 +7,8 @@ from typing import Callable
 import numpy as np
 from numpy.typing import ArrayLike
 
+from wraquant.core._coerce import coerce_array
+
 __all__ = [
     "fisher_information",
     "mutual_information",
@@ -41,7 +43,7 @@ def fisher_information(
     np.ndarray
         Fisher information matrix of shape ``(len(params), len(params))``.
     """
-    params = np.asarray(params, dtype=float)
+    params = coerce_array(params, name="params")
     n = len(params)
     fim = np.empty((n, n), dtype=float)
 
@@ -108,7 +110,7 @@ def entropy(
     if method != "histogram":
         raise ValueError(f"Unknown method {method!r}; only 'histogram' is supported.")
 
-    data = np.asarray(data, dtype=float)
+    data = coerce_array(data, name="data")
     counts, _ = np.histogram(data, bins=bins)
     probs = counts / counts.sum()
     probs = probs[probs > 0]
@@ -140,8 +142,8 @@ def mutual_information(
     float
         Mutual information in nats (>= 0).
     """
-    x = np.asarray(x, dtype=float)
-    y = np.asarray(y, dtype=float)
+    x = coerce_array(x, name="x")
+    y = coerce_array(y, name="y")
 
     # Joint histogram
     joint, _, _ = np.histogram2d(x, y, bins=bins)
@@ -192,8 +194,8 @@ def transfer_entropy(
     float
         Transfer entropy in nats (>= 0).
     """
-    source = np.asarray(source, dtype=float)
-    target = np.asarray(target, dtype=float)
+    source = coerce_array(source, name="source")
+    target = coerce_array(target, name="target")
 
     n = min(len(source), len(target))
     # Align: target_future, target_past, source_past
@@ -245,8 +247,8 @@ def kl_divergence(
     float
         KL divergence in nats (>= 0).
     """
-    p_arr = np.asarray(p, dtype=float)
-    q_arr = np.asarray(q, dtype=float)
+    p_arr = coerce_array(p, name="p")
+    q_arr = coerce_array(q, name="q")
 
     # Shared bin edges covering both distributions
     lo = min(p_arr.min(), q_arr.min())
@@ -294,8 +296,8 @@ def conditional_entropy(
     float
         Conditional entropy in nats.
     """
-    x = np.asarray(x, dtype=float)
-    y = np.asarray(y, dtype=float)
+    x = coerce_array(x, name="x")
+    y = coerce_array(y, name="y")
 
     # Joint entropy H(X, Y)
     joint, _, _ = np.histogram2d(x, y, bins=bins)

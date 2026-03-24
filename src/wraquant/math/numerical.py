@@ -7,6 +7,8 @@ from typing import Callable
 import numpy as np
 from numpy.typing import ArrayLike
 
+from wraquant.core._coerce import coerce_array
+
 __all__ = [
     "finite_difference_gradient",
     "finite_difference_hessian",
@@ -38,7 +40,7 @@ def finite_difference_gradient(
     np.ndarray
         Gradient vector of the same shape as *x*.
     """
-    x = np.asarray(x, dtype=float)
+    x = coerce_array(x, name="x")
     grad = np.empty_like(x)
 
     for i in range(len(x)):
@@ -72,7 +74,7 @@ def finite_difference_hessian(
     np.ndarray
         Hessian matrix of shape ``(len(x), len(x))``.
     """
-    x = np.asarray(x, dtype=float)
+    x = coerce_array(x, name="x")
     n = len(x)
     hess = np.empty((n, n), dtype=float)
 

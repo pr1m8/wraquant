@@ -11,6 +11,8 @@ from typing import Callable
 import numpy as np
 from numpy.typing import ArrayLike
 
+from wraquant.core._coerce import coerce_array
+
 __all__ = [
     "longstaff_schwartz",
     "binomial_american",
@@ -290,7 +292,7 @@ def sequential_probability_ratio(
         ``stopping_time`` – index at which the decision was reached.
         ``log_ratio``     – final log-likelihood ratio.
     """
-    observations = np.asarray(observations, dtype=float)
+    observations = coerce_array(observations, name="observations")
 
     # Wald boundaries
     A = np.log((1.0 - beta) / alpha)   # upper boundary (reject H0)
@@ -371,7 +373,7 @@ def cusum_stopping(
         ``cusum_neg``     – final negative CUSUM statistic.
         ``cusum_values``  – array of max(cusum_pos, |cusum_neg|) at each step.
     """
-    observations = np.asarray(observations, dtype=float)
+    observations = coerce_array(observations, name="observations")
     n = len(observations)
 
     cusum_pos = 0.0

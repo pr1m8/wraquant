@@ -15,6 +15,8 @@ import numpy as np
 import pandas as pd
 from scipy import stats as sp_stats
 
+from wraquant.core._coerce import coerce_array
+
 
 def pooled_ols(
     y: np.ndarray | pd.Series,
@@ -38,8 +40,8 @@ def pooled_ols(
     """
     import statsmodels.api as sm
 
-    y_arr = np.asarray(y, dtype=float).ravel()
-    X_arr = np.asarray(X, dtype=float)
+    y_arr = coerce_array(y, name="y")
+    X_arr = np.asarray(X, dtype=np.float64)
 
     result = sm.OLS(y_arr, X_arr).fit()
 
@@ -81,7 +83,7 @@ def fixed_effects(
         ``residuals``, ``nobs``, and ``n_entities``.
     """
     df = X.copy()
-    df["__y__"] = np.asarray(y, dtype=float)
+    df["__y__"] = coerce_array(y, name="y")
 
     # Identify regressor columns (exclude entity and time columns)
     drop_cols = {entity_col}
@@ -181,7 +183,7 @@ def random_effects(
         parameter), ``residuals``, and ``nobs``.
     """
     df = X.copy()
-    df["__y__"] = np.asarray(y, dtype=float)
+    df["__y__"] = coerce_array(y, name="y")
 
     reg_cols = [c for c in X.columns if c != entity_col]
     groups = df[entity_col]
@@ -354,7 +356,7 @@ def between_effects(
     import statsmodels.api as sm
 
     df = X.copy()
-    df["__y__"] = np.asarray(y, dtype=float)
+    df["__y__"] = coerce_array(y, name="y")
 
     reg_cols = [c for c in X.columns if c != entity_col]
 
@@ -408,7 +410,7 @@ def first_difference(
     import statsmodels.api as sm
 
     df = X.copy()
-    df["__y__"] = np.asarray(y, dtype=float)
+    df["__y__"] = coerce_array(y, name="y")
 
     reg_cols = [c for c in X.columns if c not in {entity_col, time_col}]
 

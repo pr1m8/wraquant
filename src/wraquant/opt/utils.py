@@ -11,6 +11,8 @@ from typing import Any
 import numpy as np
 import numpy.typing as npt
 
+from wraquant.core._coerce import coerce_array
+
 
 def weight_constraint(
     n_assets: int,
@@ -123,7 +125,7 @@ def turnover_constraint(
     Returns:
         Scipy-style inequality constraint dict.
     """
-    w_old = np.asarray(current_weights, dtype=float)
+    w_old = coerce_array(current_weights, "current_weights")
 
     return {
         "type": "ineq",

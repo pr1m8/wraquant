@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import numpy as np
 
+from wraquant.core._coerce import coerce_array  # noqa: F401 — wired for type-system consistency
+
 __all__ = [
     "bond_price",
     "bond_yield",

@@ -14,6 +14,8 @@ import numpy as np
 import pandas as pd
 from scipy.optimize import minimize_scalar
 
+from wraquant.core._coerce import coerce_dataframe, coerce_series
+
 __all__ = [
     "purged_kfold",
     "combinatorial_purged_kfold",
@@ -276,6 +278,7 @@ def fractional_differentiation(
     --------
     denoised_correlation : Random Matrix Theory denoising.
     """
+    series = coerce_series(series, name="series")
     weights = _frac_diff_weights(d, threshold)
     width = len(weights)
     values = series.values.astype(float)
@@ -392,6 +395,7 @@ def denoised_correlation(
     --------
     detoned_correlation : Remove the market mode from a correlation matrix.
     """
+    returns = coerce_dataframe(returns, name="returns")
     corr = np.array(returns.corr())
     t, n = returns.shape
     q = t / n
