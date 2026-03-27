@@ -18,6 +18,31 @@ dependencies = [
 requires-python = ">=3.13"
 readme = "README.md"
 license = { text = "MIT" }
+keywords = [
+  "quantitative-finance", "trading", "risk-management", "portfolio-optimization",
+  "technical-analysis", "backtesting", "time-series", "volatility", "garch",
+  "regime-detection", "options-pricing", "machine-learning", "bayesian",
+  "econometrics", "market-microstructure",
+]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Financial and Insurance Industry",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Office/Business :: Financial",
+  "Topic :: Office/Business :: Financial :: Investment",
+  "Topic :: Scientific/Engineering :: Mathematics",
+  "Topic :: Scientific/Engineering :: Information Analysis",
+  "Typing :: Typed",
+]
+
+[project.urls]
+Homepage = "https://github.com/pr1m8/wraquant"
+Documentation = "https://wraquant.readthedocs.io"
+Repository = "https://github.com/pr1m8/wraquant"
+Changelog = "https://github.com/pr1m8/wraquant/blob/main/CHANGELOG.md"
+Issues = "https://github.com/pr1m8/wraquant/issues"
 
 [project.optional-dependencies]
 accelerate = [
