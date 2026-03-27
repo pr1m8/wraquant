@@ -48,18 +48,18 @@ at entry so it accepts pd.Series, np.ndarray, list, torch.Tensor.
 | risk/factor.py | 2 | FIXED (earlier agent) |
 | risk/beta.py | 1 | FIXED (earlier agent) |
 | risk/stress.py | 1 | FIXED (earlier agent) |
-| risk/dcc.py | 1 | TODO |
-| risk/survival.py | 1 | TODO |
-| econometrics/panel.py | 3+ | TODO |
-| econometrics/cross_section.py | 3+ | TODO |
-| econometrics/event_study.py | 2+ | TODO |
-| math/optimal_stopping.py | 1 | TODO (pure math, may be OK) |
-| math/network.py | 1 | TODO (pure math, may be OK) |
+| risk/dcc.py | 0 | OK (DCC uses MLE, no OLS lstsq) |
+| risk/survival.py | 1 | OK (Newton-Raphson fallback, not OLS) |
+| econometrics/panel.py | 2 | FIXED → stats.ols (FE + RE) |
+| econometrics/cross_section.py | 1 | FIXED → stats.ols (2SLS 2nd stage) |
+| econometrics/event_study.py | 1 | FIXED → stats.ols (market model) |
+| math/optimal_stopping.py | 1 | OK (pure math, not standard OLS) |
+| math/network.py | 1 | OK (pure math, not standard OLS) |
 | regimes/kalman.py | 1 | OK (Kalman is specialized, not OLS) |
-| ts/stationarity.py | 1 | TODO |
-| stats/cointegration.py | 1 | TODO |
+| ts/stationarity.py | 1 | FIXED → stats.ols (Phillips-Perron) |
+| stats/cointegration.py | 3 | FIXED → stats.ols (engle_granger, spread, hedge_ratio) |
 | ml/online.py | 1 | OK (RLS is specialized, not standard OLS) |
-| price/fbsde.py | 1 | TODO |
+| price/fbsde.py | 2 | OK (BSDE regression in MC loop, specialized) |
 
 ### Drawdown: risk/metrics.py::max_drawdown is canonical
 
@@ -109,7 +109,7 @@ covariance matrices should use `stats.correlation` for consistency.
 | From | What | Current | Status |
 |------|------|---------|--------|
 | risk/metrics | sharpe, sortino, max_dd | 2/7 files | PARTIAL |
-| risk/var | VaR in tearsheets | 0/7 files | TODO |
+| risk/var | VaR in tearsheets | 1/7 files (tearsheet.py) | DONE |
 | vol/models | GARCH vol for position sizing | 0/7 files | TODO |
 | regimes/ | regime-aware strategies | 1/7 files (position.py) | PARTIAL |
 | ta/ | indicators for signal generation | 0/7 files | TODO |
@@ -117,10 +117,10 @@ covariance matrices should use `stats.correlation` for consistency.
 ### viz/ should use:
 | From | What | Current | Status |
 |------|------|---------|--------|
-| risk/metrics | auto-compute sharpe/dd when plotting | 0/10 files | TODO |
+| risk/metrics | auto-compute sharpe/dd when plotting | 1/10 files (dashboard.py) | DONE |
 | regimes/ | regime overlay | 1/10 files (__init__.py) | MINIMAL |
 | vol/ | GARCH vol for vol charts | 0/10 files | TODO |
-| stats/ | distribution fit overlay | 0/10 files | TODO |
+| stats/ | distribution fit overlay | 1/10 files (charts.py) | DONE |
 
 ### opt/ should use:
 | From | What | Current | Status |
@@ -133,7 +133,7 @@ covariance matrices should use `stats.correlation` for consistency.
 ### execution/ should use:
 | From | What | Current | Status |
 |------|------|---------|--------|
-| microstructure/ | spread, depth for cost | 1/3 files | PARTIAL |
+| microstructure/ | spread, depth for cost | 2/3 files (algorithms.py, optimal.py) | DONE |
 | risk/ | execution risk | 0/3 files | TODO |
 
 ### experiment/ should use:

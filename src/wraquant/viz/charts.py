@@ -482,6 +482,27 @@ def plot_distribution_analysis(
         row=1, col=1,
     )
 
+    # Student-t fit overlay — canonical import from stats.distributions
+    try:
+        import pandas as _pd
+
+        from wraquant.stats.distributions import fit_distribution as _fit_dist
+
+        _t_fit = _fit_dist(_pd.Series(clean), dist="t")
+        from scipy.stats import t as t_dist
+
+        fig.add_trace(
+            go.Scatter(
+                x=x_grid, y=t_dist.pdf(x_grid, *_t_fit["params"]),
+                mode="lines",
+                name=f"Student-t Fit (KS p={_t_fit['ks_pvalue']:.3f})",
+                line=dict(color=COLORS["positive"], width=1.5, dash="dot"),
+            ),
+            row=1, col=1,
+        )
+    except Exception:
+        pass  # graceful degradation if fit fails
+
     fig.update_xaxes(title_text="Return", row=1, col=1)
     fig.update_yaxes(title_text="Density", row=1, col=1)
 

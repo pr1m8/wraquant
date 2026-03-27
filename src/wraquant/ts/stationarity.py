@@ -413,8 +413,11 @@ def phillips_perron(
     else:
         x_design = x_ar.reshape(-1, 1)
 
-    beta = np.linalg.lstsq(x_design, y, rcond=None)[0]
-    residuals = y - x_design @ beta
+    from wraquant.stats.regression import ols as _ols
+
+    _pp_result = _ols(y, x_design, add_constant=False)
+    beta = _pp_result["coefficients"]
+    residuals = _pp_result["residuals"]
 
     # Newey-West long-run variance estimate
     gamma_0 = np.mean(residuals ** 2)

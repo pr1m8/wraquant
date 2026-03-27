@@ -148,12 +148,16 @@ def portfolio_dashboard(
     existing_cols = table.columns.tolist()
     col_labels = [month_labels[m - 1] for m in existing_cols]
 
-    # ---- Key metrics ----
+    # ---- Key metrics (canonical imports from risk.metrics) ----
+    from wraquant.risk.metrics import max_drawdown as _max_drawdown
+    from wraquant.risk.metrics import sharpe_ratio as _sharpe_ratio
+    from wraquant.risk.metrics import sortino_ratio as _sortino_ratio
+
     total_ret = float(cum.iloc[-1])
     ann_ret = float((1 + total_ret) ** (252 / len(returns)) - 1)
     ann_vol = float(returns.std() * np.sqrt(252))
-    sharpe = ann_ret / ann_vol if ann_vol != 0 else 0.0
-    max_dd = float(drawdown.min())
+    sharpe = _sharpe_ratio(returns)
+    max_dd = _max_drawdown(wealth)
     calmar = ann_ret / abs(max_dd) if max_dd != 0 else 0.0
     skewness = float(returns.skew())
     kurt = float(returns.kurtosis())

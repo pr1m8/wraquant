@@ -114,8 +114,11 @@ def fixed_effects(
     k = X_dm.shape[1]
     n_entities = df[entity_col].nunique()
 
-    # OLS on demeaned data
-    beta = np.linalg.lstsq(X_dm, y_dm, rcond=None)[0]
+    # OLS on demeaned data — canonical import
+    from wraquant.stats.regression import ols as _ols
+
+    _ols_result = _ols(y_dm, X_dm, add_constant=False)
+    beta = _ols_result["coefficients"]
     residuals = y_dm - X_dm @ beta
 
     # Degrees of freedom: n - n_entities - k (for entity FE)
@@ -199,7 +202,10 @@ def random_effects(
     n_entities = groups.nunique()
     k = X_dm.shape[1]
 
-    beta_fe = np.linalg.lstsq(X_dm, y_dm, rcond=None)[0]
+    from wraquant.stats.regression import ols as _ols
+
+    _fe_result = _ols(y_dm, X_dm, add_constant=False)
+    beta_fe = _fe_result["coefficients"]
     resid_fe = y_dm - X_dm @ beta_fe
 
     sigma2_e = np.sum(resid_fe**2) / max(n - n_entities - k, 1)

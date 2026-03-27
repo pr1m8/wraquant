@@ -474,6 +474,14 @@ def comprehensive_tearsheet(
         periods_per_year=periods_per_year,
     )
 
+    # --- VaR / CVaR from canonical risk module ---
+    from wraquant.risk.var import value_at_risk as _var
+
+    var_95_risk = _var(returns, confidence=0.95, method="historical")
+    var_99_risk = _var(returns, confidence=0.99, method="historical")
+    summary["var_95_risk"] = var_95_risk
+    summary["var_99_risk"] = var_99_risk
+
     # --- Extended metrics ---
     extended: dict[str, float] = {
         "omega_ratio": omega_ratio(returns),

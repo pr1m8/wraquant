@@ -35,6 +35,7 @@ class GARCHResult:
         half_life: Periods for shock to decay 50%.
         unconditional_variance: Long-run variance.
         model: Underlying fitted model object.
+        model_name: Name of the GARCH model variant.
     """
 
     params: dict[str, float]
@@ -48,6 +49,19 @@ class GARCHResult:
     unconditional_variance: float
     model: Any = None
     ljung_box: dict | None = None
+    model_name: str = ""
+
+    def __getitem__(self, key: str) -> Any:
+        """Support dict-like access for backward compatibility."""
+        return getattr(self, key)
+
+    def __contains__(self, key: object) -> bool:
+        """Support ``'key' in result`` for backward compatibility."""
+        return hasattr(self, key) if isinstance(key, str) else False
+
+    def get(self, key: str, default: Any = None) -> Any:
+        """Support ``result.get('key')`` for backward compatibility."""
+        return getattr(self, key, default)
 
     def to_var(self, alpha: float = 0.05) -> dict:
         """Compute GARCH-based Value at Risk.
@@ -103,17 +117,36 @@ class BacktestResult:
 
     Attributes:
         returns: Portfolio return series.
-        equity_curve: Cumulative equity curve.
+        equity_curve: Cumulative equity curve (aliased as portfolio_value).
         metrics: Dict of performance metrics (Sharpe, max_dd, etc.).
-        trades: List of trade records (if event-driven).
+        trades: Trade count (int) or list of trade records.
         signals: Signal series used.
+        positions: Position weights over time (if available).
     """
 
     returns: pd.Series
     equity_curve: pd.Series
     metrics: dict[str, float]
-    trades: list[dict] = field(default_factory=list)
+    trades: int | list[dict] = 0
     signals: pd.Series | None = None
+    positions: pd.DataFrame | None = None
+
+    @property
+    def portfolio_value(self) -> pd.Series:
+        """Alias for equity_curve (backward compatibility)."""
+        return self.equity_curve
+
+    def __getitem__(self, key: str) -> Any:
+        """Support dict-like access for backward compatibility."""
+        return getattr(self, key)
+
+    def __contains__(self, key: object) -> bool:
+        """Support ``'key' in result`` for backward compatibility."""
+        return hasattr(self, key) if isinstance(key, str) else False
+
+    def get(self, key: str, default: Any = None) -> Any:
+        """Support ``result.get('key')`` for backward compatibility."""
+        return getattr(self, key, default)
 
     @property
     def sharpe(self) -> float:
@@ -160,7 +193,8 @@ class BacktestResult:
                 lines.append(f"  {key}: {value:.4f}")
             else:
                 lines.append(f"  {key}: {value}")
-        lines.append(f"  Trades: {len(self.trades)}")
+        trade_count = self.trades if isinstance(self.trades, int) else len(self.trades)
+        lines.append(f"  Trades: {trade_count}")
         return "\n".join(lines)
 
 
@@ -186,6 +220,18 @@ class ForecastResult:
     residuals: np.ndarray | None = None
     metrics: dict[str, float] = field(default_factory=dict)
     model: Any = None
+
+    def __getitem__(self, key: str) -> Any:
+        """Support dict-like access for backward compatibility."""
+        return getattr(self, key)
+
+    def __contains__(self, key: object) -> bool:
+        """Support ``'key' in result`` for backward compatibility."""
+        return hasattr(self, key) if isinstance(key, str) else False
+
+    def get(self, key: str, default: Any = None) -> Any:
+        """Support ``result.get('key')`` for backward compatibility."""
+        return getattr(self, key, default)
 
     def plot(self) -> Any:
         """Plot forecast with confidence bounds using viz module.

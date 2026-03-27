@@ -104,8 +104,8 @@ def _build_garch_result(
     *,
     model_name: str,
     scale: float = 100.0,
-) -> dict[str, Any]:
-    """Build a standardized result dictionary from an arch fit result.
+) -> "GARCHResult":
+    """Build a standardized GARCHResult from an arch fit result.
 
     Parameters:
         fit_result: The fitted arch model result object.
@@ -113,8 +113,10 @@ def _build_garch_result(
         scale: The scaling factor applied to returns before fitting.
 
     Returns:
-        Standardized result dictionary.
+        GARCHResult dataclass with all diagnostics populated.
     """
+    from wraquant.core.results import GARCHResult
+
     params = dict(fit_result.params)
     cond_vol = fit_result.conditional_volatility / scale
     std_resid = fit_result.std_resid
@@ -139,10 +141,9 @@ def _build_garch_result(
     valid_resid = std_resid[np.isfinite(std_resid)]
     lb = _ljung_box_squared(valid_resid) if len(valid_resid) > 20 else None
 
-    return {
-        "model_name": model_name,
-        "params": params,
-        "conditional_volatility": pd.Series(
+    return GARCHResult(
+        params=params,
+        conditional_volatility=pd.Series(
             cond_vol,
             index=(
                 fit_result.conditional_volatility.index
@@ -151,16 +152,17 @@ def _build_garch_result(
             ),
             name="conditional_volatility",
         ),
-        "standardized_residuals": std_resid,
-        "aic": float(fit_result.aic),
-        "bic": float(fit_result.bic),
-        "log_likelihood": float(fit_result.loglikelihood),
-        "persistence": float(persistence),
-        "half_life": half_life,
-        "unconditional_variance": float(uncond_var),
-        "ljung_box": lb,
-        "model": fit_result,
-    }
+        standardized_residuals=std_resid,
+        aic=float(fit_result.aic),
+        bic=float(fit_result.bic),
+        log_likelihood=float(fit_result.loglikelihood),
+        persistence=float(persistence),
+        half_life=half_life,
+        unconditional_variance=float(uncond_var),
+        ljung_box=lb,
+        model=fit_result,
+        model_name=model_name,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -1173,7 +1175,7 @@ def realized_garch(
     result = _build_garch_result(
         fit, model_name=f"RealizedGARCH({p},{q})", scale=scale
     )
-    result["realized_vol_used"] = rv
+    result.realized_vol_used = rv
     return result
 
 

@@ -331,3 +331,67 @@ def bertsimas_lo(
         "expected_cost": expected_cost,
         "cost_variance": cost_variance,
     }
+
+
+def estimate_impact_params(
+    trade_prices: "pd.Series",
+    volumes: "pd.Series",
+    directions: "pd.Series",
+) -> dict[str, float]:
+    """Estimate temporary and permanent impact coefficients from trade data.
+
+    Bridges ``wraquant.microstructure.liquidity`` into the Almgren-Chriss
+    framework by calibrating impact parameters from observed trade data.
+    The permanent impact coefficient (gamma) is derived from the
+    microstructure ``price_impact`` function, and the temporary impact
+    coefficient (eta) is estimated from the effective spread.
+
+    Parameters:
+        trade_prices: Executed trade prices.
+        volumes: Volume for each trade.
+        directions: Trade direction (+1 buy, -1 sell).
+
+    Returns:
+        Dictionary with ``eta`` (temporary impact coefficient) and
+        ``gamma`` (permanent impact coefficient) suitable for use with
+        :func:`almgren_chriss` and :func:`optimal_execution_cost`.
+
+    Example:
+        >>> import pandas as pd, numpy as np
+        >>> prices = pd.Series([100.0, 100.05, 100.08, 99.95])
+        >>> vols = pd.Series([1000, 2000, 1500, 1800])
+        >>> dirs = pd.Series([1, 1, -1, -1])
+        >>> params = estimate_impact_params(prices, vols, dirs)
+        >>> 'eta' in params and 'gamma' in params
+        True
+
+    See Also:
+        almgren_chriss: Uses the estimated parameters.
+        wraquant.microstructure.liquidity.price_impact: Source of impact data.
+    """
+    import pandas as pd
+
+    from wraquant.microstructure.liquidity import price_impact
+
+    impact = price_impact(trade_prices, volumes, directions)
+    clean_impact = impact.dropna()
+
+    # Permanent impact: mean absolute impact per unit volume
+    gamma = float(clean_impact.abs().mean()) if len(clean_impact) > 0 else 1e-4
+
+    # Temporary impact: estimated from spread (price changes proportional
+    # to trade size squared)
+    vol_arr = coerce_array(volumes, "volumes")
+    price_changes = trade_prices.diff().dropna().abs()
+    if len(price_changes) > 0 and len(vol_arr) > 1:
+        # eta ~ mean(|dp|) / mean(volume^2)
+        mean_dp = float(price_changes.mean())
+        mean_v2 = float(np.mean(vol_arr[1:] ** 2))
+        eta = mean_dp / mean_v2 if mean_v2 > 0 else 1e-4
+    else:
+        eta = 1e-4
+
+    return {
+        "eta": eta,
+        "gamma": gamma,
+    }

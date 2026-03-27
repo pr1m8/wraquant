@@ -310,8 +310,8 @@ class TestPlotDistributionAnalysis:
 
         fig = plot_distribution_analysis(sample_returns)
         assert isinstance(fig, go.Figure)
-        # Histogram + KDE + Normal + QQ scatter + QQ line = 5 traces
-        assert len(fig.data) == 5
+        # Histogram + KDE + Normal + best fit + QQ scatter + QQ line = 5-6 traces
+        assert len(fig.data) >= 5
 
     def test_has_annotation(self, sample_returns: pd.Series) -> None:
         from wraquant.viz.charts import plot_distribution_analysis

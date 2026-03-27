@@ -6,9 +6,10 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from wraquant.backtest.engine import Backtest, BacktestResult
+from wraquant.backtest.engine import Backtest
 from wraquant.backtest.metrics import performance_summary
 from wraquant.backtest.strategy import BuyAndHold, MomentumStrategy
+from wraquant.core.results import BacktestResult
 
 
 def _make_prices(n_assets: int = 3, n_periods: int = 100) -> pd.DataFrame:
@@ -97,18 +98,20 @@ class TestVectorizedBacktest:
         )
         return prices, signals
 
-    def test_returns_correct_keys(self) -> None:
+    def test_returns_backtest_result(self) -> None:
         prices, signals = self._make_data()
         bt = VectorizedBacktest()
         result = bt.run(prices, signals)
-        for key in ["returns", "net_returns", "equity_curve", "turnover", "costs", "metrics"]:
-            assert key in result, f"Missing key: {key}"
+        assert isinstance(result, BacktestResult)
+        assert result.returns is not None
+        assert result.equity_curve is not None
+        assert result.metrics is not None
 
     def test_equity_curve_shape(self) -> None:
         prices, signals = self._make_data()
         bt = VectorizedBacktest()
         result = bt.run(prices, signals)
-        assert len(result["equity_curve"]) == len(prices)
+        assert len(result.equity_curve) == len(prices)
 
     def test_costs_reduce_returns(self) -> None:
         prices, signals = self._make_data()
@@ -117,7 +120,7 @@ class TestVectorizedBacktest:
         r_free = bt_free.run(prices, signals)
         r_costly = bt_costly.run(prices, signals)
         # Net returns should be lower with costs
-        assert r_costly["equity_curve"].iloc[-1] <= r_free["equity_curve"].iloc[-1]
+        assert r_costly.equity_curve.iloc[-1] <= r_free.equity_curve.iloc[-1]
 
     def test_rebalance_frequency(self) -> None:
         prices, signals = self._make_data(n_periods=200)
@@ -132,15 +135,17 @@ class TestVectorizedBacktest:
         bt_weekly = VectorizedBacktest(rebalance_frequency=5)
         r_daily = bt_daily.run(prices, signals)
         r_weekly = bt_weekly.run(prices, signals)
-        # Weekly should have lower turnover
-        assert r_weekly["turnover"].sum() < r_daily["turnover"].sum()
+        # Weekly should have lower turnover (check via positions diffs)
+        daily_turnover = r_daily.positions.diff().abs().sum().sum()
+        weekly_turnover = r_weekly.positions.diff().abs().sum().sum()
+        assert weekly_turnover < daily_turnover
 
     def test_metrics_populated(self) -> None:
         prices, signals = self._make_data()
         bt = VectorizedBacktest()
         result = bt.run(prices, signals)
-        assert "sharpe_ratio" in result["metrics"]
-        assert "max_drawdown" in result["metrics"]
+        assert "sharpe_ratio" in result.metrics
+        assert "max_drawdown" in result.metrics
 
     def test_invalid_rebalance_frequency(self) -> None:
         with pytest.raises(ValueError):

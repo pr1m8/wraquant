@@ -533,17 +533,19 @@ def theta_forecast(
     fitted_vals = 0.5 * (theta0_in + ses_model.fittedvalues)
 
     idx = _make_forecast_index(data, h)
-    return {
-        "forecast": pd.Series(fcast_vals, index=idx, name="theta_forecast"),
-        "fitted_values": pd.Series(
-            fitted_vals, index=data.index, name="theta_fitted"
-        ),
-        "theta_params": {
+
+    from wraquant.core.results import ForecastResult
+
+    return ForecastResult(
+        forecast=pd.Series(fcast_vals, index=idx, name="theta_forecast"),
+        fitted_values=fitted_vals,
+        method="theta",
+        metrics={
             "theta": theta,
             "ses_alpha": ses_alpha,
             "drift": float(slope),
         },
-    }
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -609,20 +611,18 @@ def ses_forecast(
     fcast = fit.forecast(h)
     idx = _make_forecast_index(data, h)
 
-    return {
-        "forecast": pd.Series(
+    from wraquant.core.results import ForecastResult
+
+    return ForecastResult(
+        forecast=pd.Series(
             fcast.values, index=idx, name="ses_forecast"
         ),
-        "alpha": opt_alpha,
-        "fitted_values": pd.Series(
-            fit.fittedvalues.values, index=data.index, name="ses_fitted"
-        ),
-        "residuals": pd.Series(
-            (data.values - fit.fittedvalues.values),
-            index=data.index,
-            name="ses_residuals",
-        ),
-    }
+        fitted_values=fit.fittedvalues.values,
+        residuals=data.values - fit.fittedvalues.values,
+        method="ses",
+        metrics={"alpha": opt_alpha},
+        model=fit,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -711,20 +711,17 @@ def holt_winters_forecast(
     if season_vals is None:
         season_vals = np.zeros(len(data))
 
-    return {
-        "forecast": pd.Series(
+    from wraquant.core.results import ForecastResult
+
+    return ForecastResult(
+        forecast=pd.Series(
             fcast.values, index=idx, name="hw_forecast"
         ),
-        "params": params,
-        "fitted_values": pd.Series(
-            fit.fittedvalues.values, index=data.index, name="hw_fitted"
-        ),
-        "seasonal_components": pd.Series(
-            np.asarray(season_vals).ravel()[: len(data)],
-            index=data.index,
-            name="hw_seasonal",
-        ),
-    }
+        fitted_values=fit.fittedvalues.values,
+        method="holt_winters",
+        metrics=params,
+        model=fit,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -1043,25 +1040,31 @@ def auto_forecast(
         except Exception:  # noqa: BLE001
             pass
 
-    return {
-        "best_model": best_name,
-        "forecast": fcast_series,
-        "confidence_intervals": {"lower": ci_lower, "upper": ci_upper},
-        "model_comparison": comparison,
-        "residual_diagnostics": {
-            "mean": (
+    from wraquant.core.results import ForecastResult
+
+    return ForecastResult(
+        forecast=fcast_series,
+        confidence_lower=ci_lower.values,
+        confidence_upper=ci_upper.values,
+        method=best_name,
+        fitted_values=in_sample_pred[: len(data)],
+        residuals=residuals,
+        metrics={
+            "best_model": best_name,
+            "residual_mean": (
                 float(np.mean(residuals))
                 if len(residuals) > 0
                 else float("nan")
             ),
-            "std": (
+            "residual_std": (
                 float(np.std(residuals))
                 if len(residuals) > 0
                 else float("nan")
             ),
             "ljung_box_pvalue": lb_pval,
         },
-    }
+        model=comparison,
+    )
 
 
 # ---------------------------------------------------------------------------

@@ -39,9 +39,12 @@ def engle_granger(
     y1_vals = y1_clean.loc[common].values.astype(float)
     y2_vals = y2_clean.loc[common].values.astype(float)
 
-    # Step 1: OLS regression  y1 = beta * y2 + alpha + eps
-    X = np.column_stack([y2_vals, np.ones(len(y2_vals))])
-    beta, _alpha = np.linalg.lstsq(X, y1_vals, rcond=None)[0]
+    # Step 1: OLS regression  y1 = beta * y2 + alpha + eps — canonical import
+    from wraquant.stats.regression import ols as _ols
+
+    _eg_result = _ols(y1_vals, y2_vals, add_constant=True)
+    # coefficients[0] = intercept (alpha), coefficients[1] = slope (beta)
+    beta = _eg_result["coefficients"][1]
 
     residuals = y1_vals - beta * y2_vals
 
@@ -158,8 +161,10 @@ def spread(
     if hedge_ratio is None:
         y1_vals = y1_aligned.values.astype(float)
         y2_vals = y2_aligned.values.astype(float)
-        X = np.column_stack([y2_vals, np.ones(len(y2_vals))])
-        beta = np.linalg.lstsq(X, y1_vals, rcond=None)[0][0]
+        from wraquant.stats.regression import ols as _ols
+
+        _sp_result = _ols(y1_vals, y2_vals, add_constant=True)
+        beta = _sp_result["coefficients"][1]  # slope (hedge ratio)
     else:
         beta = hedge_ratio
 
@@ -209,9 +214,10 @@ def hedge_ratio(
     y2_vals = y2.loc[common].values.astype(float)
 
     if method == "ols":
-        X = np.column_stack([y2_vals, np.ones(len(y2_vals))])
-        beta = np.linalg.lstsq(X, y1_vals, rcond=None)[0][0]
-        return float(beta)
+        from wraquant.stats.regression import ols as _ols
+
+        _hr_result = _ols(y1_vals, y2_vals, add_constant=True)
+        return float(_hr_result["coefficients"][1])  # slope
     elif method == "tls":
         # Total least squares via SVD
         data = np.column_stack([y2_vals - y2_vals.mean(), y1_vals - y1_vals.mean()])

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 from typing import Any, Callable
 
 import numpy as np
@@ -10,25 +9,7 @@ import pandas as pd
 
 from wraquant.backtest.metrics import performance_summary
 from wraquant.backtest.strategy import Strategy
-
-
-@dataclass
-class BacktestResult:
-    """Results from a backtest run.
-
-    Parameters:
-        portfolio_value: Time series of portfolio value.
-        returns: Time series of portfolio returns.
-        positions: Position weights over time.
-        trades: Number of trades executed.
-        metrics: Performance metrics dict.
-    """
-
-    portfolio_value: pd.Series
-    returns: pd.Series
-    positions: pd.DataFrame
-    trades: int = 0
-    metrics: dict = field(default_factory=dict)
+from wraquant.core.results import BacktestResult
 
 
 class Backtest:
@@ -96,11 +77,11 @@ class Backtest:
         metrics = performance_summary(portfolio_returns)
 
         return BacktestResult(
-            portfolio_value=portfolio_value,
             returns=portfolio_returns,
-            positions=positions,
-            trades=trades,
+            equity_curve=portfolio_value,
             metrics=metrics,
+            trades=trades,
+            positions=positions,
         )
 
 
@@ -142,8 +123,8 @@ class VectorizedBacktest:
         ... )
         >>> bt = VectorizedBacktest(commission=0.001, slippage=0.0005)
         >>> result = bt.run(prices, signals)
-        >>> sorted(result.keys())  # doctest: +NORMALIZE_WHITESPACE
-        ['costs', 'equity_curve', 'metrics', 'net_returns', 'returns', 'turnover']
+        >>> isinstance(result, BacktestResult)
+        True
 
     See Also:
         Backtest: Strategy-object-based backtesting engine.
@@ -168,7 +149,7 @@ class VectorizedBacktest:
         self,
         prices: pd.DataFrame,
         signals: pd.DataFrame,
-    ) -> dict[str, Any]:
+    ) -> BacktestResult:
         """Execute the vectorized backtest.
 
         Parameters:
@@ -180,14 +161,10 @@ class VectorizedBacktest:
                 bias.
 
         Returns:
-            Dictionary with the following keys:
-
-            - ``returns``: Gross portfolio return series (before costs).
-            - ``net_returns``: Net portfolio return series (after costs).
-            - ``equity_curve``: Cumulative portfolio value series.
-            - ``turnover``: Per-period turnover series.
-            - ``costs``: Per-period transaction cost series.
-            - ``metrics``: Performance summary dict from ``performance_summary``.
+            BacktestResult with equity curve, returns, positions, and
+            metrics. Additional fields (turnover, costs, net_returns,
+            gross_returns) are available via dict-like access on the
+            metrics dict.
         """
         asset_returns = prices.pct_change().fillna(0)
 
@@ -220,14 +197,15 @@ class VectorizedBacktest:
         equity_curve.name = "equity_curve"
         net_returns.name = "net_returns"
 
-        return {
-            "returns": gross_returns,
-            "net_returns": net_returns,
-            "equity_curve": equity_curve,
-            "turnover": turnover,
-            "costs": costs,
-            "metrics": performance_summary(net_returns),
-        }
+        metrics = performance_summary(net_returns)
+
+        return BacktestResult(
+            returns=net_returns,
+            equity_curve=equity_curve,
+            metrics=metrics,
+            positions=positions,
+            signals=signals,
+        )
 
 
 def walk_forward_backtest(

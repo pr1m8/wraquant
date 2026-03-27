@@ -110,11 +110,13 @@ def event_study(
             )
             mkt_event = mkt.iloc[mkt_ew_positions].values
 
-            # OLS: R_i = alpha + beta * R_m
-            X_est = np.column_stack([np.ones(len(mkt_est)), mkt_est])
+            # OLS: R_i = alpha + beta * R_m — canonical import
             try:
-                beta_hat = np.linalg.lstsq(X_est, est_ret, rcond=None)[0]
-            except np.linalg.LinAlgError:
+                from wraquant.stats.regression import ols as _ols
+
+                _mkt_result = _ols(est_ret, mkt_est, add_constant=True)
+                beta_hat = _mkt_result["coefficients"]
+            except (np.linalg.LinAlgError, Exception):
                 continue
 
             X_event = np.column_stack([np.ones(len(mkt_event)), mkt_event])

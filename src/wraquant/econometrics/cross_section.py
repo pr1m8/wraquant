@@ -178,7 +178,10 @@ def two_stage_least_squares(
         first_stage_f_stats.append(float(f_val))
 
     # --- Second stage: regress y on X_hat ---
-    beta_2sls = np.linalg.lstsq(X_hat, y_arr, rcond=None)[0]
+    from wraquant.stats.regression import ols as _ols
+
+    _2sls_result = _ols(y_arr, X_hat, add_constant=False)
+    beta_2sls = _2sls_result["coefficients"]
 
     # Residuals use actual X, not fitted X_hat
     residuals = y_arr - X_arr @ beta_2sls

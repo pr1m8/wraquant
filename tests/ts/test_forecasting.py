@@ -220,27 +220,30 @@ def _seasonal_series(n: int = 200, seed: int = 42) -> pd.Series:
 
 
 class TestThetaForecast:
-    def test_output_keys(self) -> None:
+    def test_output_fields(self) -> None:
+        from wraquant.core.results import ForecastResult
+
         data = _random_walk(200)
         result = theta_forecast(data, h=10)
-        assert "forecast" in result
-        assert "fitted_values" in result
-        assert "theta_params" in result
+        assert isinstance(result, ForecastResult)
+        assert result.forecast is not None
+        assert result.fitted_values is not None
+        assert result.method == "theta"
 
     def test_forecast_length(self) -> None:
         data = _random_walk(200)
         result = theta_forecast(data, h=15)
-        assert len(result["forecast"]) == 15
+        assert len(result.forecast) == 15
 
     def test_fitted_values_length(self) -> None:
         data = _random_walk(200)
         result = theta_forecast(data, h=5)
-        assert len(result["fitted_values"]) == len(data)
+        assert len(result.fitted_values) == len(data)
 
     def test_theta_params(self) -> None:
         data = _random_walk(200)
         result = theta_forecast(data, h=10)
-        params = result["theta_params"]
+        params = result.metrics
         assert "theta" in params
         assert "ses_alpha" in params
         assert "drift" in params
@@ -253,34 +256,37 @@ class TestThetaForecast:
 
 
 class TestSESForecast:
-    def test_output_keys(self) -> None:
+    def test_output_fields(self) -> None:
+        from wraquant.core.results import ForecastResult
+
         data = _random_walk(200)
         result = ses_forecast(data, h=10)
-        assert "forecast" in result
-        assert "alpha" in result
-        assert "fitted_values" in result
-        assert "residuals" in result
+        assert isinstance(result, ForecastResult)
+        assert result.forecast is not None
+        assert result.fitted_values is not None
+        assert result.residuals is not None
+        assert result.method == "ses"
 
     def test_forecast_length(self) -> None:
         data = _random_walk(200)
         result = ses_forecast(data, h=7)
-        assert len(result["forecast"]) == 7
+        assert len(result.forecast) == 7
 
     def test_alpha_range(self) -> None:
         data = _random_walk(200)
         result = ses_forecast(data, h=5)
-        assert 0 < result["alpha"] <= 1
+        assert 0 < result.metrics["alpha"] <= 1
 
     def test_fixed_alpha(self) -> None:
         data = _random_walk(200)
         result = ses_forecast(data, h=5, alpha=0.3)
-        assert abs(result["alpha"] - 0.3) < 0.01
+        assert abs(result.metrics["alpha"] - 0.3) < 0.01
 
     def test_flat_forecast(self) -> None:
         """SES should produce a flat forecast (all values equal)."""
         data = _random_walk(200)
         result = ses_forecast(data, h=10)
-        fcast = result["forecast"].values
+        fcast = result.forecast.values
         assert np.allclose(fcast, fcast[0], atol=1e-10)
 
 
@@ -290,23 +296,25 @@ class TestSESForecast:
 
 
 class TestHoltWintersForecast:
-    def test_output_keys(self) -> None:
+    def test_output_fields(self) -> None:
+        from wraquant.core.results import ForecastResult
+
         data = _seasonal_series()
         result = holt_winters_forecast(data, h=12, seasonal_periods=12)
-        assert "forecast" in result
-        assert "params" in result
-        assert "fitted_values" in result
-        assert "seasonal_components" in result
+        assert isinstance(result, ForecastResult)
+        assert result.forecast is not None
+        assert result.fitted_values is not None
+        assert result.method == "holt_winters"
 
     def test_forecast_length(self) -> None:
         data = _seasonal_series()
         result = holt_winters_forecast(data, h=24, seasonal_periods=12)
-        assert len(result["forecast"]) == 24
+        assert len(result.forecast) == 24
 
     def test_params_structure(self) -> None:
         data = _seasonal_series()
         result = holt_winters_forecast(data, h=12, seasonal_periods=12)
-        params = result["params"]
+        params = result.metrics
         assert "alpha" in params
         assert "beta" in params
         assert "gamma" in params
@@ -364,40 +372,40 @@ class TestForecastEvaluation:
 
 
 class TestAutoForecast:
-    def test_output_keys(self) -> None:
+    def test_output_fields(self) -> None:
+        from wraquant.core.results import ForecastResult
+
         data = _random_walk(200)
         result = auto_forecast(data, h=10)
-        expected = {
-            "best_model", "forecast", "confidence_intervals",
-            "model_comparison", "residual_diagnostics",
-        }
-        assert expected.issubset(set(result.keys()))
+        assert isinstance(result, ForecastResult)
+        assert result.forecast is not None
+        assert result.method != ""
+        assert result.confidence_lower is not None
+        assert result.confidence_upper is not None
 
     def test_best_model_is_valid(self) -> None:
         data = _random_walk(200)
         result = auto_forecast(data, h=10)
         valid_models = {"ses", "holt_winters", "theta", "seasonal_naive", "drift"}
-        assert result["best_model"] in valid_models
+        assert result.method in valid_models
 
     def test_forecast_length(self) -> None:
         data = _random_walk(200)
         result = auto_forecast(data, h=15)
-        assert len(result["forecast"]) == 15
+        assert len(result.forecast) == 15
 
     def test_confidence_intervals(self) -> None:
         data = _random_walk(200)
         result = auto_forecast(data, h=10)
-        ci = result["confidence_intervals"]
-        assert "lower" in ci
-        assert "upper" in ci
-        assert len(ci["lower"]) == 10
+        assert len(result.confidence_lower) == 10
+        assert len(result.confidence_upper) == 10
         # Upper should be above lower
-        assert np.all(ci["upper"].values >= ci["lower"].values)
+        assert np.all(result.confidence_upper >= result.confidence_lower)
 
     def test_model_comparison_is_dataframe(self) -> None:
         data = _random_walk(200)
         result = auto_forecast(data, h=10)
-        comp = result["model_comparison"]
+        comp = result.model  # model holds the comparison DataFrame
         assert isinstance(comp, pd.DataFrame)
         assert "model" in comp.columns
         assert "rmse" in comp.columns

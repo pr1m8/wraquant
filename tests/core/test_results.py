@@ -76,7 +76,7 @@ class TestBacktestResult:
         )
         assert len(result.returns) == 4
         assert len(result.equity_curve) == 5
-        assert result.trades == []
+        assert result.trades == 0
         assert result.signals is None
 
     def test_sharpe_property(self) -> None:
