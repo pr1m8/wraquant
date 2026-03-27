@@ -19,6 +19,7 @@ __all__ = [
     "filterpy_kalman",
     "river_drift_detector",
     "dynamax_lgssm",
+    "pykalman_filter",
 ]
 
 
@@ -277,4 +278,130 @@ def dynamax_lgssm(
         "smoothed_means": np.asarray(smoothed.smoothed_means),
         "params": params,
         "log_likelihoods": np.asarray(log_liks),
+    }
+
+
+# ---------------------------------------------------------------------------
+# pykalman Kalman filter with EM learning
+# ---------------------------------------------------------------------------
+
+
+@requires_extra("regimes")
+def pykalman_filter(
+    observations: np.ndarray | pd.Series,
+    transition_matrices: np.ndarray | None = None,
+    observation_matrices: np.ndarray | None = None,
+    n_em_iter: int = 10,
+) -> dict[str, Any]:
+    """Kalman filter with EM parameter learning via pykalman.
+
+    Unlike the pure-numpy Kalman in ``regimes/kalman.py``, pykalman's
+    ``KalmanFilter`` can **learn** the transition/observation matrices
+    and noise covariances from data via Expectation-Maximization. Use
+    this when you don't know the system parameters.
+
+    Parameters
+    ----------
+    observations : np.ndarray or pd.Series
+        Observations of shape ``(T, obs_dim)`` or ``(T,)`` for
+        univariate data.
+    transition_matrices : np.ndarray or None, default None
+        Initial guess for the state transition matrix. When *None*,
+        pykalman learns it from data via EM.
+    observation_matrices : np.ndarray or None, default None
+        Initial guess for the observation matrix. When *None*,
+        pykalman learns it from data via EM.
+    n_em_iter : int, default 10
+        Number of EM iterations for parameter learning.
+
+    Returns
+    -------
+    dict
+        Dictionary containing:
+
+        * **filtered_means** -- filtered state estimates, shape
+          ``(T, state_dim)``.
+        * **filtered_covs** -- filtered state covariance matrices,
+          shape ``(T, state_dim, state_dim)``.
+        * **smoothed_means** -- smoothed (RTS) state estimates,
+          shape ``(T, state_dim)``.
+        * **smoothed_covs** -- smoothed state covariance matrices,
+          shape ``(T, state_dim, state_dim)``.
+        * **learned_params** -- dict with learned ``transition``,
+          ``observation``, ``transition_cov``, and ``observation_cov``
+          matrices.
+        * **log_likelihood** -- total log-likelihood of the data
+          under the learned model.
+
+    Example
+    -------
+    >>> import numpy as np
+    >>> from wraquant.regimes.integrations import pykalman_filter
+    >>> obs = np.cumsum(np.random.default_rng(0).normal(0, 1, 100))
+    >>> result = pykalman_filter(obs, n_em_iter=5)
+    >>> result["smoothed_means"].shape
+    (100, 1)
+
+    Notes
+    -----
+    Reference: Shumway & Stoffer (1982). "An Approach to Time Series
+    Smoothing and Forecasting Using the EM Algorithm." *Journal of
+    Time Series Analysis*, 3(4), 253-264.
+
+    See Also
+    --------
+    filterpy_kalman : When system parameters are known a priori.
+    dynamax_lgssm : JAX-based alternative with GPU support.
+    """
+    from pykalman import KalmanFilter
+
+    obs = np.asarray(observations, dtype=np.float64)
+    if obs.ndim == 1:
+        obs = obs.reshape(-1, 1)
+
+    obs_dim = obs.shape[1]
+
+    # Build keyword arguments; only pass matrices if provided
+    kf_kwargs: dict[str, Any] = {}
+    if transition_matrices is not None:
+        kf_kwargs["transition_matrices"] = transition_matrices
+    if observation_matrices is not None:
+        kf_kwargs["observation_matrices"] = observation_matrices
+
+    # Infer state dimension from provided matrices, default to obs_dim
+    if transition_matrices is not None:
+        state_dim = transition_matrices.shape[0]
+    elif observation_matrices is not None:
+        state_dim = observation_matrices.shape[1]
+    else:
+        state_dim = obs_dim
+
+    kf = KalmanFilter(
+        n_dim_state=state_dim,
+        n_dim_obs=obs_dim,
+        **kf_kwargs,
+    )
+
+    # Run EM to learn parameters
+    kf = kf.em(obs, n_iter=n_em_iter)
+
+    # Filter and smooth
+    filtered_means, filtered_covs = kf.filter(obs)
+    smoothed_means, smoothed_covs = kf.smooth(obs)
+
+    # Log-likelihood
+    log_likelihood = float(kf.loglikelihood(obs))
+
+    return {
+        "filtered_means": np.asarray(filtered_means),
+        "filtered_covs": np.asarray(filtered_covs),
+        "smoothed_means": np.asarray(smoothed_means),
+        "smoothed_covs": np.asarray(smoothed_covs),
+        "learned_params": {
+            "transition": np.asarray(kf.transition_matrices),
+            "observation": np.asarray(kf.observation_matrices),
+            "transition_cov": np.asarray(kf.transition_covariance),
+            "observation_cov": np.asarray(kf.observation_covariance),
+        },
+        "log_likelihood": log_likelihood,
     }

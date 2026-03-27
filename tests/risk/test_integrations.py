@@ -12,6 +12,7 @@ _has_pypfopt = importlib.util.find_spec("pypfopt") is not None
 _has_riskfolio = importlib.util.find_spec("riskfolio") is not None
 _has_skfolio = importlib.util.find_spec("skfolio") is not None
 _has_copulas = importlib.util.find_spec("copulas") is not None
+_has_copulae = importlib.util.find_spec("copulae") is not None
 _has_pyvinecopulib = importlib.util.find_spec("pyvinecopulib") is not None
 _has_pyextremes = importlib.util.find_spec("pyextremes") is not None
 
@@ -152,3 +153,52 @@ class TestExtremeValueAnalysis:
         data = pd.Series(rng.standard_t(df=3, size=5000), index=dates, name="losses")
         result = extreme_value_analysis(data)
         assert isinstance(result["return_levels"], dict)
+
+
+# ---------------------------------------------------------------------------
+# copulae library
+# ---------------------------------------------------------------------------
+
+
+class TestCopulaeFit:
+    @pytest.mark.skipif(not _has_copulae, reason="copulae not installed")
+    def test_gaussian_returns_expected_keys(self) -> None:
+        from wraquant.risk.integrations import copulae_fit
+
+        rng = np.random.default_rng(42)
+        data = rng.normal(0, 1, (200, 3))
+        result = copulae_fit(data, family="gaussian")
+        assert "params" in result
+        assert "log_likelihood" in result
+        assert "aic" in result
+        assert "bic" in result
+        assert "fitted_copula" in result
+
+    @pytest.mark.skipif(not _has_copulae, reason="copulae not installed")
+    def test_dataframe_input(self) -> None:
+        from wraquant.risk.integrations import copulae_fit
+
+        rng = np.random.default_rng(42)
+        data = pd.DataFrame(rng.normal(0, 1, (200, 3)), columns=["a", "b", "c"])
+        result = copulae_fit(data, family="gaussian")
+        assert "log_likelihood" in result
+        assert isinstance(result["log_likelihood"], float)
+
+    @pytest.mark.skipif(not _has_copulae, reason="copulae not installed")
+    def test_unknown_family_raises(self) -> None:
+        from wraquant.risk.integrations import copulae_fit
+
+        rng = np.random.default_rng(42)
+        data = rng.normal(0, 1, (100, 2))
+        with pytest.raises(ValueError, match="Unknown family"):
+            copulae_fit(data, family="invalid")
+
+    @pytest.mark.skipif(not _has_copulae, reason="copulae not installed")
+    def test_student_copula(self) -> None:
+        from wraquant.risk.integrations import copulae_fit
+
+        rng = np.random.default_rng(42)
+        data = rng.normal(0, 1, (200, 2))
+        result = copulae_fit(data, family="student")
+        assert "params" in result
+        assert "fitted_copula" in result

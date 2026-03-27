@@ -12,6 +12,7 @@ _has_pomegranate = importlib.util.find_spec("pomegranate") is not None
 _has_filterpy = importlib.util.find_spec("filterpy") is not None
 _has_river = importlib.util.find_spec("river") is not None
 _has_jax = importlib.util.find_spec("jax") is not None
+_has_pykalman = importlib.util.find_spec("pykalman") is not None
 try:
     from dynamax.linear_gaussian_ssm import LinearGaussianSSM  # noqa: F401
     _has_dynamax = True
@@ -231,3 +232,69 @@ class TestDynamaxLGSSM:
         observations = rng.normal(0, 1, 50)
         result = dynamax_lgssm(observations, state_dim=2, n_iters=5)
         assert result["filtered_means"].shape[0] == 50
+
+
+# ---------------------------------------------------------------------------
+# pykalman Kalman filter with EM learning
+# ---------------------------------------------------------------------------
+
+
+class TestPykalmanFilter:
+    @pytest.mark.skipif(not _has_pykalman, reason="pykalman not installed")
+    def test_returns_expected_keys(self) -> None:
+        from wraquant.regimes.integrations import pykalman_filter
+
+        rng = np.random.default_rng(42)
+        observations = np.cumsum(rng.normal(0, 1, 100))
+        result = pykalman_filter(observations, n_em_iter=5)
+        assert "filtered_means" in result
+        assert "filtered_covs" in result
+        assert "smoothed_means" in result
+        assert "smoothed_covs" in result
+        assert "learned_params" in result
+        assert "log_likelihood" in result
+
+    @pytest.mark.skipif(not _has_pykalman, reason="pykalman not installed")
+    def test_filtered_means_shape(self) -> None:
+        from wraquant.regimes.integrations import pykalman_filter
+
+        n = 80
+        rng = np.random.default_rng(42)
+        observations = rng.normal(0, 1, n)
+        result = pykalman_filter(observations, n_em_iter=3)
+        assert result["filtered_means"].shape[0] == n
+        assert result["smoothed_means"].shape[0] == n
+
+    @pytest.mark.skipif(not _has_pykalman, reason="pykalman not installed")
+    def test_multivariate_observations(self) -> None:
+        from wraquant.regimes.integrations import pykalman_filter
+
+        rng = np.random.default_rng(42)
+        observations = rng.normal(0, 1, (60, 2))
+        result = pykalman_filter(observations, n_em_iter=3)
+        assert result["filtered_means"].shape[0] == 60
+        assert result["filtered_means"].shape[1] == 2
+
+    @pytest.mark.skipif(not _has_pykalman, reason="pykalman not installed")
+    def test_with_initial_transition_matrix(self) -> None:
+        from wraquant.regimes.integrations import pykalman_filter
+
+        rng = np.random.default_rng(42)
+        observations = np.cumsum(rng.normal(0, 1, 100))
+        F = np.array([[1.0]])
+        result = pykalman_filter(observations, transition_matrices=F, n_em_iter=5)
+        assert result["learned_params"]["transition"].shape == (1, 1)
+        assert isinstance(result["log_likelihood"], float)
+
+    @pytest.mark.skipif(not _has_pykalman, reason="pykalman not installed")
+    def test_learned_params_keys(self) -> None:
+        from wraquant.regimes.integrations import pykalman_filter
+
+        rng = np.random.default_rng(42)
+        observations = rng.normal(0, 1, 50)
+        result = pykalman_filter(observations, n_em_iter=3)
+        params = result["learned_params"]
+        assert "transition" in params
+        assert "observation" in params
+        assert "transition_cov" in params
+        assert "observation_cov" in params

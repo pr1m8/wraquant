@@ -155,6 +155,7 @@ from wraquant.regimes.integrations import (
     dynamax_lgssm,
     filterpy_kalman,
     pomegranate_hmm,
+    pykalman_filter,
     river_drift_detector,
 )
 from wraquant.regimes.kalman import (
@@ -224,4 +225,5 @@ __all__ = [
     "filterpy_kalman",
     "river_drift_detector",
     "dynamax_lgssm",
+    "pykalman_filter",
 ]

@@ -23,6 +23,7 @@ __all__ = [
     "statsforecast_auto",
     "tslearn_dtw",
     "tslearn_kmeans",
+    "darts_forecast",
 ]
 
 
@@ -373,4 +374,167 @@ def tslearn_kmeans(
         "inertia": float(km.inertia_),
         "cluster_centers": km.cluster_centers_,
         "n_clusters": n_clusters,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Darts deep learning forecasting
+# ---------------------------------------------------------------------------
+
+
+@requires_extra("timeseries")
+def darts_forecast(
+    data: np.ndarray | pd.Series,
+    model: str = "nbeats",
+    horizon: int = 10,
+    **kwargs: Any,
+) -> dict[str, Any]:
+    """Forecast using Darts deep learning models.
+
+    Darts provides production-quality implementations of N-BEATS,
+    N-HiTS, Temporal Fusion Transformer, and other deep forecasting
+    models. Use when you need state-of-the-art accuracy and have
+    sufficient data (>1000 observations).
+
+    The model is trained on the provided data and produces a forecast
+    of the specified horizon. Default training parameters are tuned
+    for quick experimentation; pass additional keyword arguments to
+    override them (e.g., ``n_epochs=200``).
+
+    Parameters
+    ----------
+    data : np.ndarray or pd.Series
+        Price or return series. Must be univariate.
+    model : str, default 'nbeats'
+        Deep learning model to use:
+
+        * ``'nbeats'`` -- N-BEATS (Neural Basis Expansion Analysis).
+        * ``'nhits'`` -- N-HiTS (Neural Hierarchical Interpolation).
+        * ``'tcn'`` -- Temporal Convolutional Network.
+        * ``'rnn'`` -- Simple RNN (LSTM-based).
+        * ``'transformer'`` -- Vanilla Transformer.
+    horizon : int, default 10
+        Number of steps ahead to forecast.
+    **kwargs
+        Additional keyword arguments passed to the model constructor
+        (e.g., ``n_epochs``, ``input_chunk_length``).
+
+    Returns
+    -------
+    dict
+        Dictionary containing:
+
+        * **forecast** -- 1-D numpy array of forecasted values.
+        * **model_name** -- name of the model used.
+        * **training_loss** -- final training loss (when available).
+
+    Example
+    -------
+    >>> import numpy as np
+    >>> from wraquant.ts.advanced import darts_forecast
+    >>> data = np.cumsum(np.random.default_rng(0).normal(0, 1, 500))
+    >>> result = darts_forecast(data, model="nbeats", horizon=5, n_epochs=5)
+    >>> len(result["forecast"])
+    5
+
+    Notes
+    -----
+    Reference: Oreshkin et al. (2020). "N-BEATS: Neural basis expansion
+    analysis for interpretable time series forecasting." *ICLR 2020*.
+
+    See Also
+    --------
+    sktime_forecast : Simpler statistical forecasting models.
+    statsforecast_auto : AutoARIMA and friends.
+    auto_forecast : wraquant's built-in automatic forecasting.
+    """
+    from darts import TimeSeries
+
+    values = np.asarray(data, dtype=np.float64).flatten()
+
+    if isinstance(data, pd.Series) and isinstance(data.index, pd.DatetimeIndex):
+        ts = TimeSeries.from_series(data.astype(float))
+    else:
+        ts = TimeSeries.from_values(values)
+
+    # Default training parameters
+    input_chunk = kwargs.pop("input_chunk_length", min(max(horizon * 2, 24), len(values) // 3))
+    output_chunk = kwargs.pop("output_chunk_length", horizon)
+    n_epochs = kwargs.pop("n_epochs", 50)
+
+    model_map = {}
+
+    def _get_model(name: str):
+        if name == "nbeats":
+            from darts.models import NBEATSModel
+            return NBEATSModel(
+                input_chunk_length=input_chunk,
+                output_chunk_length=output_chunk,
+                n_epochs=n_epochs,
+                random_state=42,
+                **kwargs,
+            )
+        elif name == "nhits":
+            from darts.models import NHiTSModel
+            return NHiTSModel(
+                input_chunk_length=input_chunk,
+                output_chunk_length=output_chunk,
+                n_epochs=n_epochs,
+                random_state=42,
+                **kwargs,
+            )
+        elif name == "tcn":
+            from darts.models import TCNModel
+            return TCNModel(
+                input_chunk_length=input_chunk,
+                output_chunk_length=output_chunk,
+                n_epochs=n_epochs,
+                random_state=42,
+                **kwargs,
+            )
+        elif name == "rnn":
+            from darts.models import RNNModel
+            return RNNModel(
+                model="LSTM",
+                input_chunk_length=input_chunk,
+                output_chunk_length=output_chunk,
+                n_epochs=n_epochs,
+                random_state=42,
+                **kwargs,
+            )
+        elif name == "transformer":
+            from darts.models import TransformerModel
+            return TransformerModel(
+                input_chunk_length=input_chunk,
+                output_chunk_length=output_chunk,
+                n_epochs=n_epochs,
+                random_state=42,
+                **kwargs,
+            )
+        else:
+            raise ValueError(
+                f"Unknown model: {name!r}. Choose from "
+                "'nbeats', 'nhits', 'tcn', 'rnn', 'transformer'."
+            )
+
+    darts_model = _get_model(model)
+    darts_model.fit(ts)
+
+    prediction = darts_model.predict(n=horizon)
+    forecast_values = prediction.values().flatten()
+
+    # Extract training loss if available
+    training_loss = np.nan
+    if hasattr(darts_model, "trainer") and darts_model.trainer is not None:
+        try:
+            training_loss = float(
+                darts_model.trainer.callback_metrics.get("train_loss", np.nan)
+            )
+        except Exception:
+            pass
+
+    return {
+        "forecast": forecast_values,
+        "model_name": model,
+        "training_loss": training_loss,
     }

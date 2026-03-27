@@ -69,6 +69,7 @@ from wraquant.price.integrations import (
     quantlib_option,
     quantlib_yield_curve,
     rateslib_swap,
+    sdeint_solve,
     vollib_implied_vol,
 )
 from wraquant.price.levy_pricing import (
@@ -161,4 +162,5 @@ __all__ = [
     "financepy_option",
     "rateslib_swap",
     "vollib_implied_vol",
+    "sdeint_solve",
 ]

@@ -227,6 +227,7 @@ from wraquant.risk.historical import (
     event_impact,
 )
 from wraquant.risk.integrations import (
+    copulae_fit,
     copulas_fit,
     extreme_value_analysis,
     pypfopt_efficient_frontier,
@@ -387,6 +388,7 @@ __all__ = [
     "riskfolio_portfolio",
     "skfolio_optimize",
     "copulas_fit",
+    "copulae_fit",
     "vine_copula",
     "extreme_value_analysis",
     # credit

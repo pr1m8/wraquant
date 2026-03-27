@@ -38,6 +38,15 @@ def _apscheduler_available() -> bool:
         return False
 
 
+def _dagster_available() -> bool:
+    try:
+        import dagster  # noqa: F401
+
+        return True
+    except ImportError:
+        return False
+
+
 class TestPipeline:
     """Tests for the Pipeline class (no external deps needed)."""
 
@@ -378,3 +387,43 @@ class TestScheduleDataRefresh:
         from wraquant.flow import schedule_data_refresh
 
         assert callable(schedule_data_refresh)
+
+
+@pytest.mark.skipif(
+    not _dagster_available(),
+    reason="dagster not installed",
+)
+class TestDagsterPipeline:
+    """Tests for dagster_pipeline (requires dagster)."""
+
+    def test_returns_expected_keys(self):
+        from wraquant.flow import dagster_pipeline
+
+        result = dagster_pipeline({
+            "generate": lambda: [1, 2, 3],
+            "double": lambda data: [x * 2 for x in data],
+        })
+        assert "pipeline" in result
+        assert "ops" in result
+        assert "op_names" in result
+        assert result["op_names"] == ["generate", "double"]
+
+    def test_ops_count_matches(self):
+        from wraquant.flow import dagster_pipeline
+
+        ops = {
+            "step1": lambda: 10,
+            "step2": lambda x: x * 2,
+            "step3": lambda x: x + 1,
+        }
+        result = dagster_pipeline(ops)
+        assert len(result["ops"]) == 3
+        assert result["op_names"] == ["step1", "step2", "step3"]
+
+    def test_pipeline_is_callable(self):
+        from wraquant.flow import dagster_pipeline
+
+        result = dagster_pipeline({
+            "only": lambda: 42,
+        })
+        assert callable(result["pipeline"])

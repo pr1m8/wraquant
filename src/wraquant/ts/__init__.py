@@ -6,6 +6,7 @@ anomaly detection, and forecasting.
 """
 
 from wraquant.ts.advanced import (
+    darts_forecast,
     sktime_forecast,
     statsforecast_auto,
     stumpy_matrix_profile,
@@ -131,4 +132,5 @@ __all__ = [
     "statsforecast_auto",
     "tslearn_dtw",
     "tslearn_kmeans",
+    "darts_forecast",
 ]

@@ -27,6 +27,7 @@ _F = TypeVar("_F", bound=Callable)
 __all__ = [
     "prefect_backtest_flow",
     "schedule_data_refresh",
+    "dagster_pipeline",
     "pipeline",
     "Pipeline",
     "dag",
@@ -115,6 +116,94 @@ def schedule_data_refresh(
 
     job = scheduler.add_job(wrapped, trigger)
     return {"scheduler": scheduler, "job_id": job.id}
+
+
+@requires_extra("workflow")
+def dagster_pipeline(
+    ops_dict: dict[str, Callable],
+) -> dict[str, Any]:
+    """Define a Dagster pipeline from wraquant operations.
+
+    Wraps a dictionary of named callables into Dagster ``@op``-decorated
+    functions and assembles them into a Dagster ``@job``. This provides a
+    lightweight bridge between wraquant's functional style and Dagster's
+    asset/op-based orchestration.
+
+    Each operation is executed in sequence (insertion order of
+    *ops_dict*). The output of each op is passed as input to the next.
+    The first op receives no input.
+
+    Parameters
+    ----------
+    ops_dict : dict of str to callable
+        Dictionary mapping operation names to callables. The callables
+        are executed sequentially in insertion order.
+
+    Returns
+    -------
+    dict
+        Dictionary containing:
+
+        * **pipeline** -- the Dagster ``@job``-decorated function.
+        * **ops** -- dict mapping operation names to their Dagster
+          ``@op``-wrapped versions.
+        * **op_names** -- list of operation names in execution order.
+
+    Example
+    -------
+    >>> from wraquant.flow import dagster_pipeline
+    >>> result = dagster_pipeline({
+    ...     "generate": lambda: [1, 2, 3],
+    ...     "double": lambda data: [x * 2 for x in data],
+    ... })
+    >>> list(result["ops"].keys())
+    ['generate', 'double']
+
+    Notes
+    -----
+    This function only *defines* the Dagster job. To execute it, call
+    ``result["pipeline"].execute_in_process()`` or use the Dagster CLI/UI.
+
+    See Also
+    --------
+    prefect_backtest_flow : Prefect-based workflow orchestration.
+    pipeline : Simple sequential pipeline (no external deps).
+    """
+    from dagster import In, Nothing, Out, job, op
+
+    dagster_ops: dict[str, Callable] = {}
+    op_names = list(ops_dict.keys())
+
+    for i, (name, fn) in enumerate(ops_dict.items()):
+        if i == 0:
+            # First op: no input
+            @op(name=name, out=Out(dagster_type=None))
+            def _first_op(*, _fn=fn):
+                return _fn()
+
+            dagster_ops[name] = _first_op
+        else:
+            # Subsequent ops: take previous output as input
+            @op(name=name, ins={"upstream": In(dagster_type=None)}, out=Out(dagster_type=None))
+            def _chained_op(upstream, *, _fn=fn):
+                return _fn(upstream)
+
+            dagster_ops[name] = _chained_op
+
+    @job(name="wraquant_pipeline")
+    def _job():
+        result = None
+        for name in op_names:
+            if result is None:
+                result = dagster_ops[name]()
+            else:
+                result = dagster_ops[name](result)
+
+    return {
+        "pipeline": _job,
+        "ops": dagster_ops,
+        "op_names": op_names,
+    }
 
 
 def pipeline(*steps):

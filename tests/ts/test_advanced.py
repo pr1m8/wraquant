@@ -14,6 +14,12 @@ _has_pywt = importlib.util.find_spec("pywt") is not None
 _has_sktime = importlib.util.find_spec("sktime") is not None
 _has_statsforecast = importlib.util.find_spec("statsforecast") is not None
 _has_tslearn = importlib.util.find_spec("tslearn") is not None
+try:
+    from darts import TimeSeries as _DartsTS  # noqa: F401
+    from darts.models import NBEATSModel as _NB  # noqa: F401
+    _has_darts = True
+except Exception:
+    _has_darts = False
 
 
 def _make_series(n: int = 200, seed: int = 42) -> pd.Series:
@@ -185,3 +191,50 @@ class TestTslearnKmeans:
         assert len(result["labels"]) == 9
         assert result["n_clusters"] == 3
         assert result["inertia"] >= 0
+
+
+# ---------------------------------------------------------------------------
+# Darts deep learning forecasting
+# ---------------------------------------------------------------------------
+
+
+class TestDartsForecast:
+    @pytest.mark.skipif(not _has_darts, reason="darts not installed")
+    def test_returns_expected_keys(self) -> None:
+        from wraquant.ts.advanced import darts_forecast
+
+        data = np.cumsum(np.random.default_rng(42).normal(0, 1, 200))
+        result = darts_forecast(data, model="nbeats", horizon=5, n_epochs=2)
+        assert "forecast" in result
+        assert "model_name" in result
+        assert "training_loss" in result
+        assert result["model_name"] == "nbeats"
+
+    @pytest.mark.skipif(not _has_darts, reason="darts not installed")
+    def test_forecast_length(self) -> None:
+        from wraquant.ts.advanced import darts_forecast
+
+        data = np.cumsum(np.random.default_rng(42).normal(0, 1, 200))
+        horizon = 7
+        result = darts_forecast(data, model="nbeats", horizon=horizon, n_epochs=2)
+        assert len(result["forecast"]) == horizon
+
+    @pytest.mark.skipif(not _has_darts, reason="darts not installed")
+    def test_unknown_model_raises(self) -> None:
+        from wraquant.ts.advanced import darts_forecast
+
+        data = np.random.default_rng(42).normal(0, 1, 100)
+        with pytest.raises(ValueError, match="Unknown model"):
+            darts_forecast(data, model="nonexistent", horizon=5)
+
+    @pytest.mark.skipif(not _has_darts, reason="darts not installed")
+    def test_pandas_series_input(self) -> None:
+        from wraquant.ts.advanced import darts_forecast
+
+        dates = pd.date_range("2020-01-01", periods=200, freq="D")
+        data = pd.Series(
+            np.cumsum(np.random.default_rng(42).normal(0, 1, 200)),
+            index=dates,
+        )
+        result = darts_forecast(data, model="nbeats", horizon=5, n_epochs=2)
+        assert len(result["forecast"]) == 5

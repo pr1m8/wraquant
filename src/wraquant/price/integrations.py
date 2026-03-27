@@ -21,6 +21,7 @@ __all__ = [
     "financepy_option",
     "rateslib_swap",
     "vollib_implied_vol",
+    "sdeint_solve",
 ]
 
 
@@ -434,4 +435,124 @@ def vollib_implied_vol(
         "implied_vol": float(iv),
         "option_type": option_type,
         "price": price,
+    }
+
+
+# ---------------------------------------------------------------------------
+# sdeint SDE solver
+# ---------------------------------------------------------------------------
+
+
+@requires_extra("stochastic")
+def sdeint_solve(
+    drift_fn,
+    diffusion_fn,
+    y0: float | np.ndarray,
+    tspan: tuple[float, float],
+    dt: float = 0.01,
+    method: str = "euler",
+) -> dict[str, Any]:
+    """Solve a stochastic differential equation using sdeint.
+
+    For SDEs of the form::
+
+        dY = f(Y, t) dt + g(Y, t) dW
+
+    where *f* is the drift and *g* is the diffusion coefficient.
+
+    ``sdeint`` provides Ito-SDE solvers with strong convergence
+    guarantees. Use Euler-Maruyama for quick simulations and Milstein
+    when you need higher-order accuracy (order-1.0 strong convergence
+    vs order-0.5 for Euler).
+
+    Parameters
+    ----------
+    drift_fn : callable
+        ``f(Y, t) -> array``. Drift coefficient. Must accept the
+        current state *Y* and time *t* and return an array of the
+        same shape as *Y*.
+    diffusion_fn : callable
+        ``g(Y, t) -> array``. Diffusion coefficient. For scalar SDEs,
+        return a 1-D array of shape ``(1,)``. For vector SDEs, return
+        a 2-D array of shape ``(d, m)`` where *d* is the state
+        dimension and *m* is the number of Wiener processes.
+    y0 : float or np.ndarray
+        Initial condition. Scalar or 1-D array.
+    tspan : tuple of float
+        ``(t0, t1)`` time interval.
+    dt : float, default 0.01
+        Time step size.
+    method : str, default 'euler'
+        Integration method:
+
+        * ``'euler'`` -- Euler-Maruyama (strong order 0.5).
+        * ``'sri2'`` -- Roessler SRI2 Stochastic Runge-Kutta
+          (strong order 1.0). Suitable for arbitrary noise.
+
+    Returns
+    -------
+    dict
+        Dictionary containing:
+
+        * **times** -- 1-D array of time points.
+        * **paths** -- solution array of shape ``(n_steps, d)`` where
+          *d* is the state dimension.
+        * **final_values** -- state at the terminal time.
+
+    Example
+    -------
+    >>> import numpy as np
+    >>> from wraquant.price.integrations import sdeint_solve
+    >>> # Geometric Brownian Motion: dS = mu*S*dt + sigma*S*dW
+    >>> result = sdeint_solve(
+    ...     drift_fn=lambda y, t: 0.05 * y,
+    ...     diffusion_fn=lambda y, t: 0.2 * y,
+    ...     y0=100.0,
+    ...     tspan=(0.0, 1.0),
+    ...     dt=0.01,
+    ... )
+    >>> result["paths"].shape[0]  # number of time steps
+    101
+
+    Notes
+    -----
+    Reference: Kloeden & Platen (1992). *Numerical Solution of
+    Stochastic Differential Equations*. Springer.
+
+    See Also
+    --------
+    wraquant.price.stochastic : Built-in process simulators (GBM,
+        Heston, SABR, etc.) that don't require sdeint.
+    """
+    import sdeint
+
+    y0_arr = np.atleast_1d(np.asarray(y0, dtype=np.float64))
+    t0, t1 = tspan
+    times = np.arange(t0, t1 + dt * 0.5, dt)
+
+    # Wrap functions to ensure correct array shapes for sdeint
+    def _f(y, t):
+        return np.atleast_1d(np.asarray(drift_fn(y, t), dtype=np.float64))
+
+    def _g(y, t):
+        result = np.asarray(diffusion_fn(y, t), dtype=np.float64)
+        if result.ndim == 0:
+            result = result.reshape(1, 1)
+        elif result.ndim == 1:
+            result = np.diag(result)
+        return result
+
+    if method == "sri2":
+        paths = sdeint.itoSRI2(_f, _g, y0_arr, times)
+    elif method == "euler":
+        paths = sdeint.itoEuler(_f, _g, y0_arr, times)
+    else:
+        raise ValueError(
+            f"Unknown method: {method!r}. Choose 'euler' or 'sri2'."
+        )
+
+    return {
+        "times": times,
+        "paths": np.asarray(paths),
+        "final_values": np.asarray(paths[-1]),
     }

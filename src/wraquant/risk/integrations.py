@@ -19,6 +19,7 @@ __all__ = [
     "riskfolio_portfolio",
     "skfolio_optimize",
     "copulas_fit",
+    "copulae_fit",
     "vine_copula",
     "extreme_value_analysis",
 ]
@@ -326,4 +327,116 @@ def extreme_value_analysis(
         "loc": float(params.get("loc", np.nan)),
         "scale": float(params.get("scale", np.nan)),
         "return_levels": return_levels,
+    }
+
+
+# ---------------------------------------------------------------------------
+# copulae library
+# ---------------------------------------------------------------------------
+
+
+@requires_extra("risk")
+def copulae_fit(
+    data: np.ndarray | pd.DataFrame,
+    family: str = "gaussian",
+) -> dict[str, Any]:
+    """Fit a copula using the copulae library.
+
+    Alternative to wraquant's built-in copula fitting (``copulas_fit``)
+    and the ``fit_*_copula`` functions in ``wraquant.risk.copulas``.
+    The ``copulae`` library provides additional families (Joe, AMH)
+    and more robust MLE estimation via IFM (Inference Functions for
+    Margins).
+
+    Parameters
+    ----------
+    data : np.ndarray or pd.DataFrame
+        Data of shape ``(n, d)``. Can be raw observations (marginals
+        are automatically converted to pseudo-observations) or
+        pre-transformed uniform marginals on ``[0, 1]``.
+    family : str, default 'gaussian'
+        Copula family to fit:
+
+        * ``'gaussian'`` -- Gaussian copula (no tail dependence).
+        * ``'student'`` -- Student-t copula (symmetric tail dependence).
+        * ``'clayton'`` -- Clayton copula (lower tail dependence).
+        * ``'gumbel'`` -- Gumbel copula (upper tail dependence).
+        * ``'frank'`` -- Frank copula (symmetric, no tail dependence).
+
+    Returns
+    -------
+    dict
+        Dictionary containing:
+
+        * **params** -- fitted copula parameters (structure depends
+          on family).
+        * **log_likelihood** -- log-likelihood of the fitted model.
+        * **aic** -- Akaike information criterion.
+        * **bic** -- Bayesian information criterion (approximate).
+        * **fitted_copula** -- the fitted copula object for further
+          use (sampling, CDF evaluation, etc.).
+
+    Example
+    -------
+    >>> import numpy as np
+    >>> from wraquant.risk.integrations import copulae_fit
+    >>> rng = np.random.default_rng(42)
+    >>> data = rng.normal(0, 1, (200, 3))
+    >>> result = copulae_fit(data, family="gaussian")
+    >>> result["log_likelihood"]  # doctest: +SKIP
+
+    Notes
+    -----
+    Reference: Joe (2014). *Dependence Modeling with Copulas*.
+    Chapman & Hall/CRC.
+
+    See Also
+    --------
+    copulas_fit : Alternative using the ``copulas`` library.
+    fit_gaussian_copula : Built-in Gaussian copula implementation.
+    vine_copula : Vine copula fitting via ``pyvinecopulib``.
+    """
+    from copulae import (
+        ClaytonCopula,
+        FrankCopula,
+        GaussianCopula,
+        GumbelCopula,
+        StudentCopula,
+    )
+
+    families = {
+        "gaussian": GaussianCopula,
+        "student": StudentCopula,
+        "clayton": ClaytonCopula,
+        "gumbel": GumbelCopula,
+        "frank": FrankCopula,
+    }
+
+    copula_cls = families.get(family)
+    if copula_cls is None:
+        raise ValueError(
+            f"Unknown family: {family!r}. Choose from {list(families)}."
+        )
+
+    if isinstance(data, pd.DataFrame):
+        values = data.values
+    else:
+        values = np.asarray(data, dtype=np.float64)
+
+    dim = values.shape[1]
+    copula = copula_cls(dim=dim)
+    copula.fit(values)
+
+    ll = float(copula.log_lik(values))
+    n_params = dim * (dim - 1) // 2  # approximate number of params
+    n = values.shape[0]
+    aic = 2.0 * n_params - 2.0 * ll
+    bic = n_params * np.log(n) - 2.0 * ll
+
+    return {
+        "params": copula.params,
+        "log_likelihood": ll,
+        "aic": float(aic),
+        "bic": float(bic),
+        "fitted_copula": copula,
     }

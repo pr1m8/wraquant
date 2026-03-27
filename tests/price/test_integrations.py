@@ -11,6 +11,7 @@ import pytest
 _has_quantlib = importlib.util.find_spec("QuantLib") is not None
 _has_financepy = importlib.util.find_spec("financepy") is not None
 _has_rateslib = importlib.util.find_spec("rateslib") is not None
+_has_sdeint = importlib.util.find_spec("sdeint") is not None
 try:
     from py_vollib.black_scholes.implied_volatility import implied_volatility as _iv  # noqa: F401
     _has_vollib = True
@@ -177,3 +178,80 @@ class TestVollib:
         )
         assert result["implied_vol"] > 0
         assert result["option_type"] == "put"
+
+
+# ---------------------------------------------------------------------------
+# sdeint SDE solver
+# ---------------------------------------------------------------------------
+
+
+class TestSdeintSolve:
+    @pytest.mark.skipif(not _has_sdeint, reason="sdeint not installed")
+    def test_returns_expected_keys(self) -> None:
+        from wraquant.price.integrations import sdeint_solve
+
+        result = sdeint_solve(
+            drift_fn=lambda y, t: 0.05 * y,
+            diffusion_fn=lambda y, t: 0.2 * y,
+            y0=100.0,
+            tspan=(0.0, 1.0),
+            dt=0.01,
+        )
+        assert "times" in result
+        assert "paths" in result
+        assert "final_values" in result
+
+    @pytest.mark.skipif(not _has_sdeint, reason="sdeint not installed")
+    def test_paths_shape(self) -> None:
+        from wraquant.price.integrations import sdeint_solve
+
+        result = sdeint_solve(
+            drift_fn=lambda y, t: 0.05 * y,
+            diffusion_fn=lambda y, t: 0.2 * y,
+            y0=100.0,
+            tspan=(0.0, 1.0),
+            dt=0.01,
+        )
+        assert result["paths"].shape[0] == len(result["times"])
+        assert result["paths"].shape[1] == 1  # scalar SDE
+
+    @pytest.mark.skipif(not _has_sdeint, reason="sdeint not installed")
+    def test_sri2_method(self) -> None:
+        from wraquant.price.integrations import sdeint_solve
+
+        result = sdeint_solve(
+            drift_fn=lambda y, t: 0.05 * y,
+            diffusion_fn=lambda y, t: 0.2 * y,
+            y0=100.0,
+            tspan=(0.0, 0.5),
+            dt=0.01,
+            method="sri2",
+        )
+        assert result["final_values"].shape == (1,)
+
+    @pytest.mark.skipif(not _has_sdeint, reason="sdeint not installed")
+    def test_unknown_method_raises(self) -> None:
+        from wraquant.price.integrations import sdeint_solve
+
+        with pytest.raises(ValueError, match="Unknown method"):
+            sdeint_solve(
+                drift_fn=lambda y, t: y,
+                diffusion_fn=lambda y, t: y,
+                y0=1.0,
+                tspan=(0.0, 0.1),
+                method="invalid",
+            )
+
+    @pytest.mark.skipif(not _has_sdeint, reason="sdeint not installed")
+    def test_final_value_positive_for_gbm(self) -> None:
+        from wraquant.price.integrations import sdeint_solve
+
+        # GBM stays positive (almost surely)
+        result = sdeint_solve(
+            drift_fn=lambda y, t: 0.1 * y,
+            diffusion_fn=lambda y, t: 0.01 * y,  # low vol for reliability
+            y0=100.0,
+            tspan=(0.0, 0.5),
+            dt=0.01,
+        )
+        assert result["final_values"][0] > 0
