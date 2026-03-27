@@ -1,0 +1,62 @@
+/* wraquant custom documentation styles */
+
+/* Better code block styling */
+.highlight pre {
+    border-radius: 6px;
+    padding: 12px 16px;
+    font-size: 0.85em;
+    line-height: 1.5;
+}
+
+/* Admonition styling */
+.admonition {
+    border-radius: 6px;
+    margin: 1.5em 0;
+}
+
+/* Make parameter tables more readable */
+dl.field-list > dt {
+    font-weight: 600;
+    color: var(--color-brand-primary);
+}
+
+/* Better inline code */
+code.literal {
+    font-size: 0.9em;
+    padding: 2px 6px;
+    border-radius: 3px;
+}
+
+/* Module docstring headers */
+.module-docstring h2 {
+    border-bottom: 2px solid var(--color-brand-primary);
+    padding-bottom: 0.3em;
+}
+
+/* API reference table styling */
+table.longtable {
+    width: 100%;
+}
+
+table.longtable td:first-child {
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+/* Better method signatures */
+.sig-name {
+    font-weight: 700;
+}
+
+/* Copy button positioning */
+.copybtn {
+    top: 0.5em !important;
+    right: 0.5em !important;
+}
+
+/* Responsive improvements */
+@media (max-width: 768px) {
+    .highlight pre {
+        font-size: 0.78em;
+    }
+}
