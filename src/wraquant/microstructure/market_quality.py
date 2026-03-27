@@ -23,6 +23,18 @@ def quoted_spread(
 
     Returns:
         Absolute quoted spread.
+
+    Example:
+        >>> import numpy as np
+        >>> bid = np.array([99.90, 99.85])
+        >>> ask = np.array([100.10, 100.15])
+        >>> quoted_spread(bid, ask)
+        array([0.2, 0.3])
+
+    See Also:
+        relative_spread: Spread normalized by midpoint.
+        wraquant.microstructure.liquidity.effective_spread:
+            Execution-weighted spread.
     """
     return np.asarray(ask) - np.asarray(bid)
 
@@ -38,7 +50,19 @@ def relative_spread(
         ask: Best ask prices.
 
     Returns:
-        Relative spread as a fraction of the midpoint.
+        Relative spread as a fraction of the midpoint.  Typical values
+        are 0.001-0.01 for liquid large-cap stocks.
+
+    Example:
+        >>> import pandas as pd
+        >>> bid = pd.Series([99.90, 99.85])
+        >>> ask = pd.Series([100.10, 100.15])
+        >>> rs = relative_spread(bid, ask)
+        >>> float(rs.iloc[0])  # 0.20 / 100.0 = 0.002
+        0.002
+
+    See Also:
+        quoted_spread: Absolute spread in price units.
     """
     bid_arr = np.asarray(bid, dtype=np.float64)
     ask_arr = np.asarray(ask, dtype=np.float64)
@@ -64,6 +88,17 @@ def depth(
 
     Returns:
         Total depth (bid + ask) summed across the requested levels.
+
+    Example:
+        >>> import numpy as np
+        >>> bid_vol = np.array([1000, 800, 500, 300, 200])
+        >>> ask_vol = np.array([900, 700, 600, 400, 100])
+        >>> depth(bid_vol, ask_vol, levels=3)
+        4500.0
+
+    See Also:
+        wraquant.microstructure.liquidity.depth_imbalance:
+            Directional imbalance between bid and ask depth.
     """
     bid_arr = np.asarray(bid_volume, dtype=np.float64)
     ask_arr = np.asarray(ask_volume, dtype=np.float64)
@@ -98,7 +133,20 @@ def resiliency(
             spread changes.
 
     Returns:
-        Rolling resiliency measure.
+        Rolling resiliency measure.  Higher values indicate faster
+        spread recovery (more resilient market).
+
+    Example:
+        >>> import pandas as pd, numpy as np
+        >>> np.random.seed(42)
+        >>> spreads = pd.Series(0.05 + np.random.randn(100) * 0.01)
+        >>> res = resiliency(spreads, window=20)
+        >>> res.name
+        'resiliency'
+
+    See Also:
+        quoted_spread: Generate the spread input for this function.
+        variance_ratio: Random walk efficiency test.
     """
     ds = spreads.diff()
     # Negative first-order autocorrelation of spread changes
@@ -134,6 +182,18 @@ def variance_ratio(
         - ``'vr'``: Variance ratio.
         - ``'z_stat'``: Asymptotic z-statistic under IID assumption.
         - ``'p_value'``: Two-sided p-value.
+
+    Example:
+        >>> import pandas as pd, numpy as np
+        >>> np.random.seed(42)
+        >>> prices = pd.Series(100 * np.exp(np.cumsum(np.random.randn(500) * 0.01)))
+        >>> result = variance_ratio(prices, short_period=2, long_period=10)
+        >>> 'vr' in result and 'p_value' in result
+        True
+
+    See Also:
+        market_efficiency_ratio: Multi-lag efficiency summary.
+        resiliency: Spread recovery speed.
     """
     from scipy.stats import norm
 
@@ -205,10 +265,25 @@ def hasbrouck_information_share(
         - ``'upper'``: Upper-bound information shares.
         - ``'lower'``: Lower-bound information shares.
 
+    Example:
+        >>> import pandas as pd, numpy as np
+        >>> np.random.seed(42)
+        >>> base = pd.Series(100 + np.cumsum(np.random.randn(200) * 0.1))
+        >>> venue_a = base + np.random.randn(200) * 0.01
+        >>> venue_b = base + np.random.randn(200) * 0.05
+        >>> result = hasbrouck_information_share([venue_a, venue_b])
+        >>> abs(result['midpoint'].sum() - 1.0) < 0.01
+        True
+
     References:
         Hasbrouck, J. (1995). "One Security, Many Markets: Determining
         the Contributions to Price Discovery." *Journal of Finance*,
         50(4), 1175-1199.
+
+    See Also:
+        gonzalo_granger_component: Unique (non-bounded) price discovery measure.
+        wraquant.microstructure.toxicity.information_share:
+            Simplified variance-based information share.
     """
     n_venues = len(prices_list)
     if n_venues < 2:
@@ -311,10 +386,23 @@ def gonzalo_granger_component(
           (one per venue, summing to 1).
         - ``'alpha'``: Error-correction coefficients for each venue.
 
+    Example:
+        >>> import pandas as pd, numpy as np
+        >>> np.random.seed(42)
+        >>> base = pd.Series(100 + np.cumsum(np.random.randn(200) * 0.1))
+        >>> venue_a = base + np.random.randn(200) * 0.01
+        >>> venue_b = base + np.random.randn(200) * 0.05
+        >>> result = gonzalo_granger_component([venue_a, venue_b])
+        >>> abs(result['gg_weights'].sum() - 1.0) < 1e-10
+        True
+
     References:
         Gonzalo, J. & Granger, C. (1995). "Estimation of Common Long-
         Memory Components in Cointegrated Systems." *Journal of Business
         & Economic Statistics*, 13(1), 27-35.
+
+    See Also:
+        hasbrouck_information_share: Cholesky-based information share.
     """
     n_venues = len(prices_list)
     if n_venues < 2:
@@ -421,10 +509,22 @@ def market_efficiency_ratio(
           is more efficient).
         - ``'variance_ratios'``: Dict mapping each lag to its VR value.
 
+    Example:
+        >>> import pandas as pd, numpy as np
+        >>> np.random.seed(42)
+        >>> prices = pd.Series(100 * np.exp(np.cumsum(np.random.randn(500) * 0.01)))
+        >>> result = market_efficiency_ratio(prices)
+        >>> result['efficiency_score'] >= 0
+        True
+
     References:
         Lo, A. W. & MacKinlay, A. C. (1988). "Stock Market Prices Do
         Not Follow Random Walks." *Review of Financial Studies*, 1(1),
         41-66.
+
+    See Also:
+        variance_ratio: Single-lag variance ratio test with p-value.
+        resiliency: Spread-based market quality measure.
     """
     if lags is None:
         lags = [2, 5, 10, 20]
@@ -499,9 +599,24 @@ def price_impact_regression(
         - ``'beta_0'``: Contemporaneous impact coefficient.
         - ``'r_squared'``: R-squared of the regression.
 
+    Example:
+        >>> import pandas as pd, numpy as np
+        >>> np.random.seed(42)
+        >>> dp = pd.Series(np.random.randn(200) * 0.01)
+        >>> sv = pd.Series(np.random.randn(200) * 1000)
+        >>> result = price_impact_regression(dp, sv, lags=3)
+        >>> 'permanent_impact' in result and 'r_squared' in result
+        True
+
     References:
         Hasbrouck, J. (1991). "Measuring the Information Content of
         Stock Trades." *Journal of Finance*, 46(1), 179-207.
+
+    See Also:
+        wraquant.microstructure.liquidity.kyle_lambda:
+            Simpler single-coefficient price impact.
+        wraquant.microstructure.liquidity.spread_decomposition:
+            Spread-based adverse selection decomposition.
     """
     # Build design matrix with contemporaneous + lagged signed volume
     data = pd.DataFrame({"dp": price_changes})
@@ -583,6 +698,15 @@ def intraday_volatility_pattern(
         Average absolute return by time-of-day bucket, indexed by the
         bucket label (e.g., hour of day).
 
+    Example:
+        >>> import pandas as pd, numpy as np
+        >>> idx = pd.date_range('2024-01-02 09:30', periods=78, freq='5min')
+        >>> prices = pd.Series(100 + np.cumsum(np.random.randn(78) * 0.1),
+        ...                     index=idx)
+        >>> pattern = intraday_volatility_pattern(prices, freq='h')
+        >>> len(pattern) > 0
+        True
+
     References:
         Wood, R. A., McInish, T. H. & Ord, J. K. (1985). "An
         Investigation of Transactions Data for NYSE Stocks." *Journal of
@@ -591,6 +715,10 @@ def intraday_volatility_pattern(
         Admati, A. R. & Pfleiderer, P. (1988). "A Theory of Intraday
         Patterns: Volume and Price Variability." *Review of Financial
         Studies*, 1(1), 3-40.
+
+    See Also:
+        variance_ratio: Variance ratio test for random walk.
+        market_efficiency_ratio: Multi-lag efficiency assessment.
     """
     returns = prices.pct_change().dropna()
     abs_returns = np.abs(returns)

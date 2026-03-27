@@ -1,6 +1,6 @@
 # Integration Index — Full 5-Level Map
 
-**Last updated:** 2026-03-19
+**Last updated:** 2026-03-27
 
 ## Level 1: Coercion (accept any input type)
 
@@ -110,7 +110,7 @@ covariance matrices should use `stats.correlation` for consistency.
 |------|------|---------|--------|
 | risk/metrics | sharpe, sortino, max_dd | 2/7 files | PARTIAL |
 | risk/var | VaR in tearsheets | 1/7 files (tearsheet.py) | DONE |
-| vol/models | GARCH vol for position sizing | 0/7 files | TODO |
+| vol/models | GARCH vol for position sizing | 1/7 files (position.py) | DONE |
 | regimes/ | regime-aware strategies | 1/7 files (position.py) | PARTIAL |
 | ta/ | indicators for signal generation | 0/7 files | TODO |
 
@@ -127,7 +127,7 @@ covariance matrices should use `stats.correlation` for consistency.
 |------|------|---------|--------|
 | risk/portfolio | portfolio_volatility | 1/7 files | PARTIAL |
 | risk/portfolio_analytics | component VaR, diversification | 0/7 files | TODO |
-| stats/correlation | shrunk covariance for optimization | 0/7 files | TODO |
+| stats/correlation | shrunk covariance for optimization | 1/7 files (portfolio.py) | DONE |
 | regimes/ | regime-conditional weights | 0/7 files | TODO |
 
 ### execution/ should use:
@@ -142,7 +142,7 @@ covariance matrices should use `stats.correlation` for consistency.
 | risk/metrics | experiment metrics | 2/9 files | PARTIAL |
 | backtest/ | backtesting | 1/9 files | PARTIAL |
 | regimes/ | regime breakdown | 1/9 files | PARTIAL |
-| vol/ | vol analysis | 0/9 files | TODO |
+| vol/ | vol analysis | 1/9 files (results.py) | DONE |
 
 ### ml/ should use:
 | From | What | Current | Status |
@@ -161,15 +161,16 @@ covariance matrices should use `stats.correlation` for consistency.
 | vol/garch_fit | dict | GARCHResult | TODO |
 | vol/egarch_fit | dict | GARCHResult | TODO |
 | vol/gjr_garch_fit | dict | GARCHResult | TODO |
-| backtest/Backtest.run | dict | BacktestResult | TODO |
-| backtest/VectorizedBacktest.run | dict | BacktestResult | TODO |
-| ts/auto_forecast | dict | ForecastResult | TODO |
-| ts/theta_forecast | dict | ForecastResult | TODO |
+| backtest/Backtest.run | BacktestResult | BacktestResult | DONE |
+| backtest/VectorizedBacktest.run | BacktestResult | BacktestResult | DONE |
+| ts/auto_forecast | ForecastResult | ForecastResult | DONE |
+| ts/theta_forecast | ForecastResult | ForecastResult | DONE |
 | regimes/detect_regimes | RegimeResult | RegimeResult | DONE |
 
 GARCHResult, BacktestResult, ForecastResult exist in core/results.py
-with chaining methods (.to_var(), .plot(), .summary()) but aren't
-returned by any function yet.
+with chaining methods (.to_var(), .plot(), .summary()).  BacktestResult
+is returned by backtest/engine.py, ForecastResult by ts/forecasting.py.
+GARCHResult is not yet returned by vol/models.py.
 
 ---
 
@@ -177,10 +178,10 @@ returned by any function yet.
 
 | Module | Should return | Should accept | Status |
 |--------|-------------|---------------|--------|
-| data/fetch_prices | PriceSeries | N/A | TODO |
-| data/fetch_ohlcv | OHLCVFrame | N/A | TODO |
+| data/fetch_prices | PriceSeries | N/A | DONE |
+| data/fetch_ohlcv | OHLCVFrame | N/A | DONE |
 | ta/ indicators | PriceSeries (already Series) | PriceSeries (works via coercion) | PARTIAL |
-| risk/metrics | N/A | ReturnSeries (auto periods_per_year) | TODO |
+| risk/metrics | N/A | ReturnSeries (auto periods_per_year) | DONE (sharpe, sortino) |
 | vol/realized | PriceSeries | PriceSeries | TODO |
 | frame/ops | PriceSeries/ReturnSeries | PriceSeries | TODO (dead code) |
 

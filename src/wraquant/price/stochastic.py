@@ -461,6 +461,27 @@ def simulate_sabr(
     (swaptions, caps/floors) and FX options where the smile shape
     is well-characterised by the SABR formula.
 
+    Calibration guidance:
+        - **sigma0**: Calibrate from the ATM implied volatility.
+          For swaptions, this is the ATM normal or lognormal vol.
+        - **alpha**: Controls the curvature of the smile.  Higher
+          alpha = more curvature.  Typically 0.2 -- 0.6.
+        - **beta**: Often fixed by convention (beta=0.5 for rates,
+          beta=1.0 for FX) and the other parameters calibrated.
+        - **rho**: Controls the skew.  rho < 0 gives a "normal"
+          skew (downside puts more expensive). rho > 0 reverses it.
+          Typically -0.5 to 0.0 for rates.
+
+    **When to use Heston vs SABR:**
+        - **SABR** for rates/FX: the SABR formula gives a fast,
+          analytical approximation for implied volatility that is
+          widely used on trading desks.
+        - **Heston** for equities: the Heston model better captures
+          the mean-reverting nature of equity volatility.
+        - Use simulation (this function) when you need full path
+          dynamics, e.g., for path-dependent payoffs or for
+          evaluating the approximation quality.
+
     Parameters:
         f0: Initial forward rate / price.
         sigma0: Initial stochastic volatility level.
@@ -481,10 +502,9 @@ def simulate_sabr(
           ``(n_steps + 1, n_paths)``.
 
     Example:
+        >>> # Simulate a 5% swaption with typical SABR params
         >>> result = simulate_sabr(0.05, 0.3, 0.4, 0.5, -0.3, 1.0, 252, 1000, seed=42)
         >>> result['forwards'].shape
-        (253, 1000)
-        >>> result['vols'].shape
         (253, 1000)
 
     References:
@@ -564,15 +584,40 @@ def simulate_rough_bergomi(
     as observed in markets.  Classical models (Heston, SABR) cannot
     reproduce this power-law behaviour.
 
+    **Heston vs SABR vs rough Bergomi -- when to use which:**
+        - **Heston**: Best for equity options when you need a tractable
+          model with mean-reverting vol.  Has analytical characteristic
+          function for fast pricing.  Cannot fit the short-maturity
+          skew well.
+        - **SABR**: Best for rates/FX desks.  Has a fast closed-form
+          implied vol approximation.  Industry standard for swaptions.
+        - **Rough Bergomi**: State-of-the-art for capturing the
+          empirical power-law decay of ATM skew across maturities.
+          Most realistic for equity index options but expensive to
+          simulate (O(n_steps^2) for the Cholesky approach).
+
+    Calibration guidance:
+        - **H ~ 0.1**: The empirical consensus for equity index
+          volatility (Gatheral, Jaisson & Rosenbaum, 2018).
+        - **xi**: Set to the current level of implied variance
+          (e.g., 0.04 for 20% vol).
+        - **eta ~ 1.5-2.5**: Controls the vol-of-vol.  Calibrate
+          to the overall level of the smile.
+        - **rho ~ -0.7 to -0.9**: Leverage effect.
+
     Parameters:
         spot: Initial spot price.
         xi: Forward variance level (flat forward variance curve).
-        eta: Volatility of volatility.
+            E.g., 0.04 for 20% annualized vol.
+        eta: Volatility of volatility. Typical range 1.0 -- 3.0.
         H: Hurst parameter of fractional Brownian motion.
             Must be in (0, 0.5) for the "rough" regime.
-        rho: Correlation between the spot and vol driving noises.
+            Empirical estimates cluster around 0.1.
+        rho: Correlation between spot and vol Brownian motions.
+            Typically -0.7 to -0.9 for equity indices.
         T: Time horizon in years.
-        n_steps: Number of time steps.
+        n_steps: Number of time steps. O(n_steps^2) memory for the
+            Cholesky covariance matrix, so keep moderate (100-500).
         n_paths: Number of simulation paths.
         seed: Random seed for reproducibility.
 
@@ -585,16 +630,19 @@ def simulate_rough_bergomi(
           shape ``(n_steps + 1, n_paths)``.
 
     Example:
-        >>> result = simulate_rough_bergomi(100.0, 0.04, 1.9, 0.1, -0.7,
-        ...                                1.0, 100, 500, seed=42)
+        >>> # Simulate SPX-like dynamics with rough vol
+        >>> result = simulate_rough_bergomi(
+        ...     spot=4000, xi=0.04, eta=1.9, H=0.1, rho=-0.7,
+        ...     T=0.5, n_steps=100, n_paths=1000, seed=42)
         >>> result['prices'].shape
-        (101, 500)
-        >>> result['variances'].shape
-        (101, 500)
+        (101, 1000)
 
     References:
         Bayer, C., Friz, P. & Gatheral, J. (2016). *Pricing Under Rough
         Volatility.*  Quantitative Finance 16(6), 887-904.
+
+        Gatheral, J., Jaisson, T. & Rosenbaum, M. (2018). *Volatility is
+        Rough.* Quantitative Finance 18(6), 933-949.
     """
     rng = np.random.default_rng(seed)
     dt = T / n_steps

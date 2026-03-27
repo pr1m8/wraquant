@@ -57,6 +57,34 @@ def longstaff_schwartz(
     -------
     float
         Estimated American option price.
+
+    Example
+    -------
+    >>> import numpy as np
+    >>> from wraquant.math.optimal_stopping import longstaff_schwartz
+    >>> rng = np.random.default_rng(42)
+    >>> S0, K, r, vol, T, n_steps = 100, 100, 0.05, 0.2, 1.0, 50
+    >>> dt = T / n_steps
+    >>> # Simulate GBM paths
+    >>> z = rng.standard_normal((10000, n_steps))
+    >>> paths = np.zeros((10000, n_steps + 1))
+    >>> paths[:, 0] = S0
+    >>> for i in range(n_steps):
+    ...     paths[:, i+1] = paths[:, i] * np.exp((r - 0.5*vol**2)*dt + vol*np.sqrt(dt)*z[:, i])
+    >>> price = longstaff_schwartz(paths, strike=K, rf_rate=r, dt=dt)
+    >>> price > 0
+    True
+
+    Notes
+    -----
+    Reference: Longstaff, F. A. & Schwartz, E. S. (2001). "Valuing
+    American Options by Simulation." *Review of Financial Studies*, 14(1),
+    113-147.
+
+    See Also
+    --------
+    binomial_american : Binomial tree pricing (exact, but slower for many steps).
+    wraquant.price : Options pricing module with Black-Scholes and SDEs.
     """
     paths = np.asarray(paths, dtype=float)
     n_paths, n_steps_plus_1 = paths.shape
@@ -168,6 +196,21 @@ def binomial_american(
     -------
     float
         American option price.
+
+    Example
+    -------
+    >>> from wraquant.math.optimal_stopping import binomial_american
+    >>> price = binomial_american(spot=100, strike=100, rf_rate=0.05,
+    ...                            vol=0.2, T=1.0, n_steps=200)
+    >>> price > 0
+    True
+    >>> # American put is worth at least European put
+    >>> price >= 4.0  # approximate lower bound
+    True
+
+    See Also
+    --------
+    longstaff_schwartz : Monte Carlo pricing for path-dependent payoffs.
     """
     dt = T / n_steps
     u = np.exp(vol * np.sqrt(dt))
@@ -233,8 +276,24 @@ def optimal_exit_threshold(
     -------
     dict
         ``entry_threshold``  – optimal entry (in units of process value).
-        ``exit_threshold``   – optimal exit threshold.
+        ``exit_threshold``   – optimal exit threshold.  Higher values
+            mean waiting for a larger dislocation before exiting.
         ``expected_profit``  – approximate expected profit per trade.
+
+    Example
+    -------
+    >>> from wraquant.math.optimal_stopping import optimal_exit_threshold
+    >>> result = optimal_exit_threshold(mu=5.0, sigma=0.5,
+    ...                                  transaction_cost=0.001)
+    >>> result['exit_threshold'] > 0
+    True
+    >>> result['expected_profit'] > 0
+    True
+
+    See Also
+    --------
+    wraquant.stats.cointegration : Test for cointegration before pairs trading.
+    wraquant.execution.optimal : Optimal execution with Almgren-Chriss.
     """
     if mu <= 0 or sigma <= 0:
         raise ValueError("mu and sigma must be positive.")
@@ -289,8 +348,28 @@ def sequential_probability_ratio(
     -------
     dict
         ``decision``      – ``'reject_h0'``, ``'accept_h0'``, or ``'inconclusive'``.
-        ``stopping_time`` – index at which the decision was reached.
+        ``stopping_time`` – index at which the decision was reached.  Fewer
+            observations needed indicates stronger signal.
         ``log_ratio``     – final log-likelihood ratio.
+
+    Example
+    -------
+    >>> import numpy as np
+    >>> from wraquant.math.optimal_stopping import sequential_probability_ratio
+    >>> rng = np.random.default_rng(42)
+    >>> # Generate data from H1 (mu=0.5) and test against H0 (mu=0)
+    >>> obs = rng.normal(0.5, 1.0, size=100)
+    >>> result = sequential_probability_ratio(
+    ...     obs,
+    ...     h0_dist=('normal', {'mu': 0.0, 'sigma': 1.0}),
+    ...     h1_dist=('normal', {'mu': 0.5, 'sigma': 1.0}),
+    ... )
+    >>> result['decision']
+    'reject_h0'
+
+    See Also
+    --------
+    cusum_stopping : CUSUM-based change detection (non-parametric alternative).
     """
     observations = coerce_array(observations, name="observations")
 
@@ -372,6 +451,24 @@ def cusum_stopping(
         ``cusum_pos``     – final positive CUSUM statistic.
         ``cusum_neg``     – final negative CUSUM statistic.
         ``cusum_values``  – array of max(cusum_pos, |cusum_neg|) at each step.
+
+    Example
+    -------
+    >>> import numpy as np
+    >>> from wraquant.math.optimal_stopping import cusum_stopping
+    >>> # Returns with a mean shift at index 50
+    >>> obs = np.concatenate([np.random.randn(50) * 0.01,
+    ...                        np.random.randn(50) * 0.01 + 0.05])
+    >>> result = cusum_stopping(obs, target_mean=0.0, threshold=0.5)
+    >>> result['detected']
+    True
+    >>> result['stopping_time'] > 50  # detected after the shift
+    True
+
+    See Also
+    --------
+    sequential_probability_ratio : Parametric sequential test.
+    wraquant.ts.changepoints : Change-point detection for time series.
     """
     observations = coerce_array(observations, name="observations")
     n = len(observations)
@@ -422,8 +519,23 @@ def secretary_problem_threshold(
     -------
     dict
         ``threshold``         – number of candidates to unconditionally reject.
-        ``optimal_fraction``  – threshold / n_candidates.
+        ``optimal_fraction``  – threshold / n_candidates.  Converges to
+            1/e (approximately 0.368) as *n_candidates* grows.
         ``success_probability`` – probability of selecting the best candidate.
+            Converges to 1/e for large *n_candidates*.
+
+    Example
+    -------
+    >>> from wraquant.math.optimal_stopping import secretary_problem_threshold
+    >>> result = secretary_problem_threshold(100)
+    >>> 30 <= result['threshold'] <= 40  # close to 1/e * 100 ~ 37
+    True
+    >>> result['success_probability'] > 0.3
+    True
+
+    See Also
+    --------
+    sequential_probability_ratio : Sequential testing framework.
     """
     if n_candidates <= 0:
         raise ValueError("n_candidates must be positive.")

@@ -259,17 +259,40 @@ def _ess_single(x: np.ndarray) -> float:
 def gelman_rubin(chains: np.ndarray | list[np.ndarray]) -> np.ndarray:
     """Compute the Gelman-Rubin (R-hat) convergence diagnostic.
 
-    Parameters
-    ----------
-    chains : np.ndarray or list of np.ndarray
-        Either a 3D array of shape (n_chains, n_samples, n_params) or a
-        list of 2D arrays each of shape (n_samples, n_params).
+    R-hat compares the between-chain variance to the within-chain
+    variance.  If chains have converged to the same stationary
+    distribution, these should be approximately equal (R-hat ~ 1).
+    Large R-hat means the chains disagree, indicating they have not
+    yet explored the same region of parameter space.
 
-    Returns
-    -------
-    np.ndarray
-        R-hat values for each parameter. Values close to 1.0 indicate
-        convergence.
+    Interpretation:
+        - **R-hat < 1.01**: Excellent convergence. Safe to use samples.
+        - **R-hat 1.01 - 1.05**: Acceptable, but consider running longer.
+        - **R-hat 1.05 - 1.1**: Marginal. Results may be unreliable.
+        - **R-hat > 1.1**: NOT converged. Do not use these samples for
+          inference. Run longer, tune the sampler, or reparameterise.
+
+    Requires at least 2 chains. Running multiple chains from different
+    starting points is the gold standard for diagnosing convergence.
+
+    Parameters:
+        chains: Either a 3D array of shape (n_chains, n_samples,
+            n_params) or a list of 2D arrays each of shape
+            (n_samples, n_params).
+
+    Returns:
+        R-hat values for each parameter, shape (n_params,).
+
+    Example:
+        >>> import numpy as np
+        >>> rng = np.random.default_rng(0)
+        >>> chains = rng.normal(size=(4, 2000, 3))
+        >>> r_hat = gelman_rubin(chains)
+        >>> print(f"R-hat: {r_hat}")  # Should be ~1.0
+
+    See Also:
+        convergence_diagnostics: Full battery including split R-hat,
+            ESS, and MCSE.
     """
     if isinstance(chains, list):
         chains = np.array(chains)
@@ -310,25 +333,47 @@ def nuts_diagnostic(
 ) -> dict[str, np.ndarray]:
     """Compute NUTS-style diagnostic statistics (ESS, R-hat, etc.).
 
-    Can be used on output from any sampler, not just NUTS.
+    Provides the minimum set of diagnostics that every MCMC analysis
+    should report.  Can be used on output from any sampler, not just
+    NUTS.
 
-    Parameters
-    ----------
-    samples : np.ndarray
-        Posterior samples. If 2D (n_samples, n_params), treated as a
-        single chain. If 3D (n_chains, n_samples, n_params), R-hat is
-        computed across chains.
-    chains : np.ndarray or None
-        Optional multi-chain samples for R-hat computation. If provided,
-        must be 3D (n_chains, n_samples, n_params).
+    Interpretation:
+        - **ESS** (Effective Sample Size): How many independent samples
+          your chain is worth, accounting for autocorrelation.  If you
+          drew 10,000 samples but ESS = 500, your estimates are only
+          as precise as 500 independent draws.  Rule of thumb: ESS >
+          400 for reliable posterior summaries, ESS > 1000 for tail
+          quantiles.
+        - **R-hat**: Convergence diagnostic (see ``gelman_rubin``).
+          Only meaningful with multiple chains.
+        - **mean/std**: Posterior summaries.  MCSE = std / sqrt(ESS)
+          gives the precision of the posterior mean estimate.
 
-    Returns
-    -------
-    dict
-        ``ess``: np.ndarray — effective sample size per parameter,
-        ``r_hat``: np.ndarray — R-hat per parameter (NaN if single chain),
-        ``mean``: np.ndarray — posterior mean,
-        ``std``: np.ndarray — posterior standard deviation.
+    When to use:
+        - After any MCMC run, before using the samples for inference.
+        - To decide whether to run the sampler longer.
+
+    Parameters:
+        samples: Posterior samples. If 2D (n_samples, n_params),
+            treated as a single chain. If 3D (n_chains, n_samples,
+            n_params), R-hat is computed across chains.
+        chains: Optional multi-chain samples for R-hat computation.
+            If provided, must be 3D (n_chains, n_samples, n_params).
+
+    Returns:
+        Dictionary containing:
+
+        - **ess** (*ndarray*) -- Effective sample size per parameter.
+        - **r_hat** (*ndarray*) -- R-hat per parameter (NaN if single
+          chain).
+        - **mean** (*ndarray*) -- Posterior mean per parameter.
+        - **std** (*ndarray*) -- Posterior standard deviation.
+
+    Example:
+        >>> import numpy as np
+        >>> samples = np.random.default_rng(0).normal(size=(5000, 3))
+        >>> diag = nuts_diagnostic(samples)
+        >>> print(f"ESS: {diag['ess']}")  # Should be ~5000 for iid
     """
     samples = np.asarray(samples, dtype=float)
 
@@ -374,25 +419,44 @@ def trace_summary(
     quantiles: tuple[float, ...] = (0.025, 0.25, 0.5, 0.75, 0.975),
     chains: np.ndarray | None = None,
 ) -> pd.DataFrame:
-    """Compute a summary table for MCMC samples.
+    """Compute a publication-ready summary table for MCMC samples.
 
-    Parameters
-    ----------
-    samples : np.ndarray
-        Posterior samples of shape (n_samples, n_params) or
-        (n_chains, n_samples, n_params).
-    param_names : sequence of str or None
-        Parameter names. Defaults to ``['param_0', 'param_1', ...]``.
-    quantiles : tuple of float
-        Quantiles to compute.
-    chains : np.ndarray or None
-        Optional multi-chain samples for R-hat. If None and samples is
-        3D, R-hat is computed from the 3D array.
+    This is the standard output table that every Bayesian analysis
+    should report.  It combines posterior summaries (mean, std,
+    quantiles) with convergence diagnostics (ESS, R-hat) in a single
+    DataFrame.
 
-    Returns
-    -------
-    pd.DataFrame
-        Summary table with columns: mean, std, quantiles, ESS, R-hat.
+    Interpretation:
+        - **mean** and **std**: point estimate and uncertainty.
+        - **2.5% and 97.5%**: bounds of the 95% credible interval.
+          If this interval excludes 0, the parameter is "significant"
+          in a Bayesian sense.
+        - **50%** (median): more robust than mean for skewed posteriors.
+        - **ESS**: effective sample size. If ESS < 400, the quantile
+          estimates (especially the tails) may be unreliable.
+        - **R-hat**: convergence diagnostic. R-hat > 1.05 is a red
+          flag; do not trust the results.
+
+    Parameters:
+        samples: Posterior samples of shape (n_samples, n_params) or
+            (n_chains, n_samples, n_params).
+        param_names: Parameter names. Defaults to
+            ``['param_0', 'param_1', ...]``.
+        quantiles: Quantiles to compute. Default includes the 95%
+            credible interval endpoints and median.
+        chains: Optional multi-chain samples for R-hat. If None and
+            samples is 3D, R-hat is computed from the 3D array.
+
+    Returns:
+        pd.DataFrame with columns: mean, std, quantiles, ESS, R-hat.
+        One row per parameter.
+
+    Example:
+        >>> import numpy as np
+        >>> rng = np.random.default_rng(0)
+        >>> samples = rng.normal(size=(5000, 3))
+        >>> summary = trace_summary(samples, param_names=['alpha', 'beta', 'sigma'])
+        >>> print(summary)
     """
     samples = np.asarray(samples, dtype=float)
 

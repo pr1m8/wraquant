@@ -74,6 +74,19 @@ def amihud_illiquidity(
     Returns:
         Rolling Amihud illiquidity ratio (or a single float when
         *window* is *None*).
+
+    Example:
+        >>> import pandas as pd, numpy as np
+        >>> np.random.seed(42)
+        >>> returns = pd.Series(np.random.randn(252) * 0.01)
+        >>> volume = pd.Series(np.random.uniform(1e6, 5e6, 252))
+        >>> illiq = amihud_illiquidity(returns, volume)
+        >>> illiq > 0
+        True
+
+    See Also:
+        kyle_lambda: Price impact coefficient (regression-based alternative).
+        amihud_rolling: Rolling version with normalization.
     """
     returns = coerce_series(returns, "returns")
     volume = coerce_series(volume, "volume")
@@ -100,7 +113,21 @@ def kyle_lambda(
         window: Rolling regression window.
 
     Returns:
-        Rolling Kyle's lambda series.
+        Rolling Kyle's lambda series.  Higher values indicate more
+        price impact per unit of volume (less liquid).
+
+    Example:
+        >>> import pandas as pd, numpy as np
+        >>> np.random.seed(42)
+        >>> prices = pd.Series(100 + np.cumsum(np.random.randn(100) * 0.5))
+        >>> volume = pd.Series(np.random.randn(100) * 1000)
+        >>> lam = kyle_lambda(prices, volume, window=20)
+        >>> len(lam) == 100
+        True
+
+    See Also:
+        amihud_illiquidity: Simpler illiquidity proxy (no signed volume needed).
+        lambda_kyle_rolling: Kyle's lambda with confidence intervals.
     """
     prices = coerce_series(prices, "prices")
     volume = coerce_series(volume, "volume")
@@ -126,6 +153,21 @@ def roll_spread(prices: pd.Series) -> float:
     Returns:
         Estimated implied spread. Returns *NaN* if the serial
         covariance is non-negative (model assumption violated).
+
+    Example:
+        >>> import pandas as pd, numpy as np
+        >>> np.random.seed(42)
+        >>> # Simulate trade prices with bid-ask bounce
+        >>> mid = 100 + np.cumsum(np.random.randn(500) * 0.01)
+        >>> bounce = np.random.choice([-0.05, 0.05], size=500)
+        >>> prices = pd.Series(mid + bounce)
+        >>> spread = roll_spread(prices)
+        >>> spread > 0 or np.isnan(spread)  # positive spread or NaN
+        True
+
+    See Also:
+        effective_spread: Direct spread from trade and quote data.
+        corwin_schultz_spread: High-low spread estimator (OHLC data).
     """
     prices = coerce_series(prices, "prices")
     dp = prices.diff().dropna()
@@ -147,6 +189,18 @@ def effective_spread(
 
     Returns:
         Per-trade effective spread, same type as the inputs.
+
+    Example:
+        >>> import pandas as pd, numpy as np
+        >>> trades = pd.Series([100.05, 99.95, 100.03])
+        >>> mids = pd.Series([100.0, 100.0, 100.0])
+        >>> spreads = effective_spread(trades, mids)
+        >>> float(spreads.iloc[0])
+        0.1
+
+    See Also:
+        realized_spread: Post-trade spread (adverse selection component).
+        roll_spread: Implied spread from price autocovariance.
     """
     trade_prices = coerce_series(trade_prices, "trade_prices")
     midpoints = coerce_series(midpoints, "midpoints")
@@ -170,6 +224,18 @@ def realized_spread(
 
     Returns:
         Per-trade realized spread series (NaN for the last *delay* rows).
+
+    Example:
+        >>> import pandas as pd, numpy as np
+        >>> trades = pd.Series([100.05, 99.95, 100.03, 100.01, 99.98])
+        >>> mids = pd.Series([100.0, 100.0, 100.0, 100.0, 100.0])
+        >>> rs = realized_spread(trades, mids, delay=2)
+        >>> len(rs) == 5
+        True
+
+    See Also:
+        effective_spread: Total execution cost (before adverse selection).
+        spread_decomposition: Full Huang-Stoll decomposition.
     """
     trade_prices = coerce_series(trade_prices, "trade_prices")
     midpoints = coerce_series(midpoints, "midpoints")
@@ -195,6 +261,20 @@ def price_impact(
 
     Returns:
         Per-trade permanent price impact series.
+
+    Example:
+        >>> import pandas as pd, numpy as np
+        >>> trades = pd.Series([100.0, 100.05, 100.10, 100.08])
+        >>> vol = pd.Series([1000, 2000, 1500, 1800])
+        >>> direction = pd.Series([1, 1, -1, 1])
+        >>> impact = price_impact(trades, vol, direction)
+        >>> len(impact) == 4
+        True
+
+    See Also:
+        kyle_lambda: Aggregate price impact coefficient.
+        wraquant.microstructure.market_quality.price_impact_regression:
+            Permanent vs. temporary impact decomposition.
     """
     trade_prices = coerce_series(trade_prices, "trade_prices")
     volume = coerce_series(volume, "volume")
@@ -217,7 +297,17 @@ def turnover_ratio(
         shares_outstanding: Total shares outstanding (scalar or series).
 
     Returns:
-        Daily turnover ratio.
+        Daily turnover ratio.  Higher values indicate more active trading.
+
+    Example:
+        >>> import pandas as pd
+        >>> volume = pd.Series([1e6, 1.5e6, 0.8e6])
+        >>> ratio = turnover_ratio(volume, shares_outstanding=100e6)
+        >>> float(ratio.iloc[0])
+        0.01
+
+    See Also:
+        amihud_illiquidity: Price-impact-based liquidity measure.
     """
     volume = coerce_series(volume, "volume")
     ratio = volume / shares_outstanding
@@ -263,10 +353,24 @@ def corwin_schultz_spread(
     Returns:
         Estimated bid-ask spread series, floored at zero.
 
+    Example:
+        >>> import pandas as pd, numpy as np
+        >>> np.random.seed(42)
+        >>> close = pd.Series(100 + np.cumsum(np.random.randn(100) * 0.5))
+        >>> high = close + np.abs(np.random.randn(100)) * 0.3
+        >>> low = close - np.abs(np.random.randn(100)) * 0.3
+        >>> spread = corwin_schultz_spread(high, low)
+        >>> (spread >= 0).all()
+        True
+
     References:
         Corwin, S. A. & Schultz, P. (2012). "A Simple Way to Estimate
         Bid-Ask Spreads from Daily High and Low Prices." *Journal of
         Finance*, 67(2), 719-760.
+
+    See Also:
+        roll_spread: Implied spread from trade prices only.
+        effective_spread: Direct spread from trade and quote data.
     """
     high = coerce_series(high, "high")
     low = coerce_series(low, "low")
@@ -328,9 +432,21 @@ def closing_quoted_spread(
     Returns:
         Closing quoted spread series (ask - bid), in price units.
 
+    Example:
+        >>> import pandas as pd
+        >>> bid = pd.Series([99.90, 99.85, 99.95])
+        >>> ask = pd.Series([100.10, 100.15, 100.05])
+        >>> spread = closing_quoted_spread(bid, ask)
+        >>> float(spread.iloc[0])
+        0.2
+
     References:
         Chordia, T., Roll, R. & Subrahmanyam, A. (2001). "Market Liquidity
         and Trading Activity." *Journal of Finance*, 56(2), 501-530.
+
+    See Also:
+        effective_spread: Execution-weighted spread measure.
+        relative_spread: Spread normalized by midpoint.
     """
     bid_close = coerce_series(bid_close, "bid_close")
     ask_close = coerce_series(ask_close, "ask_close")
@@ -371,10 +487,23 @@ def depth_imbalance(
     Returns:
         Depth imbalance in [-1, 1].
 
+    Example:
+        >>> import pandas as pd
+        >>> bid_depth = pd.Series([5000, 3000, 4000])
+        >>> ask_depth = pd.Series([3000, 5000, 4000])
+        >>> imb = depth_imbalance(bid_depth, ask_depth)
+        >>> float(imb.iloc[0])  # more bids than asks -> positive
+        0.25
+
     References:
         Cao, C., Hansch, O. & Wang, X. (2009). "The Information Content
         of an Open Limit-Order Book." *Journal of Futures Markets*, 29(1),
         16-41.
+
+    See Also:
+        wraquant.microstructure.toxicity.order_flow_imbalance:
+            Volume-based imbalance measure.
+        wraquant.microstructure.market_quality.depth: Total market depth.
     """
     is_series = isinstance(bid_depth, pd.Series)
     bid_series = coerce_series(bid_depth, "bid_depth")
@@ -424,9 +553,22 @@ def lambda_kyle_rolling(
         DataFrame with columns ``'lambda'``, ``'std_err'``,
         ``'ci_lower'``, ``'ci_upper'`` (95% confidence interval).
 
+    Example:
+        >>> import pandas as pd, numpy as np
+        >>> np.random.seed(42)
+        >>> prices = pd.Series(100 + np.cumsum(np.random.randn(50) * 0.1))
+        >>> volume = pd.Series(np.random.randn(50) * 1000)
+        >>> result = lambda_kyle_rolling(prices, volume, window=20)
+        >>> list(result.columns)
+        ['lambda', 'std_err', 'ci_lower', 'ci_upper']
+
     References:
         Kyle, A. S. (1985). "Continuous Auctions and Insider Trading."
         *Econometrica*, 53(6), 1315-1335.
+
+    See Also:
+        kyle_lambda: Simple point estimate without confidence intervals.
+        amihud_rolling: Rolling Amihud illiquidity ratio.
     """
     prices = coerce_series(prices, "prices")
     volume = coerce_series(volume, "volume")
@@ -503,10 +645,23 @@ def amihud_rolling(
     Returns:
         Rolling Amihud illiquidity series.
 
+    Example:
+        >>> import pandas as pd, numpy as np
+        >>> np.random.seed(42)
+        >>> returns = pd.Series(np.random.randn(100) * 0.01)
+        >>> volume = pd.Series(np.random.uniform(1e6, 5e6, 100))
+        >>> illiq = amihud_rolling(returns, volume, window=21)
+        >>> illiq.name
+        'amihud_rolling'
+
     References:
         Amihud, Y. (2002). "Illiquidity and Stock Returns: Cross-Section
         and Time-Series Effects." *Journal of Financial Markets*, 5(1),
         31-56.
+
+    See Also:
+        amihud_illiquidity: Static (full-sample) Amihud ratio.
+        liquidity_commonality: How much liquidity co-moves with the market.
     """
     returns = coerce_series(returns, "returns")
     volume = coerce_series(volume, "volume")
@@ -556,9 +711,21 @@ def liquidity_commonality(
     Returns:
         Rolling R-squared of the commonality regression.
 
+    Example:
+        >>> import pandas as pd, numpy as np
+        >>> np.random.seed(42)
+        >>> asset = pd.Series(np.random.randn(200).cumsum())
+        >>> market = pd.Series(np.random.randn(200).cumsum())
+        >>> r2 = liquidity_commonality(asset, market, window=60)
+        >>> r2.name
+        'liquidity_commonality'
+
     References:
         Chordia, T., Roll, R. & Subrahmanyam, A. (2000). "Commonality in
         Liquidity." *Journal of Financial Economics*, 56(1), 3-28.
+
+    See Also:
+        amihud_rolling: Generate the illiquidity input for this function.
     """
     asset_illiquidity = coerce_series(asset_illiquidity, "asset_illiquidity")
     market_illiquidity = coerce_series(market_illiquidity, "market_illiquidity")
@@ -647,10 +814,28 @@ def spread_decomposition(
         - ``'inventory_holding'``: fraction due to inventory risk.
         - ``'effective_spread_mean'``: average effective spread.
 
+    Example:
+        >>> import pandas as pd, numpy as np
+        >>> np.random.seed(42)
+        >>> n = 200
+        >>> mid = 100 + np.cumsum(np.random.randn(n) * 0.01)
+        >>> spread_half = 0.05
+        >>> bid = pd.Series(mid - spread_half)
+        >>> ask = pd.Series(mid + spread_half)
+        >>> direction = pd.Series(np.random.choice([1, -1], n))
+        >>> trades = pd.Series(np.where(direction > 0, ask, bid))
+        >>> result = spread_decomposition(trades, bid, ask, direction)
+        >>> 0 <= result['adverse_selection'] <= 1
+        True
+
     References:
         Huang, R. D. & Stoll, H. R. (1997). "The Components of the
         Bid-Ask Spread: A General Approach." *Review of Financial Studies*,
         10(4), 995-1034.
+
+    See Also:
+        effective_spread: Total execution cost measure.
+        realized_spread: Liquidity provider's revenue component.
     """
     trade_prices = coerce_series(trade_prices, "trade_prices")
     bid = coerce_series(bid, "bid")

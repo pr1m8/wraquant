@@ -269,24 +269,49 @@ def propensity_score(
 ) -> np.ndarray:
     """Estimate propensity scores using logistic regression.
 
-    Fits a logistic regression of treatment assignment on covariates
-    to estimate P(treatment=1 | covariates).  The propensity score is
-    the foundation for IPW and doubly robust estimators: it balances
-    confounders by reweighting observations so that treated and control
-    groups look comparable.
+    The propensity score e(X) = P(treatment=1 | covariates=X) is the
+    probability that a unit receives treatment given its observed
+    characteristics.  It is the foundation of all observational causal
+    inference: by conditioning on (or weighting by) the propensity
+    score, you can remove confounding bias, making the treated and
+    control groups comparable.
 
-    Scores are clipped to [0.01, 0.99] to avoid extreme weights.
+    This function fits a logistic regression of treatment assignment on
+    covariates.  Scores are clipped to [0.01, 0.99] to prevent extreme
+    inverse-probability weights that would blow up downstream estimators.
+
+    Interpretation:
+        - A propensity score of 0.5 means the unit was equally likely
+          to be treated or not -- ideal for causal inference.
+        - Scores near 0 or 1 indicate units that were almost
+          deterministically treated/untreated.  These are problematic:
+          the overlap assumption fails, and IPW weights become extreme.
+        - Check the overlap: plot histograms of propensity scores
+          separately for treated and control groups.  If they don't
+          overlap, causal inference is unreliable in the non-overlap
+          region.
+
+    When to use:
+        - As input to ``ipw_ate`` or ``doubly_robust_ate``.
+        - For propensity score matching (match treated to controls
+          with similar scores).
+        - To diagnose selection bias: if propensity scores are
+          very different between groups, selection is strong.
+
+    Red flags:
+        - Most scores near 0 or 1: poor overlap, IPW will be unstable.
+        - Treatment is nearly perfectly predicted: positivity violation.
+        - Scores are all similar (~0.5): treatment is nearly random,
+          which is actually ideal for causal inference.
 
     Parameters:
-        treatment (np.ndarray): Binary treatment indicator (1-D array
-            of 0s and 1s).
-        covariates (np.ndarray): Covariate matrix of shape
-            ``(n_samples, n_features)``.  An intercept column is added
-            automatically; do not include one.
+        treatment: Binary treatment indicator (1-D array of 0s and 1s).
+        covariates: Covariate matrix of shape ``(n_samples, n_features)``.
+            An intercept column is added automatically; do not include one.
 
     Returns:
-        np.ndarray: Estimated propensity scores (probabilities) of
-            shape ``(n_samples,)``, each in [0.01, 0.99].
+        Estimated propensity scores (probabilities) of shape
+        ``(n_samples,)``, each in [0.01, 0.99].
 
     Example:
         >>> import numpy as np
@@ -294,13 +319,14 @@ def propensity_score(
         >>> X = rng.normal(size=(200, 3))
         >>> T = (X[:, 0] + rng.normal(size=200) > 0).astype(float)
         >>> ps = propensity_score(T, X)
-        >>> ps.shape
-        (200,)
+        >>> # Check overlap: both groups should have scores in [0.2, 0.8]
+        >>> print(f"Treated scores: [{ps[T==1].min():.2f}, {ps[T==1].max():.2f}]")
+        >>> print(f"Control scores: [{ps[T==0].min():.2f}, {ps[T==0].max():.2f}]")
 
     See Also:
         ipw_ate: Use propensity scores to estimate the ATE.
         doubly_robust_ate: Combines propensity scores with outcome
-            regression.
+            regression for robustness.
     """
     treatment = np.asarray(treatment, dtype=float).ravel()
     covariates = np.asarray(covariates, dtype=float)
@@ -337,10 +363,13 @@ def ipw_ate(
 ) -> ATEResult:
     r"""Estimate the Average Treatment Effect using Inverse Probability Weighting.
 
-    IPW reweights each observation by the inverse of the probability
-    of receiving its actual treatment, creating a pseudo-population
-    where treatment is independent of covariates.  The Horvitz-Thompson
-    estimator is:
+    The ATE (Average Treatment Effect) answers: "On average, how much
+    does the treatment change the outcome?"  IPW estimates this by
+    reweighting observations by the inverse of their propensity score,
+    creating a pseudo-population where treatment assignment is
+    independent of confounders.
+
+    The Horvitz-Thompson estimator is:
 
     .. math::
 
@@ -349,20 +378,34 @@ def ipw_ate(
         - \frac{1}{n}\sum_{i=1}^{n}
         \frac{(1 - T_i)\,Y_i}{1 - e(X_i)}
 
-    Use IPW when you have a well-estimated propensity score and
-    moderate overlap between treated and control groups.  If
-    propensity scores are extreme (close to 0 or 1), consider the
-    doubly robust estimator instead.
+    Interpretation:
+        - **ate > 0**: Treatment increases the outcome on average.
+        - **ate < 0**: Treatment decreases the outcome on average.
+        - The 95% CI is asymptotically valid under correct propensity
+          score specification and the overlap assumption.
+        - If CI includes 0: cannot conclude treatment has an effect.
+
+    When to use:
+        - You have a well-estimated propensity score model.
+        - There is good overlap (propensity scores are not extreme).
+        - You are willing to assume no unobserved confounders.
+
+    When NOT to use:
+        - Propensity scores near 0 or 1: weights explode, variance
+          is huge.  Use ``doubly_robust_ate`` instead.
+        - Strong model misspecification concerns: use
+          ``doubly_robust_ate`` (consistent if either model is right).
+        - Very few treated or control units: matching may be better.
 
     Parameters:
-        outcome (np.ndarray): Observed outcomes (1-D array).
-        treatment (np.ndarray): Binary treatment indicator (0s and 1s).
-        propensity_scores (np.ndarray): Estimated propensity scores
-            from :func:`propensity_score` (1-D array).
+        outcome: Observed outcomes (1-D array).
+        treatment: Binary treatment indicator (0s and 1s).
+        propensity_scores: Estimated propensity scores from
+            :func:`propensity_score` (1-D array).
 
     Returns:
-        ATEResult: ATE estimate with standard error, 95% confidence
-            interval, and sample sizes.
+        ATEResult with ATE estimate, standard error, 95% confidence
+        interval, and sample sizes.
 
     Example:
         >>> import numpy as np
@@ -373,12 +416,10 @@ def ipw_ate(
         >>> Y = 2.0 * T + X[:, 0] + rng.normal(size=n)
         >>> ps = propensity_score(T, X)
         >>> result = ipw_ate(Y, T, ps)
-        >>> 0.5 < result.ate < 3.5
-        True
+        >>> print(f"ATE: {result.ate:.2f} [{result.ci_lower:.2f}, {result.ci_upper:.2f}]")
 
     See Also:
-        doubly_robust_ate: More robust alternative combining IPW and
-            outcome regression.
+        doubly_robust_ate: More robust alternative (recommended default).
         matching_ate: Nonparametric matching estimator.
     """
     outcome = np.asarray(outcome, dtype=float).ravel()
@@ -427,27 +468,49 @@ def matching_ate(
     """Estimate the ATE using nearest-neighbor matching on covariates.
 
     For each treated unit, finds the closest control unit(s) in
-    Euclidean covariate space and uses the matched pair difference as
-    the individual treatment effect estimate (and vice versa for
-    controls).  The ATE is the average of these pairwise differences.
+    covariate space and uses the matched pair difference as the
+    individual treatment effect estimate (and vice versa for controls).
+    The ATE is the average of these pairwise differences.
 
-    Matching is intuitive and nonparametric, but can be biased in
-    high-dimensional covariate spaces due to the curse of
-    dimensionality.  Consider propensity-score matching or the doubly
-    robust estimator when dimensionality is high.
+    Matching is the most intuitive causal inference method: compare
+    each treated unit to the most similar untreated unit.  It is
+    nonparametric (no model assumptions) but suffers from the curse
+    of dimensionality -- with many covariates, "nearest" neighbors
+    can be far away.
+
+    Interpretation:
+        - **ate** is the average difference in outcomes between
+          treated units and their matched controls, averaged over
+          all units.
+        - Good matching means the matched pairs are genuinely similar.
+          Check the covariate balance after matching.
+        - **n_neighbors = 1**: lowest bias, highest variance (each
+          unit matched to exactly one partner).
+        - **n_neighbors = 3-5**: reduces variance at the cost of
+          some bias (averaging over less-similar matches).
+
+    When to use:
+        - Low-dimensional covariates (2-5 features).
+        - When you want a transparent, model-free estimator.
+        - When propensity score modelling is difficult.
+
+    Limitations:
+        - Curse of dimensionality: in high dimensions, matches become
+          poor.  Use propensity score matching instead.
+        - Biased with finite samples (Abadie & Imbens, 2006).
+        - No extrapolation: cannot estimate effects outside the
+          overlap region.
 
     Parameters:
-        outcome (np.ndarray): Observed outcomes (1-D array).
-        treatment (np.ndarray): Binary treatment indicator (0s and 1s).
-        covariates (np.ndarray): Covariate matrix of shape
-            ``(n_samples, n_features)``.
-        n_neighbors (int): Number of nearest neighbors to match with
-            (default 1).  More neighbors reduce variance but may
+        outcome: Observed outcomes (1-D array).
+        treatment: Binary treatment indicator (0s and 1s).
+        covariates: Covariate matrix of shape ``(n_samples, n_features)``.
+        n_neighbors: Number of nearest neighbors to match with
+            (default 1). More neighbors reduce variance but may
             increase bias.
 
     Returns:
-        ATEResult: ATE estimate with standard error and 95% confidence
-            interval.
+        ATEResult with ATE estimate, standard error, and 95% CI.
 
     Example:
         >>> import numpy as np
@@ -456,13 +519,12 @@ def matching_ate(
         >>> T = (X[:, 0] > 0).astype(float)
         >>> Y = 1.5 * T + X[:, 0] + rng.normal(size=300)
         >>> result = matching_ate(Y, T, X)
-        >>> result.n_treated > 0
-        True
+        >>> print(f"ATE: {result.ate:.2f} (se={result.se:.2f})")
 
     See Also:
         ipw_ate: Weighting-based estimator (no matching).
-        doubly_robust_ate: Combines matching intuition with IPW
-            robustness.
+        doubly_robust_ate: Recommended default when uncertain about
+            model specification.
     """
     outcome = np.asarray(outcome, dtype=float).ravel()
     treatment = np.asarray(treatment, dtype=float).ravel()
@@ -639,35 +701,56 @@ def regression_discontinuity(
 ) -> RDResult:
     """Estimate treatment effect using a sharp regression discontinuity design.
 
-    RDD exploits a sharp cutoff in a running variable (e.g., market-cap
-    threshold for index inclusion, credit score cutoff for loan
-    approval) to identify a local causal effect.  The key identifying
-    assumption is that units just above and just below the cutoff are
-    comparable, so any discontinuity in outcomes at the cutoff is
+    RDD exploits a sharp cutoff in a running variable to identify a
+    local causal effect.  The key insight: units just above and just
+    below the cutoff are essentially identical except for treatment
+    status, so any discontinuity in outcomes at the cutoff is
     attributable to the treatment.
 
-    The function fits local linear regressions on each side of the
-    cutoff and estimates the treatment effect as the jump at the
-    cutoff.
+    Financial examples:
+        - Market-cap threshold for S&P 500 inclusion: does index
+          inclusion cause a price premium?
+        - Credit score cutoff for loan approval: does access to
+          credit affect firm investment?
+        - Regulatory thresholds: do firms just above a reporting
+          threshold behave differently?
+
+    Interpretation:
+        - **ate** is the LOCAL average treatment effect at the cutoff.
+          It tells you the effect for units right at the boundary,
+          not the average effect for all units.
+        - The validity depends on the assumption that units cannot
+          precisely manipulate their position relative to the cutoff.
+          If they can (e.g., firms just barely meet a threshold by
+          manipulating data), the estimate is biased.  Use the
+          McCrary test (in ``regression_discontinuity_robust``) to
+          check for manipulation.
+        - **bandwidth** matters: too wide includes units far from the
+          cutoff (more bias); too narrow uses few observations (more
+          variance).
+
+    Red flags:
+        - Very different n_left and n_right: asymmetric data.
+        - Bandwidth is very small: few observations, imprecise.
+        - Density of running variable has a spike at the cutoff:
+          possible manipulation (run McCrary test).
 
     Parameters:
-        outcome (np.ndarray): Observed outcomes (1-D array).
-        running_var (np.ndarray): Running variable that determines
-            treatment (1-D array).  Units with
-            ``running_var >= cutoff`` are treated.
-        cutoff (float): Cutoff value for the running variable
-            (default 0.0).
-        bandwidth (float | None): Bandwidth for local linear
-            regression.  If None, uses Silverman's rule of thumb.
-            A narrower bandwidth reduces bias but increases variance.
+        outcome: Observed outcomes (1-D array).
+        running_var: Running variable that determines treatment
+            (1-D array). Units with ``running_var >= cutoff`` are
+            treated.
+        cutoff: Cutoff value (default 0.0).
+        bandwidth: Bandwidth for local linear regression. If None,
+            uses Silverman's rule. Narrower = less bias, more variance.
 
     Returns:
-        RDResult: Estimated local ATE at the cutoff, with standard
-            error, confidence interval, and bandwidth used.
+        RDResult with estimated local ATE at the cutoff, standard
+        error, confidence interval, and bandwidth used.
 
     Raises:
-        ValueError: If there are fewer than 2 observations on either
-            side of the cutoff within the bandwidth.
+        ValueError: If fewer than 2 observations on either side within
+            bandwidth.
 
     Example:
         >>> import numpy as np
@@ -676,12 +759,11 @@ def regression_discontinuity(
         >>> X = rng.uniform(-1, 1, n)
         >>> Y = 0.5 * (X >= 0).astype(float) + X + rng.normal(0, 0.2, n)
         >>> result = regression_discontinuity(Y, X, cutoff=0.0)
-        >>> 0.0 < result.ate < 1.5
-        True
+        >>> print(f"RD estimate: {result.ate:.3f} (se={result.se:.3f})")
 
     See Also:
+        regression_discontinuity_robust: With IK bandwidth and McCrary test.
         diff_in_diff: Before/after comparison with control group.
-        synthetic_control: Single-unit causal inference over time.
     """
     outcome = np.asarray(outcome, dtype=float).ravel()
     running_var = np.asarray(running_var, dtype=float).ravel()
@@ -874,7 +956,8 @@ def diff_in_diff(
 ) -> DIDResult:
     r"""Estimate treatment effect using difference-in-differences (DID).
 
-    DID compares the before-after change in the treatment group to the
+    DID is the workhorse of causal inference in finance and economics.
+    It compares the before-after change in the treatment group to the
     before-after change in the control group, netting out common time
     trends:
 
@@ -886,22 +969,43 @@ def diff_in_diff(
     The key identifying assumption is **parallel trends**: absent the
     treatment, both groups would have followed the same trajectory.
 
-    Use DID when you have panel data with a clear treatment date and a
-    plausible control group.
+    Interpretation:
+        - **ate (delta)**: The causal effect of the treatment on
+          the treated group, net of any common time trend.
+        - Positive delta = treatment increased the outcome.
+        - The group means (pre_treatment_mean, post_treatment_mean,
+          pre_control_mean, post_control_mean) can be used to
+          construct a "parallel trends" plot: plot the treated and
+          control group means over time. If they are parallel
+          pre-treatment, the assumption is plausible.
+
+    How to check parallel trends:
+        - Plot both group means in the pre-treatment period.
+          They should move in parallel (not necessarily at the same
+          level -- DID allows for level differences).
+        - Run placebo DID tests at fake treatment dates in the
+          pre-period. The estimated "effects" should be near zero.
+
+    Financial examples:
+        - Effect of a new regulation on trading costs (treated =
+          affected firms, control = unaffected firms).
+        - Impact of an IPO on a firm's operating performance
+          (treated = IPO firms, control = matched private firms).
+        - Did the COVID-19 lockdown affect commercial real estate
+          values differently than residential?
 
     Parameters:
-        outcome (np.ndarray): Observed outcomes (1-D array).
-        treatment (np.ndarray): Binary group indicator (1-D array):
-            1 = treatment group, 0 = control group.
-        post (np.ndarray): Binary time indicator (1-D array):
-            1 = post-treatment, 0 = pre-treatment.
-        entity (np.ndarray | None): Entity identifiers for panel data
-            (1-D array).  If provided, entity fixed effects are
-            included.  Default is None.
+        outcome: Observed outcomes (1-D array).
+        treatment: Binary group indicator: 1 = treatment group,
+            0 = control group.
+        post: Binary time indicator: 1 = post-treatment,
+            0 = pre-treatment.
+        entity: Entity identifiers for panel data. If provided,
+            entity fixed effects are included.
 
     Returns:
-        DIDResult: DID estimate with standard error, 95% confidence
-            interval, and group means for parallel-trends diagnostics.
+        DIDResult with the DID estimate, standard error, 95% CI,
+        and group means for diagnostics.
 
     Example:
         >>> import numpy as np
@@ -912,12 +1016,11 @@ def diff_in_diff(
         >>> Y = 1.0 + 0.5 * treat + 0.3 * post_period + 2.0 * treat * post_period
         >>> Y += rng.normal(0, 0.5, n)
         >>> result = diff_in_diff(Y, treat, post_period)
-        >>> 1.0 < result.ate < 3.0
-        True
+        >>> print(f"DID: {result.ate:.2f} [{result.ci_lower:.2f}, {result.ci_upper:.2f}]")
 
     See Also:
-        synthetic_control: Single-unit causal inference.
-        regression_discontinuity: Cutoff-based identification.
+        synthetic_control: For single-unit case studies.
+        event_study: For measuring effects around specific dates.
     """
     outcome = np.asarray(outcome, dtype=float).ravel()
     treatment = np.asarray(treatment, dtype=float).ravel()
@@ -1331,6 +1434,11 @@ def granger_causality(
     that helps predict *y* beyond what past values of *y* alone provide.
     The null hypothesis is that *x* does **not** Granger-cause *y*.
 
+    **IMPORTANT**: Granger "causality" is really *predictive* causality,
+    NOT true causality.  It means "x helps forecast y" -- this could be
+    because x causes y, or because x responds faster to a common cause.
+    The name is a historical misnomer.
+
     The test fits two VAR models for each candidate lag order *p*:
 
     .. math::
@@ -1342,29 +1450,35 @@ def granger_causality(
 
     The F-statistic tests :math:`H_0: \\gamma_1 = \\cdots = \\gamma_p = 0`.
 
+    Interpretation:
+        - **reject = True**: Past x helps predict y beyond y's own
+          history.  This is evidence of a predictive relationship.
+        - **reject = False**: No evidence that x helps predict y.
+        - **optimal_lag**: The lag order selected by BIC.  Economically,
+          this tells you "how far back does x's influence on y extend?"
+        - Check both directions: if x Granger-causes y AND y
+          Granger-causes x, there may be a common driver (not a
+          directional causal effect).
+        - Both series should be stationary.  If they are I(1),
+          difference first.  If they are cointegrated, use a VECM
+          instead.
+
     Financial use cases:
         - Does the VIX Granger-cause S&P 500 returns?
         - Does order flow predict price changes?
         - Does the yield curve lead GDP growth?
         - Does sentiment data help forecast volatility?
 
-    Parameters
-    ----------
-    x : np.ndarray
-        Potential cause time series (1D array, length T).
-    y : np.ndarray
-        Potential effect time series (1D array, length T).
-    max_lag : int
-        Maximum lag order to test. The optimal lag is selected by BIC.
-        Default is 10.
-    significance : float
-        Significance level for rejection. Default is 0.05.
+    Parameters:
+        x: Potential cause time series (1D array, length T).
+        y: Potential effect time series (1D array, length T).
+        max_lag: Maximum lag order to test. The optimal lag is selected
+            by BIC. Default is 10.
+        significance: Significance level for rejection. Default is 0.05.
 
-    Returns
-    -------
-    GrangerResult
-        Test result containing F-statistic, p-value, optimal lag,
-        direction, and per-lag results.
+    Returns:
+        GrangerResult with F-statistic, p-value, optimal lag, direction,
+        and per-lag results.
 
     Raises
     ------

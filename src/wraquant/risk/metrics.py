@@ -81,6 +81,9 @@ def sharpe_ratio(
         - Bailey & Lopez de Prado (2012), "The Sharpe Ratio Efficient
           Frontier"
     """
+    # Auto-detect periods_per_year from ReturnSeries metadata
+    if hasattr(returns, "periods_per_year"):
+        periods_per_year = returns.periods_per_year
     returns = coerce_series(returns, "returns")
     excess = returns - risk_free / periods_per_year
     mean_excess = excess.mean()
@@ -148,6 +151,9 @@ def sortino_ratio(
         - Sortino & Satchell (2001), "Managing Downside Risk in
           Financial Markets"
     """
+    # Auto-detect periods_per_year from ReturnSeries metadata
+    if hasattr(returns, "periods_per_year"):
+        periods_per_year = returns.periods_per_year
     returns = coerce_series(returns, "returns")
     excess = returns - risk_free / periods_per_year
     downside = excess[excess < 0]

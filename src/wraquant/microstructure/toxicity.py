@@ -30,7 +30,23 @@ def vpin(
         n_buckets: Number of volume buckets.
 
     Returns:
-        VPIN values, one per bucket.
+        VPIN values, one per bucket.  Higher values indicate more
+        informed trading activity.  Values above 0.4 are typically
+        elevated.
+
+    Example:
+        >>> import numpy as np
+        >>> from wraquant.microstructure.toxicity import vpin
+        >>> volume = np.array([1000, 1500, 800, 1200, 900])
+        >>> buy_vol = np.array([600, 400, 500, 800, 300])
+        >>> result = vpin(volume, buy_vol, n_buckets=2)
+        >>> len(result) >= 1
+        True
+
+    See Also:
+        pin_model: Static PIN estimation from daily trade counts.
+        toxicity_index: Composite toxicity score combining VPIN and OFI.
+        bulk_volume_classification: Estimate buy/sell volume from OHLCV.
     """
     volume = coerce_array(volume, "volume")
     buy_volume = coerce_array(buy_volume, "buy_volume")
@@ -85,7 +101,22 @@ def pin_model(
 
     Returns:
         Dictionary with keys ``'pin'``, ``'alpha'``, ``'delta'``,
-        ``'mu'``, ``'eps_b'``, ``'eps_s'``.
+        ``'mu'``, ``'eps_b'``, ``'eps_s'``.  PIN values above 0.20
+        indicate significant informed trading.
+
+    Example:
+        >>> import numpy as np
+        >>> from wraquant.microstructure.toxicity import pin_model
+        >>> rng = np.random.default_rng(42)
+        >>> buys = rng.poisson(50, size=60)
+        >>> sells = rng.poisson(50, size=60)
+        >>> result = pin_model(buys, sells)
+        >>> 0 <= result['pin'] <= 1
+        True
+
+    See Also:
+        adjusted_pin: PIN corrected for symmetric liquidity shocks.
+        vpin: Volume-synchronized alternative (real-time).
     """
     b = coerce_array(buy_trades, "buy_trades")
     s = coerce_array(sell_trades, "sell_trades")
@@ -162,7 +193,22 @@ def order_flow_imbalance(
         window: Rolling window size.
 
     Returns:
-        Rolling OFI series in [-1, 1].
+        Rolling OFI series in [-1, 1].  Values near +1 indicate
+        strong buying pressure; near -1 indicates selling pressure.
+
+    Example:
+        >>> import pandas as pd, numpy as np
+        >>> np.random.seed(42)
+        >>> buys = pd.Series(np.random.uniform(100, 500, 50))
+        >>> sells = pd.Series(np.random.uniform(100, 500, 50))
+        >>> ofi = order_flow_imbalance(buys, sells, window=10)
+        >>> len(ofi) == 50
+        True
+
+    See Also:
+        vpin: Volume-synchronized informed trading probability.
+        wraquant.microstructure.liquidity.depth_imbalance:
+            Order book depth imbalance.
     """
     buy_volume = coerce_series(buy_volume, "buy_volume")
     sell_volume = coerce_series(sell_volume, "sell_volume")
@@ -192,6 +238,19 @@ def trade_classification(
 
     Returns:
         Classification series with values +1 (buy) or -1 (sell).
+
+    Example:
+        >>> import pandas as pd
+        >>> trades = pd.Series([100.05, 99.95, 100.00, 100.03])
+        >>> bid = pd.Series([99.98, 99.93, 99.98, 100.00])
+        >>> ask = pd.Series([100.02, 99.97, 100.02, 100.06])
+        >>> direction = trade_classification(trades, bid, ask)
+        >>> int(direction.iloc[0])  # trade above midpoint -> buy
+        1
+
+    See Also:
+        bulk_volume_classification: Classify from OHLCV data (no quotes).
+        order_flow_imbalance: Aggregate classified volume into a signal.
     """
     trade_prices = coerce_series(trade_prices, "trade_prices")
     bid = coerce_series(bid, "bid")
@@ -230,6 +289,23 @@ def information_share(
 
     Returns:
         Array of information shares summing to 1, one per venue.
+        A venue with a higher share contributes more to price discovery.
+
+    Example:
+        >>> import pandas as pd, numpy as np
+        >>> np.random.seed(42)
+        >>> base = pd.Series(100 + np.cumsum(np.random.randn(200) * 0.1))
+        >>> venue_a = base + np.random.randn(200) * 0.01
+        >>> venue_b = base + np.random.randn(200) * 0.05
+        >>> shares = information_share([venue_a, venue_b])
+        >>> abs(shares.sum() - 1.0) < 1e-10
+        True
+
+    See Also:
+        wraquant.microstructure.market_quality.hasbrouck_information_share:
+            Cholesky-based information share with bounds.
+        wraquant.microstructure.market_quality.gonzalo_granger_component:
+            GG permanent-transitory decomposition.
     """
     n_venues = len(prices_list)
     if n_venues == 0:
@@ -300,10 +376,26 @@ def bulk_volume_classification(
         DataFrame with columns ``'buy_volume'``, ``'sell_volume'``,
         ``'buy_fraction'``.
 
+    Example:
+        >>> import pandas as pd, numpy as np
+        >>> np.random.seed(42)
+        >>> n = 50
+        >>> close = pd.Series(100 + np.cumsum(np.random.randn(n) * 0.5))
+        >>> high = close + np.abs(np.random.randn(n))
+        >>> low = close - np.abs(np.random.randn(n))
+        >>> volume = pd.Series(np.random.uniform(1e4, 5e4, n))
+        >>> result = bulk_volume_classification(close, high, low, volume)
+        >>> list(result.columns)
+        ['buy_volume', 'sell_volume', 'buy_fraction']
+
     References:
         Easley, D., Lopez de Prado, M. M. & O'Hara, M. (2012). "Bulk
         Classification of Trading Activity." *Working Paper*, Johnson
         School Research Paper Series.
+
+    See Also:
+        trade_classification: Lee-Ready classification from tick data.
+        vpin: Uses buy/sell volume to compute informed trading probability.
     """
     close = coerce_series(close, "close")
     high = coerce_series(high, "high")
@@ -366,9 +458,23 @@ def adjusted_pin(
         ``'alpha'``, ``'delta'``, ``'mu'``, ``'eps_b'``, ``'eps_s'``,
         ``'theta'`` (probability of symmetric activity shock).
 
+    Example:
+        >>> import numpy as np
+        >>> from wraquant.microstructure.toxicity import adjusted_pin
+        >>> rng = np.random.default_rng(42)
+        >>> buys = rng.poisson(50, size=60)
+        >>> sells = rng.poisson(50, size=60)
+        >>> result = adjusted_pin(buys, sells)
+        >>> 0 <= result['adj_pin'] <= 1
+        True
+
     References:
         Duarte, J. & Young, L. (2009). "Why is PIN Priced?" *Journal of
         Financial Economics*, 91(2), 119-138.
+
+    See Also:
+        pin_model: Standard (unadjusted) PIN estimation.
+        vpin: Real-time alternative using volume buckets.
     """
     b = coerce_array(buy_trades, "buy_trades")
     s = coerce_array(sell_trades, "sell_trades")
@@ -477,10 +583,24 @@ def toxicity_index(
     Returns:
         Composite toxicity index in [0, 100].
 
+    Example:
+        >>> import numpy as np
+        >>> from wraquant.microstructure.toxicity import toxicity_index
+        >>> vpin_vals = np.array([0.2, 0.3, 0.5, 0.4])
+        >>> ofi_vals = np.array([0.1, -0.3, 0.5, -0.2])
+        >>> spread_vals = np.array([0.01, 0.02, 0.03, 0.015])
+        >>> idx = toxicity_index(vpin_vals, ofi_vals, spread_vals)
+        >>> (idx >= 0).all() and (idx <= 100).all()
+        True
+
     References:
         Easley, D., Lopez de Prado, M. M. & O'Hara, M. (2011). "The
         Microstructure of the 'Flash Crash'." *Journal of Portfolio
         Management*, 37(2), 118-128.
+
+    See Also:
+        vpin: One of the component inputs.
+        order_flow_imbalance: Another component input.
     """
     def _min_max(arr: NDArray[np.floating]) -> NDArray[np.floating]:
         lo = np.nanmin(arr)
@@ -531,10 +651,23 @@ def informed_trading_intensity(
     Returns:
         Rolling informed trading intensity in [0, 1].
 
+    Example:
+        >>> import pandas as pd, numpy as np
+        >>> np.random.seed(42)
+        >>> buys = pd.Series(np.random.uniform(100, 500, 50))
+        >>> sells = pd.Series(np.random.uniform(100, 500, 50))
+        >>> intensity = informed_trading_intensity(buys, sells, window=10)
+        >>> intensity.name
+        'informed_trading_intensity'
+
     References:
         Easley, D. & O'Hara, M. (1987). "Price, Trade Size, and
         Information in Securities Markets." *Journal of Financial
         Economics*, 19(1), 69-90.
+
+    See Also:
+        pin_model: Static probability of informed trading.
+        order_flow_imbalance: Simpler directional flow measure.
     """
     buy_volume = coerce_series(buy_volume, "buy_volume")
     sell_volume = coerce_series(sell_volume, "sell_volume")

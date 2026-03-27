@@ -86,8 +86,28 @@ def fit_gaussian_copula(
 ) -> dict[str, Any]:
     """Fit a Gaussian copula to multivariate returns.
 
-    Transforms each marginal to uniform via the empirical CDF, then
-    maps to standard normal and estimates the correlation matrix.
+    The Gaussian copula models dependence via a multivariate normal
+    distribution applied to the rank-transformed data.  It captures
+    linear dependence but has zero tail dependence: in the limit,
+    extreme co-movements become independent.
+
+    Interpretation:
+        - The correlation matrix describes the "normal-like" dependence
+          structure of the data.
+        - The key limitation: the Gaussian copula implies that joint
+          extreme events (crashes, rallies) are asymptotically
+          independent.  This is dangerous for risk management -- the
+          2008 crisis demonstrated that assets crash together more
+          than the Gaussian copula predicts.
+        - Use as a baseline for comparison.  If tail dependence is
+          non-negligible (check with ``tail_dependence``), switch to
+          the Student-t copula.
+
+    When to use:
+        - As a baseline for dependence modelling.
+        - When you have evidence that tail dependence is genuinely
+          absent.
+        - For quick-and-dirty simulation of correlated returns.
 
     Parameters:
         returns: Array of shape ``(n_obs, n_assets)`` with raw returns.
@@ -95,9 +115,12 @@ def fit_gaussian_copula(
     Returns:
         Dict with keys:
 
-        * ``"correlation"`` -- estimated Gaussian copula correlation
-          matrix (n_assets, n_assets).
+        * ``"correlation"`` -- estimated copula correlation matrix.
         * ``"copula_type"`` -- ``"gaussian"``.
+
+    See Also:
+        fit_t_copula: Student-t copula with symmetric tail dependence.
+        tail_dependence: Check whether tail dependence is present.
     """
     from wraquant.core._coerce import coerce_array
 
@@ -131,14 +154,35 @@ def fit_t_copula(
 ) -> dict[str, Any]:
     """Fit a Student-t copula to multivariate returns.
 
-    Transforms marginals to uniform, maps through the inverse t-CDF,
-    and estimates the shape (correlation) matrix.  The degrees-of-freedom
-    parameter is user-supplied (profile likelihood for *df* is expensive
-    and often unstable).
+    The Student-t copula is the standard choice for equity portfolios
+    because it captures symmetric tail dependence: the tendency of
+    assets to experience extreme co-movements (both crashes and
+    rallies) more often than a Gaussian model would predict.
+
+    Interpretation:
+        - **df** (degrees of freedom) controls tail heaviness:
+          - df = 3-5: very heavy tails, strong tail dependence.
+            Appropriate for equity portfolios during turbulent markets.
+          - df = 10-20: moderate tails. Appropriate for investment-grade
+            fixed income.
+          - df -> infinity: converges to Gaussian copula (no tail
+            dependence).
+        - The tail dependence coefficient is approximately
+          2 * t_{df+1}(-sqrt((df+1)(1-rho)/(1+rho))), where rho is
+          the copula correlation.
+        - Higher df means the copula becomes more "Gaussian-like" in
+          the tails.
+
+    When to use:
+        - Equity risk modelling where joint crashes are a concern.
+        - VaR/CVaR estimation for multi-asset portfolios.
+        - As the default copula for portfolio risk (unless there is
+          evidence of asymmetric tail dependence).
 
     Parameters:
         returns: Array of shape ``(n_obs, n_assets)``.
-        df: Degrees of freedom for the t-copula.
+        df: Degrees of freedom. Lower = heavier tails. Typical values
+            3-10 for equities. If unsure, start with 5.
 
     Returns:
         Dict with keys:
@@ -146,6 +190,10 @@ def fit_t_copula(
         * ``"correlation"`` -- shape correlation matrix.
         * ``"df"`` -- degrees of freedom.
         * ``"copula_type"`` -- ``"student_t"``.
+
+    See Also:
+        fit_gaussian_copula: No tail dependence (df -> infinity).
+        fit_clayton_copula: Lower tail dependence only.
     """
     from wraquant.core._coerce import coerce_array
 
@@ -198,19 +246,44 @@ def fit_clayton_copula(
 ) -> dict[str, Any]:
     """Fit a Clayton copula (lower tail dependence) to bivariate data.
 
-    *u* and *v* should already be on ``(0, 1)`` (pseudo-observations).
-    If raw data is passed, the empirical CDF is applied automatically.
+    The Clayton copula has lower tail dependence but zero upper tail
+    dependence.  This means assets modelled with a Clayton copula
+    tend to crash together but rally independently -- a realistic
+    pattern for equities and credit, where "risk-on/risk-off" dynamics
+    create asymmetric co-movement.
+
+    Interpretation:
+        - **theta** > 0 controls dependence strength.  Higher theta
+          = stronger lower tail dependence.  theta -> 0 = independence.
+        - **lower_tail_dependence** = 2^{-1/theta} is the probability
+          that both assets are in their lower tail simultaneously,
+          given that one is.  Values above 0.3 indicate meaningful
+          crash co-movement.
+        - The Clayton copula is the canonical choice for modelling
+          "contagion" and "flight to quality" dynamics.
+
+    When to use:
+        - Two equity assets or sectors where you expect crash
+          contagion but independent rallies.
+        - Credit portfolios where defaults cluster.
+        - When ``tail_dependence`` shows lower > upper.
 
     Parameters:
-        u: First marginal uniform observations.
+        u: First marginal uniform observations.  Pass raw data and
+            the empirical CDF is applied automatically.
         v: Second marginal uniform observations.
 
     Returns:
         Dict with keys:
 
-        * ``"theta"`` -- estimated Clayton parameter (> 0).
+        * ``"theta"`` -- Clayton parameter (> 0).
         * ``"copula_type"`` -- ``"clayton"``.
-        * ``"lower_tail_dependence"`` -- ``2^{-1/theta}``.
+        * ``"lower_tail_dependence"`` -- 2^{-1/theta}. > 0.3 is
+          meaningful.
+
+    See Also:
+        fit_gumbel_copula: Upper tail dependence (opposite asymmetry).
+        fit_t_copula: Symmetric tail dependence.
     """
     from wraquant.core._coerce import coerce_array
 
@@ -279,6 +352,24 @@ def fit_gumbel_copula(
 ) -> dict[str, Any]:
     """Fit a Gumbel copula (upper tail dependence) to bivariate data.
 
+    The Gumbel copula has upper tail dependence but zero lower tail
+    dependence.  Assets rally together in extreme moves but crash
+    independently.  This is less common than the Clayton pattern in
+    equities but can apply to certain commodity pairs (e.g., two
+    correlated energy commodities that spike together during supply
+    shocks).
+
+    Interpretation:
+        - **theta** >= 1 controls dependence strength. theta = 1 is
+          independence; larger theta = stronger upper tail dependence.
+        - **upper_tail_dependence** = 2 - 2^{1/theta} measures the
+          probability of joint extreme upper co-movement.
+
+    When to use:
+        - Commodity pairs with supply-shock co-movement.
+        - When ``tail_dependence`` shows upper > lower.
+        - When modelling "melt-up" contagion.
+
     Parameters:
         u: First marginal uniform observations.
         v: Second marginal uniform observations.
@@ -286,9 +377,13 @@ def fit_gumbel_copula(
     Returns:
         Dict with keys:
 
-        * ``"theta"`` -- estimated Gumbel parameter (>= 1).
+        * ``"theta"`` -- Gumbel parameter (>= 1).
         * ``"copula_type"`` -- ``"gumbel"``.
-        * ``"upper_tail_dependence"`` -- ``2 - 2^{1/theta}``.
+        * ``"upper_tail_dependence"`` -- 2 - 2^{1/theta}.
+
+    See Also:
+        fit_clayton_copula: Lower tail dependence (more common in equities).
+        fit_t_copula: Symmetric tail dependence.
     """
     from wraquant.core._coerce import coerce_array
 
@@ -347,7 +442,25 @@ def fit_frank_copula(
     u: np.ndarray,
     v: np.ndarray,
 ) -> dict[str, Any]:
-    """Fit a Frank copula (symmetric dependence) to bivariate data.
+    """Fit a Frank copula (symmetric dependence, no tail dependence).
+
+    The Frank copula is symmetric with zero tail dependence in both
+    directions.  It is useful as a benchmark: if neither the Clayton
+    nor Gumbel copula fits significantly better than Frank, then
+    there is no evidence of asymmetric tail dependence.
+
+    Interpretation:
+        - **theta** > 0: positive dependence; theta < 0: negative
+          dependence; |theta| large = strong dependence.
+        - The Frank copula allows negative dependence (unlike Clayton
+          and Gumbel), making it useful for hedging pairs.
+        - No tail dependence: extreme co-movements are modelled as
+          asymptotically independent.
+
+    When to use:
+        - As a benchmark against Clayton/Gumbel.
+        - When ``tail_dependence`` shows negligible tail dependence.
+        - For pairs with negative dependence (hedging relationships).
 
     Parameters:
         u: First marginal uniform observations.
@@ -356,8 +469,14 @@ def fit_frank_copula(
     Returns:
         Dict with keys:
 
-        * ``"theta"`` -- estimated Frank parameter (nonzero).
+        * ``"theta"`` -- Frank parameter. Positive = positive
+          dependence, negative = negative dependence.
         * ``"copula_type"`` -- ``"frank"``.
+
+    See Also:
+        fit_gaussian_copula: Multivariate with no tail dependence.
+        fit_clayton_copula: Lower tail dependence.
+        fit_gumbel_copula: Upper tail dependence.
     """
     from wraquant.core._coerce import coerce_array
 
@@ -407,6 +526,21 @@ def copula_simulate(
 ) -> np.ndarray:
     """Simulate from a fitted copula.
 
+    Generates samples from the fitted dependence structure with uniform
+    marginals.  To get realistic return scenarios, transform each
+    column through the inverse CDF of the desired marginal distribution
+    (e.g., inverse normal, inverse t, or empirical quantile function).
+
+    Interpretation:
+        - Output columns are uniform on (0, 1) -- they represent the
+          dependence structure only, not the marginal distributions.
+        - Correlated low values in all columns = a joint crash scenario.
+        - To convert to returns: ``returns[:, j] = norm.ppf(U[:, j],
+          loc=mu_j, scale=sigma_j)`` or use empirical quantile
+          functions for non-parametric marginals.
+        - Use for Monte Carlo VaR/CVaR, portfolio simulation, or
+          stress testing.
+
     Parameters:
         copula_params: Output from one of the ``fit_*_copula`` functions.
         n_sims: Number of samples to draw.
@@ -415,11 +549,17 @@ def copula_simulate(
         seed: Random seed for reproducibility.
 
     Returns:
-        Array of shape ``(n_sims, d)`` with uniform marginals in
-        ``(0, 1)``.
+        Array of shape ``(n_sims, d)`` with uniform marginals in (0, 1).
 
     Raises:
         ValueError: If the copula type is not recognized.
+
+    Example:
+        >>> from scipy.stats import norm
+        >>> cop = fit_gaussian_copula(returns)
+        >>> U = copula_simulate(cop, n_sims=10000, seed=42)
+        >>> # Transform to normal marginals:
+        >>> sim_returns = norm.ppf(U, loc=mu, scale=sigma)
     """
     rng = np.random.default_rng(seed)
     ctype = copula_type or copula_params.get("copula_type", "")
@@ -495,17 +635,48 @@ def tail_dependence(
 ) -> dict[str, float]:
     """Estimate lower and upper tail dependence coefficients.
 
+    Tail dependence measures the probability that one variable is in
+    its extreme tail given that the other is.  This is the key quantity
+    that copula selection hinges on.
+
+    Interpretation:
+        - **lower** ~ P(V <= q | U <= q): the probability of a joint
+          crash.  Values above 0.2-0.3 are economically significant
+          and indicate that the Gaussian copula is inappropriate.
+        - **upper** ~ P(V > 1-q | U > 1-q): the probability of a
+          joint rally.
+        - If lower >> upper: use Clayton copula (crash contagion).
+        - If upper >> lower: use Gumbel copula (rally contagion).
+        - If both are similar: use Student-t copula (symmetric tails).
+        - If both are near zero: Gaussian or Frank copula is adequate.
+
+    Caveat:
+        - Empirical tail dependence estimates are noisy with small
+          samples.  Use threshold = 0.10 for more observations per
+          tail (less extreme, more precise) or 0.05 for fewer
+          observations (more extreme, noisier).
+
     Parameters:
         u: First marginal uniform observations.
         v: Second marginal uniform observations.
         method: ``"empirical"`` (default) for non-parametric estimation.
-        threshold: Quantile threshold for tail estimation (default 0.05).
+        threshold: Quantile threshold for tail estimation.
+            0.05 = 5th/95th percentile (default). 0.10 = more data
+            in the tail estimate but less extreme.
 
     Returns:
         Dict with ``"lower"`` and ``"upper"`` tail dependence estimates.
 
-    Raises:
-        ValueError: If *method* is not recognized.
+    Example:
+        >>> import numpy as np
+        >>> from scipy.stats import norm
+        >>> rng = np.random.default_rng(0)
+        >>> # Simulate from a t-copula (symmetric tail dependence)
+        >>> z = rng.multivariate_normal([0,0], [[1,0.5],[0.5,1]], 5000)
+        >>> u = norm.cdf(z[:, 0])
+        >>> v = norm.cdf(z[:, 1])
+        >>> td = tail_dependence(u, v)
+        >>> print(f"Lower: {td['lower']:.2f}, Upper: {td['upper']:.2f}")
     """
     from wraquant.core._coerce import coerce_array
 
@@ -545,6 +716,29 @@ def rank_correlation(
     method: str = "both",
 ) -> dict[str, Any]:
     """Compute Kendall's tau and/or Spearman's rho rank correlation.
+
+    Rank correlations measure monotonic association without assuming
+    linearity.  Unlike Pearson correlation, they are invariant to
+    monotonic transformations of the marginals and directly related
+    to copula parameters, making them the correct correlation measure
+    for copula modelling.
+
+    Interpretation:
+        - **Kendall's tau**: Probability of concordance minus
+          probability of discordance.  tau = 0.5 means ~75% of pairs
+          move in the same direction.
+        - **Spearman's rho**: Pearson correlation of the ranks.
+          Generally |rho| >= |tau| for the same data.
+        - Both are robust to outliers (unlike Pearson).
+        - Copula relationships: for the Gaussian copula,
+          rho_pearson = 2*sin(pi*tau/6). For Clayton,
+          theta = 2*tau/(1-tau).
+
+    When to use:
+        - Always prefer rank correlation over Pearson for copula
+          modelling.
+        - Use Kendall's tau for small samples (more robust).
+        - Use Spearman's rho for comparison with Pearson.
 
     Parameters:
         returns: Array of shape ``(n_obs, n_assets)``.

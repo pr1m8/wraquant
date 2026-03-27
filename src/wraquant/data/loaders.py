@@ -63,9 +63,16 @@ def fetch_prices(
     _ensure_providers_loaded()
     provider = registry.get(source)
     try:
-        return provider.fetch_prices(symbol, start=start, end=end, **kwargs)
+        prices = provider.fetch_prices(symbol, start=start, end=end, **kwargs)
     except Exception as e:
         raise DataFetchError(provider.name, symbol, str(e)) from e
+
+    # Wrap in PriceSeries for rich metadata (frequency, currency, to_returns)
+    from wraquant.frame.base import PriceSeries
+
+    if not isinstance(prices, PriceSeries) and len(prices) > 0:
+        prices = PriceSeries(prices, currency="USD")
+    return prices
 
 
 def fetch_ohlcv(
@@ -107,9 +114,16 @@ def fetch_ohlcv(
     _ensure_providers_loaded()
     provider = registry.get(source)
     try:
-        return provider.fetch_ohlcv(symbol, start=start, end=end, **kwargs)
+        ohlcv = provider.fetch_ohlcv(symbol, start=start, end=end, **kwargs)
     except Exception as e:
         raise DataFetchError(provider.name, symbol, str(e)) from e
+
+    # Wrap in OHLCVFrame for rich metadata (frequency, currency, typed accessors)
+    from wraquant.frame.base import OHLCVFrame
+
+    if not isinstance(ohlcv, OHLCVFrame) and len(ohlcv) > 0:
+        ohlcv = OHLCVFrame(ohlcv, currency="USD")
+    return ohlcv
 
 
 def fetch_macro(

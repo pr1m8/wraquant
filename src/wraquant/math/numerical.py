@@ -39,6 +39,21 @@ def finite_difference_gradient(
     -------
     np.ndarray
         Gradient vector of the same shape as *x*.
+
+    Example
+    -------
+    >>> import numpy as np
+    >>> from wraquant.math.numerical import finite_difference_gradient
+    >>> # Gradient of f(x) = x[0]^2 + x[1]^2 at (3, 4) should be (6, 8)
+    >>> grad = finite_difference_gradient(lambda x: x[0]**2 + x[1]**2,
+    ...                                    np.array([3.0, 4.0]))
+    >>> np.allclose(grad, [6.0, 8.0], atol=1e-5)
+    True
+
+    See Also
+    --------
+    finite_difference_hessian : Compute the second-derivative matrix.
+    wraquant.math.information.fisher_information : Fisher information via Hessian.
     """
     x = coerce_array(x, name="x")
     grad = np.empty_like(x)
@@ -73,6 +88,20 @@ def finite_difference_hessian(
     -------
     np.ndarray
         Hessian matrix of shape ``(len(x), len(x))``.
+
+    Example
+    -------
+    >>> import numpy as np
+    >>> from wraquant.math.numerical import finite_difference_hessian
+    >>> # Hessian of f(x) = x[0]^2 + 3*x[1]^2 is diag(2, 6)
+    >>> H = finite_difference_hessian(lambda x: x[0]**2 + 3*x[1]**2,
+    ...                                np.array([1.0, 1.0]))
+    >>> np.allclose(np.diag(H), [2.0, 6.0], atol=1e-3)
+    True
+
+    See Also
+    --------
+    finite_difference_gradient : First-order derivatives.
     """
     x = coerce_array(x, name="x")
     n = len(x)
@@ -133,6 +162,18 @@ def newton_raphson(
     ------
     RuntimeError
         If the method does not converge within *max_iter* iterations.
+
+    Example
+    -------
+    >>> from wraquant.math.numerical import newton_raphson
+    >>> # Find implied volatility: solve BS_price(vol) - market_price = 0
+    >>> root = newton_raphson(lambda x: x**2 - 2, x0=1.5)
+    >>> abs(root - 2**0.5) < 1e-8
+    True
+
+    See Also
+    --------
+    bisection : Guaranteed convergence but slower (no derivative needed).
     """
     x = float(x0)
     dx_fd = 1e-8
@@ -191,6 +232,17 @@ def bisection(
         If ``f(a)`` and ``f(b)`` have the same sign.
     RuntimeError
         If the method does not converge within *max_iter* iterations.
+
+    Example
+    -------
+    >>> from wraquant.math.numerical import bisection
+    >>> root = bisection(lambda x: x**3 - 1, a=0.0, b=2.0)
+    >>> abs(root - 1.0) < 1e-8
+    True
+
+    See Also
+    --------
+    newton_raphson : Faster convergence when a derivative is available.
     """
     fa, fb = fn(a), fn(b)
     if fa * fb > 0:
@@ -236,6 +288,19 @@ def trapezoidal_integration(
     -------
     float
         Approximate value of the definite integral.
+
+    Example
+    -------
+    >>> import numpy as np
+    >>> from wraquant.math.numerical import trapezoidal_integration
+    >>> # Integrate sin(x) from 0 to pi (exact answer = 2)
+    >>> result = trapezoidal_integration(np.sin, 0, np.pi, n=1000)
+    >>> abs(result - 2.0) < 0.001
+    True
+
+    See Also
+    --------
+    monte_carlo_integration : Stochastic integration for high dimensions.
     """
     x = np.linspace(a, b, n + 1)
     y = np.array([fn(xi) for xi in x])
@@ -267,7 +332,22 @@ def monte_carlo_integration(
     -------
     dict
         ``estimate``  – estimated value of the integral.
-        ``std_error`` – standard error of the estimate.
+        ``std_error`` – standard error of the estimate.  Decreases as
+            ``1 / sqrt(n_samples)``.
+
+    Example
+    -------
+    >>> import numpy as np
+    >>> from wraquant.math.numerical import monte_carlo_integration
+    >>> # Integrate x^2 from 0 to 1 (exact answer = 1/3)
+    >>> result = monte_carlo_integration(lambda x: x[0]**2,
+    ...                                   bounds=[(0, 1)], seed=42)
+    >>> abs(result['estimate'] - 1/3) < 0.01
+    True
+
+    See Also
+    --------
+    trapezoidal_integration : Deterministic integration for 1-D problems.
     """
     rng = np.random.default_rng(seed)
     d = len(bounds)

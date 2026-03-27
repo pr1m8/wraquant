@@ -67,6 +67,23 @@ def variance_gamma_pdf(
     -------
     np.ndarray
         PDF values.
+
+    Example
+    -------
+    >>> import numpy as np
+    >>> from wraquant.math.levy import variance_gamma_pdf
+    >>> x = np.linspace(-0.05, 0.05, 5)
+    >>> pdf = variance_gamma_pdf(x, sigma=0.01, nu=0.5, theta=-0.001)
+    >>> pdf.shape
+    (5,)
+    >>> pdf[2] > pdf[0]  # peak near center
+    True
+
+    See Also
+    --------
+    variance_gamma_simulate : Simulate paths from a VG process.
+    fit_variance_gamma : Calibrate VG parameters to return data.
+    nig_pdf : Normal Inverse Gaussian PDF (alternative fat-tailed model).
     """
     from scipy.special import gamma as gamma_fn
 
@@ -133,6 +150,22 @@ def variance_gamma_simulate(
     -------
     np.ndarray
         Cumulative VG process values of length *n_steps + 1* (starts at 0).
+
+    Example
+    -------
+    >>> from wraquant.math.levy import variance_gamma_simulate
+    >>> path = variance_gamma_simulate(sigma=0.01, nu=0.5, theta=-0.001,
+    ...                                 n_steps=252, seed=42)
+    >>> path.shape
+    (253,)
+    >>> path[0]
+    0.0
+
+    See Also
+    --------
+    variance_gamma_pdf : Evaluate the VG density.
+    nig_simulate : Simulate a Normal Inverse Gaussian process.
+    cgmy_simulate : Simulate a CGMY process (generalises VG).
     """
     rng = np.random.default_rng(seed)
     shape = dt / nu
@@ -173,6 +206,19 @@ def characteristic_function_vg(
     -------
     np.ndarray
         Complex-valued characteristic function values.
+
+    Example
+    -------
+    >>> import numpy as np
+    >>> from wraquant.math.levy import characteristic_function_vg
+    >>> phi = characteristic_function_vg(np.array([0.0, 1.0]), sigma=0.01,
+    ...                                   nu=0.5, theta=-0.001)
+    >>> abs(phi[0])  # phi(0) = 1 for any characteristic function
+    1.0
+
+    See Also
+    --------
+    variance_gamma_pdf : Density evaluation (Fourier-inversion counterpart).
     """
     u = np.asarray(u, dtype=complex)
     base = 1.0 - 1j * theta * nu * u + 0.5 * sigma ** 2 * nu * u ** 2
@@ -217,6 +263,23 @@ def nig_pdf(
     -------
     np.ndarray
         PDF values.
+
+    Example
+    -------
+    >>> import numpy as np
+    >>> from wraquant.math.levy import nig_pdf
+    >>> x = np.linspace(-0.05, 0.05, 5)
+    >>> pdf = nig_pdf(x, alpha=50.0, beta=-5.0, mu=0.0, delta=0.01)
+    >>> pdf.shape
+    (5,)
+    >>> (pdf >= 0).all()
+    True
+
+    See Also
+    --------
+    nig_simulate : Simulate paths from an NIG process.
+    fit_nig : Calibrate NIG parameters to return data.
+    variance_gamma_pdf : VG density (alternative fat-tailed model).
     """
     x = coerce_array(x, name="x")
     gamma_param = np.sqrt(alpha ** 2 - beta ** 2)
@@ -270,6 +333,21 @@ def nig_simulate(
     -------
     np.ndarray
         Cumulative NIG process of length *n_steps + 1* (starts at 0).
+
+    Example
+    -------
+    >>> from wraquant.math.levy import nig_simulate
+    >>> path = nig_simulate(alpha=50.0, beta=-5.0, mu=0.0, delta=0.01,
+    ...                      n_steps=252, seed=42)
+    >>> path.shape
+    (253,)
+    >>> path[0]
+    0.0
+
+    See Also
+    --------
+    nig_pdf : Evaluate the NIG density.
+    variance_gamma_simulate : Simulate a VG process.
     """
     rng = np.random.default_rng(seed)
     gamma_param = np.sqrt(alpha ** 2 - beta ** 2)
@@ -346,6 +424,27 @@ def cgmy_simulate(
     -------
     np.ndarray
         Cumulative CGMY process of length *n_steps + 1* (starts at 0).
+
+    Example
+    -------
+    >>> from wraquant.math.levy import cgmy_simulate
+    >>> path = cgmy_simulate(C=1.0, G=5.0, M=10.0, Y=0.5,
+    ...                       n_steps=252, seed=42)
+    >>> path.shape
+    (253,)
+    >>> path[0]
+    0.0
+
+    Notes
+    -----
+    The CGMY process generalises the Variance Gamma process (VG corresponds
+    to Y = 0).  Higher Y values produce more small jumps; Y < 0 yields
+    finite activity (compound Poisson).
+
+    See Also
+    --------
+    variance_gamma_simulate : Simulate VG (special case Y = 0).
+    levy_stable_simulate : Simulate a stable Levy process.
     """
     rng = np.random.default_rng(seed)
 
@@ -472,6 +571,25 @@ def levy_stable_simulate(
     -------
     np.ndarray
         Cumulative process values of length *n_steps + 1* (starts at 0).
+
+    Example
+    -------
+    >>> from wraquant.math.levy import levy_stable_simulate
+    >>> path = levy_stable_simulate(alpha=1.7, beta=0.0, n_steps=500, seed=42)
+    >>> path.shape
+    (501,)
+    >>> path[0]
+    0.0
+
+    Notes
+    -----
+    alpha = 2 recovers Brownian motion; alpha = 1 with beta = 0 yields a
+    Cauchy process.  Smaller alpha produces heavier tails.
+
+    See Also
+    --------
+    variance_gamma_simulate : VG process (finite variance, unlike stable).
+    cgmy_simulate : CGMY process (tempered stable, finite moments).
     """
     rng = np.random.default_rng(seed)
     increments = _stable_random(rng, alpha, beta, n_steps)
@@ -526,6 +644,23 @@ def fit_variance_gamma(
         ``nu``    – fitted variance rate.
         ``theta`` – fitted drift.
         ``log_likelihood`` – maximised log-likelihood.
+
+    Example
+    -------
+    >>> import numpy as np
+    >>> from wraquant.math.levy import fit_variance_gamma, variance_gamma_simulate
+    >>> # Generate synthetic VG returns and re-fit
+    >>> path = variance_gamma_simulate(sigma=0.01, nu=0.5, theta=-0.001,
+    ...                                 n_steps=2000, seed=42)
+    >>> returns = np.diff(path)
+    >>> result = fit_variance_gamma(returns)
+    >>> result['sigma'] > 0
+    True
+
+    See Also
+    --------
+    variance_gamma_pdf : Evaluate the fitted density.
+    fit_nig : Fit an NIG distribution instead.
     """
     returns = coerce_array(returns, name="returns")
 
@@ -587,6 +722,21 @@ def fit_nig(
         ``mu``    – fitted location.
         ``delta`` – fitted scale.
         ``log_likelihood`` – maximised log-likelihood.
+
+    Example
+    -------
+    >>> import numpy as np
+    >>> from wraquant.math.levy import fit_nig
+    >>> rng = np.random.default_rng(42)
+    >>> returns = rng.standard_t(df=5, size=1000) * 0.01
+    >>> result = fit_nig(returns)
+    >>> result['alpha'] > 0 and result['delta'] > 0
+    True
+
+    See Also
+    --------
+    nig_pdf : Evaluate the fitted density.
+    fit_variance_gamma : Fit a VG distribution instead.
     """
     returns = coerce_array(returns, name="returns")
 

@@ -301,6 +301,60 @@ class ExperimentResults:
 
         return pd.DataFrame(rows)
 
+    def volatility_analysis(self) -> dict[str, Any]:
+        """Analyse volatility characteristics of the best strategy.
+
+        Fits an EWMA volatility model to the best strategy's returns
+        and reports annualised volatility statistics.  If enough data
+        is available, also fits a GARCH(1,1) model and reports
+        persistence and half-life.
+
+        Returns:
+            Dictionary with:
+            - ``annualized_vol``: EWMA annualised volatility at end of series.
+            - ``mean_vol``: Mean annualised EWMA volatility over the series.
+            - ``max_vol``: Peak annualised volatility observed.
+            - ``min_vol``: Minimum annualised volatility observed.
+            - ``garch_persistence``: GARCH alpha+beta (if fitted).
+            - ``garch_half_life``: GARCH shock half-life (if fitted).
+        """
+        best_info = self.best()
+        best_key = self._param_key(best_info["params"])
+        best_runs = [r for r in self.runs if self._param_key(r.params) == best_key]
+
+        if not best_runs:
+            return {"error": "No runs found for best params"}
+
+        longest_run = max(best_runs, key=lambda r: len(r.returns))
+        returns = longest_run.returns
+
+        if len(returns) < 20:
+            return {"error": "Not enough data for volatility analysis"}
+
+        # EWMA volatility analysis
+        from wraquant.vol.models import ewma_volatility
+
+        vol_series = ewma_volatility(returns, span=30, annualize=True)
+        result: dict[str, Any] = {
+            "annualized_vol": float(vol_series.iloc[-1]),
+            "mean_vol": float(vol_series.mean()),
+            "max_vol": float(vol_series.max()),
+            "min_vol": float(vol_series.dropna().min()),
+        }
+
+        # Attempt GARCH fit if we have enough data
+        if len(returns) >= 100:
+            try:
+                from wraquant.vol.models import garch_fit
+
+                garch_result = garch_fit(returns)
+                result["garch_persistence"] = garch_result["persistence"]
+                result["garch_half_life"] = garch_result["half_life"]
+            except Exception as exc:
+                logger.debug("GARCH fit failed in volatility_analysis: %s", exc)
+
+        return result
+
     def correlation_with_benchmark(self) -> dict[str, Any]:
         """Correlation of strategy returns with benchmark.
 

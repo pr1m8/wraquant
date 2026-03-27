@@ -155,26 +155,67 @@ def bayesian_regression(
 ) -> BayesianRegressionResult:
     """Conjugate Bayesian linear regression with known noise variance estimate.
 
-    Assumes the model y = X @ beta + eps, eps ~ N(0, sigma^2 I).
-    Uses a normal prior on beta and estimates sigma^2 from OLS residuals.
+    Unlike OLS (which gives a single point estimate of beta), Bayesian
+    regression gives a full posterior distribution, answering: "Given
+    this data and my prior beliefs, what range of coefficient values is
+    plausible?" This is especially valuable with small samples or when
+    you need to propagate parameter uncertainty into downstream
+    decisions (portfolio construction, risk budgeting).
 
-    Parameters
-    ----------
-    y : np.ndarray
-        Response vector (n_obs,).
-    X : np.ndarray
-        Design matrix (n_obs, n_features). Include an intercept column
-        if desired.
-    prior_mean : np.ndarray or None
-        Prior mean for beta (n_features,). Defaults to zeros.
-    prior_cov : np.ndarray or None
-        Prior covariance for beta (n_features, n_features). Defaults to
-        10 * I (weakly informative).
+    The model is y = X @ beta + eps, eps ~ N(0, sigma^2 I), with a
+    normal prior on beta.  Sigma^2 is estimated from OLS residuals
+    (plug-in approach).
 
-    Returns
-    -------
-    BayesianRegressionResult
-        Posterior mean, covariance, sigma^2, and log marginal likelihood.
+    Interpretation:
+        - **posterior_mean** is the Bayesian point estimate of beta.
+          With a weakly informative prior, it will be close to OLS.
+        - **posterior_cov** encodes parameter uncertainty.  The diagonal
+          gives the variance of each coefficient; off-diagonals indicate
+          which coefficients are correlated (common in multicollinear
+          factor models).
+        - **log_marginal_likelihood** is used for model comparison via
+          Bayes factors.  Higher values indicate better fit after
+          penalising complexity.
+
+    When to use:
+        - Small sample sizes (< 100 obs) where OLS standard errors
+          are unreliable.
+        - When you have informative priors from economic theory.
+        - When you need to compare nested and non-nested models via
+          Bayes factors (see ``model_comparison``).
+
+    Parameters:
+        y: Response vector (n_obs,).
+        X: Design matrix (n_obs, n_features). Include an intercept
+            column if desired.
+        prior_mean: Prior mean for beta (n_features,). Defaults to
+            zeros (agnostic prior). Set to economic priors if available
+            (e.g., CAPM beta prior of 1.0).
+        prior_cov: Prior covariance for beta (n_features, n_features).
+            Defaults to 10 * I (weakly informative). Smaller values
+            express stronger prior conviction.
+
+    Returns:
+        BayesianRegressionResult containing:
+
+        - **posterior_mean** (*ndarray*) -- Posterior mean of beta.
+        - **posterior_cov** (*ndarray*) -- Posterior covariance of beta.
+        - **sigma2** (*float*) -- Estimated noise variance.
+        - **log_marginal_likelihood** (*float*) -- For model comparison.
+
+    Example:
+        >>> import numpy as np
+        >>> rng = np.random.default_rng(0)
+        >>> X = np.column_stack([np.ones(100), rng.normal(size=100)])
+        >>> y = X @ np.array([0.5, 1.2]) + rng.normal(0, 0.3, 100)
+        >>> result = bayesian_regression(y, X)
+        >>> print(f"Beta: {result.posterior_mean}")  # close to [0.5, 1.2]
+
+    See Also:
+        bayesian_linear_regression: Full Normal-Inverse-Gamma conjugate
+            model that also treats sigma^2 as unknown.
+        model_comparison: Compare multiple regression models via Bayes
+            factors.
     """
     y = np.asarray(y, dtype=float).ravel()
     X = np.asarray(X, dtype=float)
@@ -240,29 +281,76 @@ def bayesian_sharpe(
     n_samples: int = 10_000,
     rng_seed: int = 42,
 ) -> BayesianSharpeResult:
-    """Estimate the Bayesian Sharpe ratio with posterior sampling.
+    """Estimate the Sharpe ratio with full Bayesian uncertainty.
 
-    Uses a normal-inverse-gamma conjugate prior for the mean and variance
-    of returns, then computes the posterior distribution of the Sharpe
-    ratio (mu / sigma).
+    Unlike the classical Sharpe ratio (a single point estimate), the
+    Bayesian Sharpe provides a full posterior distribution, answering:
+    "Given this data, what range of Sharpe ratios is plausible?" This
+    is critical for short track records where the point estimate is
+    unreliable -- a 2-year track record has a standard error on the
+    Sharpe of roughly 1/sqrt(T) ~ 0.7.
 
-    Parameters
-    ----------
-    returns : np.ndarray
-        Array of observed returns.
-    prior_mu : float
-        Prior mean for the return mean. Default is 0.
-    prior_sigma : float
-        Prior standard deviation for the return mean. Default is 1.
-    n_samples : int
-        Number of posterior samples to draw.
-    rng_seed : int
-        Random seed for reproducibility.
+    Uses a normal-inverse-gamma conjugate prior for the mean and
+    variance of returns, then computes the posterior distribution of
+    mu / sigma.
 
-    Returns
-    -------
-    BayesianSharpeResult
-        Posterior summary of the Sharpe ratio.
+    Interpretation:
+        - If the 95% credible interval includes 0, the strategy may
+          not have genuine alpha.
+        - Width of the interval indicates estimation uncertainty.
+          A Sharpe of 1.0 with CI [0.2, 1.8] is very different from
+          1.0 with CI [0.9, 1.1].
+        - **prob_positive** > 0.95 suggests genuine positive
+          risk-adjusted returns.
+        - **prob_positive** < 0.8 means you cannot confidently
+          distinguish the strategy from random noise.
+
+    When to use:
+        - Track records shorter than 3 years.
+        - When you need confidence in the Sharpe estimate before
+          allocating capital.
+        - For comparing strategies with different track lengths.
+        - When the classical Sharpe looks "too good" on a short sample.
+
+    Red flags:
+        - Very wide CI (> 1.5 units): not enough data to judge.
+        - prob_positive between 0.5 and 0.8: inconclusive.
+        - Posterior mean much higher than OLS Sharpe: check the prior.
+
+    Parameters:
+        returns: Return series (daily, weekly, or monthly -- the
+            Sharpe ratio is in the same frequency as the returns).
+        prior_mu: Prior mean for the return mean. Default 0 (agnostic).
+        prior_sigma: Prior std for the return mean. Default 1 (weakly
+            informative). Set lower to express stronger conviction.
+        n_samples: Number of posterior samples. 10,000 is usually
+            sufficient for stable credible intervals.
+        rng_seed: Random seed for reproducibility.
+
+    Returns:
+        BayesianSharpeResult containing:
+
+        - **posterior_mean** (*float*) -- Posterior mean Sharpe ratio.
+        - **posterior_std** (*float*) -- Posterior standard deviation.
+        - **ci_lower** (*float*) -- 2.5th percentile (lower bound).
+        - **ci_upper** (*float*) -- 97.5th percentile (upper bound).
+        - **prob_positive** (*float*) -- P(Sharpe > 0). Values > 0.95
+          suggest genuine positive risk-adjusted returns.
+        - **samples** (*ndarray*) -- Raw posterior samples for custom
+          analysis (e.g., P(Sharpe > 1)).
+
+    Example:
+        >>> import numpy as np
+        >>> rng = np.random.default_rng(0)
+        >>> daily_returns = rng.normal(0.0003, 0.01, 252)  # ~1 year
+        >>> result = bayesian_sharpe(daily_returns)
+        >>> print(f"Sharpe: {result.posterior_mean:.2f} "
+        ...       f"[{result.ci_lower:.2f}, {result.ci_upper:.2f}]")
+        >>> print(f"P(Sharpe > 0): {result.prob_positive:.1%}")
+
+    See Also:
+        risk.metrics.sharpe_ratio: Classical point estimate.
+        bayesian_regression: Full Bayesian regression for factor models.
     """
     returns = np.asarray(returns, dtype=float).ravel()
     n = len(returns)
@@ -317,28 +405,73 @@ def bayesian_portfolio(
     n_samples: int = 5_000,
     rng_seed: int = 42,
 ) -> BayesianPortfolioResult:
-    """Bayesian portfolio allocation via posterior sampling.
+    """Portfolio allocation with full parameter uncertainty.
 
-    Samples from the posterior of (mu, Sigma) using a conjugate
-    normal-inverse-Wishart prior, then computes the mean-variance
-    optimal portfolio for each posterior draw.
+    Classical mean-variance optimization treats the sample mean and
+    covariance as if they were the true values, leading to
+    over-concentrated portfolios and poor out-of-sample performance.
+    The Bayesian approach samples from the posterior of (mu, Sigma)
+    using a conjugate normal-inverse-Wishart prior, then computes the
+    optimal portfolio for each posterior draw.  The result is a
+    distribution of optimal weights, not a single fragile answer.
 
-    Parameters
-    ----------
-    returns : np.ndarray
-        Return matrix (n_periods, n_assets).
-    prior_cov_scale : float
-        Scale factor for the prior covariance. Larger values give a
-        more diffuse prior. Default is 1.0.
-    n_samples : int
-        Number of posterior portfolio weight samples.
-    rng_seed : int
-        Random seed for reproducibility.
+    Interpretation:
+        - **weights_mean** is the "average" optimal portfolio across
+          all plausible parameter values.  It is typically more
+          diversified than the plug-in MVO solution.
+        - **weights_std** quantifies allocation uncertainty.  Large
+          std means the data does not strongly support a precise
+          allocation to that asset.
+        - If weights_std for an asset is comparable to weights_mean,
+          the allocation is essentially noise -- consider removing
+          that asset or using stronger priors.
+        - **weight_samples** can be used to compute the probability
+          that a weight exceeds a threshold (e.g., P(w_i > 0.3)).
 
-    Returns
-    -------
-    BayesianPortfolioResult
-        Posterior summary of portfolio weights.
+    When to use:
+        - Short estimation windows (< 5 years of monthly data).
+        - When MVO gives extreme, unintuitive weights.
+        - When you want to quantify how much you can trust the
+          optimal allocation.
+
+    Red flags:
+        - weights_std >> weights_mean: allocation is noise.
+        - Negative expected_return under posterior mean weights:
+          the prior is dragging estimates toward zero.
+
+    Parameters:
+        returns: Return matrix (n_periods, n_assets).
+        prior_cov_scale: Scale factor for the prior covariance.
+            Larger values give a more diffuse (less informative)
+            prior, letting the data speak. Default is 1.0.
+        n_samples: Number of posterior portfolio weight samples.
+            More samples give smoother weight distributions.
+        rng_seed: Random seed for reproducibility.
+
+    Returns:
+        BayesianPortfolioResult containing:
+
+        - **weights_mean** (*ndarray*) -- Mean posterior weights.
+        - **weights_std** (*ndarray*) -- Weight uncertainty per asset.
+        - **expected_return** (*float*) -- Portfolio return under
+          posterior mean weights.
+        - **expected_risk** (*float*) -- Portfolio risk under
+          posterior mean weights.
+        - **weight_samples** (*ndarray*) -- (n_samples, n_assets)
+          raw weight draws for custom analysis.
+
+    Example:
+        >>> import numpy as np
+        >>> rng = np.random.default_rng(0)
+        >>> returns = rng.normal(0.001, 0.02, (252, 4))
+        >>> result = bayesian_portfolio(returns, n_samples=2000)
+        >>> print(f"Weights: {result.weights_mean}")
+        >>> print(f"Weight uncertainty: {result.weights_std}")
+
+    See Also:
+        bayesian_portfolio_bl: Black-Litterman model with subjective
+            views and Bayesian uncertainty.
+        opt.mean_variance: Classical plug-in MVO.
     """
     returns = np.asarray(returns, dtype=float)
     if returns.ndim == 1:
@@ -425,27 +558,73 @@ def bayesian_var(
     n_posterior: int = 10_000,
     rng_seed: int = 42,
 ) -> BayesianVaRResult:
-    """Bayesian Value-at-Risk with parameter uncertainty.
+    """Value-at-Risk with full Bayesian parameter uncertainty.
 
-    Samples from the posterior of (mu, sigma^2) using conjugate priors,
-    then computes VaR for each posterior draw to account for parameter
-    uncertainty.
+    Classical VaR computes a single number: "at the 95% level, you
+    will not lose more than X." But that number itself is estimated
+    from data and has uncertainty.  Bayesian VaR samples from the
+    posterior of (mu, sigma^2) using conjugate priors, then computes
+    VaR for each draw, producing a distribution of VaR estimates
+    that answers: "How uncertain is the VaR number itself?"
 
-    Parameters
-    ----------
-    returns : np.ndarray
-        Array of observed returns.
-    confidence : float
-        Confidence level for VaR (e.g., 0.95 for 95% VaR).
-    n_posterior : int
-        Number of posterior samples.
-    rng_seed : int
-        Random seed for reproducibility.
+    This is critical for regulatory capital (where VaR drives reserve
+    requirements) and for risk budgeting (where VaR determines position
+    sizing).  Under-estimating VaR uncertainty leads to hidden tail risk.
 
-    Returns
-    -------
-    BayesianVaRResult
-        Posterior summary of VaR.
+    Interpretation:
+        - **var_mean** is the posterior expected VaR -- your best
+          single estimate.
+        - **var_std** quantifies estimation uncertainty.  If var_std
+          is large relative to var_mean, you need more data or a
+          more informative prior.
+        - **ci_upper** is the "conservative VaR": use this for
+          prudent risk management. ci_upper >> var_mean signals high
+          model risk.
+        - **var_samples** can be used to compute P(VaR > threshold),
+          answering "what is the probability that our true VaR
+          exceeds the regulatory threshold?"
+
+    When to use:
+        - Short return histories (< 2 years daily).
+        - When you need to report model risk alongside VaR.
+        - For stress testing: use the upper CI as a conservative VaR.
+
+    Red flags:
+        - var_std > 0.5 * var_mean: VaR estimate is unreliable.
+        - ci_upper > 2 * var_mean: extreme model uncertainty.
+        - Negative var_mean: possible with very noisy priors.
+
+    Parameters:
+        returns: Array of observed returns (daily, weekly, etc.).
+        confidence: Confidence level (e.g., 0.95 for 95% VaR,
+            0.99 for 99% VaR). Higher confidence = more extreme
+            losses = more estimation uncertainty.
+        n_posterior: Number of posterior samples. 10,000 is usually
+            sufficient.
+        rng_seed: Random seed for reproducibility.
+
+    Returns:
+        BayesianVaRResult containing:
+
+        - **var_mean** (*float*) -- Posterior mean VaR (positive =
+          loss).
+        - **var_std** (*float*) -- Posterior std of VaR.
+        - **ci_lower** (*float*) -- 2.5th percentile (optimistic VaR).
+        - **ci_upper** (*float*) -- 97.5th percentile (conservative
+          VaR -- use this for prudent risk management).
+        - **var_samples** (*ndarray*) -- Raw posterior VaR samples.
+
+    Example:
+        >>> import numpy as np
+        >>> rng = np.random.default_rng(0)
+        >>> returns = rng.normal(-0.0001, 0.015, 252)
+        >>> result = bayesian_var(returns, confidence=0.99)
+        >>> print(f"VaR: {result.var_mean:.4f} "
+        ...       f"[{result.ci_lower:.4f}, {result.ci_upper:.4f}]")
+
+    See Also:
+        risk.metrics.value_at_risk: Classical historical VaR.
+        risk.evt: Extreme value theory VaR for tail estimation.
     """
     returns = np.asarray(returns, dtype=float).ravel()
     n = len(returns)
@@ -498,20 +677,35 @@ def credible_interval(
 ) -> tuple[float, float]:
     """Compute the Highest Posterior Density (HPD) credible interval.
 
-    Uses the shortest interval containing (1 - alpha) of the posterior
-    mass.
+    The HPD interval is the shortest interval containing (1 - alpha)
+    of the posterior mass.  Unlike equal-tailed intervals (which just
+    take the alpha/2 and 1-alpha/2 quantiles), the HPD interval is
+    always the narrowest possible -- important for skewed posteriors
+    (e.g., variance or Sharpe ratio posteriors).
 
-    Parameters
-    ----------
-    samples : np.ndarray
-        Posterior samples (1D array).
-    alpha : float
-        Significance level. Default is 0.05 (95% credible interval).
+    Interpretation:
+        - There is a (1 - alpha) posterior probability that the true
+          parameter lies in this interval.  This is the statement
+          most practitioners actually want (unlike frequentist
+          confidence intervals).
+        - A narrow HPD interval = precise estimate.
+        - An HPD interval that includes 0 = cannot rule out zero effect.
+        - For symmetric posteriors, HPD equals the equal-tailed interval.
+          For skewed posteriors (common for variances, Sharpe ratios),
+          HPD is always shorter.
 
-    Returns
-    -------
-    tuple[float, float]
+    Parameters:
+        samples: Posterior samples (1D array).
+        alpha: Significance level. Default 0.05 (95% credible interval).
+
+    Returns:
         (lower, upper) bounds of the HPD interval.
+
+    Example:
+        >>> import numpy as np
+        >>> samples = np.random.default_rng(0).normal(2.0, 0.5, 10000)
+        >>> lo, hi = credible_interval(samples, alpha=0.05)
+        >>> print(f"95% HPD: [{lo:.2f}, {hi:.2f}]")  # ~[1.0, 3.0]
     """
     samples = np.asarray(samples, dtype=float).ravel()
     sorted_samples = np.sort(samples)
@@ -536,21 +730,44 @@ def bayes_factor(
     log_likelihood_1: float,
     log_likelihood_2: float,
 ) -> float:
-    """Compute the Bayes factor comparing model 1 to model 2.
+    """Compute the Bayes factor comparing two models.
+
+    The Bayes factor is the Bayesian alternative to likelihood ratio
+    tests and information criteria.  It quantifies how much the data
+    favors one model over another, automatically penalising complexity
+    (Occam's razor is built in, unlike AIC/BIC which use fixed
+    penalties).
 
     BF = exp(log_likelihood_1 - log_likelihood_2).
 
-    Parameters
-    ----------
-    log_likelihood_1 : float
-        Log marginal likelihood of model 1.
-    log_likelihood_2 : float
-        Log marginal likelihood of model 2.
+    Interpretation (Kass & Raftery, 1995 scale):
+        - BF < 1/100: decisive evidence for model 2.
+        - BF 1/100 to 1/10: strong evidence for model 2.
+        - BF 1/10 to 1/3: moderate evidence for model 2.
+        - BF 1/3 to 1: weak evidence for model 2.
+        - BF 1 to 3: weak evidence for model 1.
+        - BF 3 to 10: moderate evidence for model 1.
+        - BF 10 to 100: strong evidence for model 1.
+        - BF > 100: decisive evidence for model 1.
 
-    Returns
-    -------
-    float
+    When to use:
+        - Comparing nested or non-nested regression models.
+        - Deciding whether an extra factor belongs in a return model.
+        - Testing whether a regime-switching model is justified vs
+          a single-regime model.
+
+    Parameters:
+        log_likelihood_1: Log marginal likelihood of model 1.
+            Obtain from ``bayesian_linear_regression(...).log_marginal_likelihood``.
+        log_likelihood_2: Log marginal likelihood of model 2.
+
+    Returns:
         Bayes factor (BF > 1 favors model 1, BF < 1 favors model 2).
+
+    Example:
+        >>> # Compare a 3-factor model to a 1-factor model
+        >>> bf = bayes_factor(log_ml_3factor, log_ml_1factor)
+        >>> print(f"BF = {bf:.1f}")  # BF > 10 = strong evidence
     """
     diff = log_likelihood_1 - log_likelihood_2
     # Clip to avoid overflow
@@ -574,27 +791,52 @@ def posterior_predictive(
 ) -> np.ndarray:
     """Generate posterior predictive samples for Bayesian linear regression.
 
-    Parameters
-    ----------
-    y : np.ndarray
-        Response vector (n_obs,).
-    X : np.ndarray
-        Design matrix (n_obs, n_features).
-    prior_mean : np.ndarray or None
-        Prior mean for beta. Defaults to zeros.
-    prior_cov : np.ndarray or None
-        Prior covariance for beta. Defaults to 10 * I.
-    n_samples : int
-        Number of posterior predictive samples.
-    rng_seed : int
-        Random seed for reproducibility.
-    X_new : np.ndarray or None
-        New design matrix for predictions. If None, uses X.
+    The posterior predictive distribution answers: "Given the data I
+    have observed, what range of outcomes should I expect for new
+    observations?"  Unlike point predictions from OLS, the posterior
+    predictive integrates over parameter uncertainty AND noise
+    uncertainty, giving calibrated prediction intervals.
 
-    Returns
-    -------
-    np.ndarray
-        Posterior predictive samples, shape (n_samples, n_pred).
+    Interpretation:
+        - Each row of the output is a plausible future outcome vector
+          under a different posterior draw of beta and sigma.
+        - The spread across rows at a given prediction point is the
+          prediction interval.  This is always wider than a confidence
+          interval on the mean because it includes both parameter
+          uncertainty and noise.
+        - If prediction intervals are very wide relative to the
+          response scale, the model has low predictive power.
+
+    When to use:
+        - Forecasting returns or factor exposures with uncertainty.
+        - Generating scenario paths for stress testing.
+        - Checking model calibration: are observed values typically
+          within the 95% predictive interval?
+
+    Parameters:
+        y: Response vector (n_obs,).
+        X: Design matrix (n_obs, n_features).
+        prior_mean: Prior mean for beta. Defaults to zeros.
+        prior_cov: Prior covariance for beta. Defaults to 10 * I.
+        n_samples: Number of posterior predictive samples.
+        rng_seed: Random seed for reproducibility.
+        X_new: New design matrix for predictions. If None, uses X
+            (in-sample predictions, useful for calibration checks).
+
+    Returns:
+        ndarray of shape (n_samples, n_pred) -- posterior predictive
+        samples.  Take ``np.percentile(result, [2.5, 97.5], axis=0)``
+        for a 95% prediction interval.
+
+    Example:
+        >>> import numpy as np
+        >>> rng = np.random.default_rng(0)
+        >>> X = np.column_stack([np.ones(100), rng.normal(size=100)])
+        >>> y = X @ np.array([1.0, 2.0]) + rng.normal(0, 0.5, 100)
+        >>> X_new = np.column_stack([np.ones(5), rng.normal(size=5)])
+        >>> ppc = posterior_predictive(y, X, X_new=X_new)
+        >>> pi = np.percentile(ppc, [2.5, 97.5], axis=0)
+        >>> print(f"95% PI for first prediction: [{pi[0, 0]:.2f}, {pi[1, 0]:.2f}]")
     """
     rng = np.random.default_rng(rng_seed)
 

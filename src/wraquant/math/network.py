@@ -50,6 +50,24 @@ def correlation_network(
         ``adjacency``   – (n, n) adjacency matrix (0/1).
         ``correlation`` – (n, n) full correlation matrix.
         ``asset_names`` – list of column names.
+
+    Example
+    -------
+    >>> import pandas as pd, numpy as np
+    >>> np.random.seed(42)
+    >>> returns = pd.DataFrame(np.random.randn(252, 4),
+    ...                         columns=['AAPL', 'MSFT', 'GOOG', 'AMZN'])
+    >>> net = correlation_network(returns, threshold=0.1)
+    >>> net['adjacency'].shape
+    (4, 4)
+    >>> net['asset_names']
+    ['AAPL', 'MSFT', 'GOOG', 'AMZN']
+
+    See Also
+    --------
+    minimum_spanning_tree : Build an MST from the correlation matrix.
+    granger_network : Build a directed network from Granger causality.
+    centrality_measures : Rank nodes by importance within the network.
     """
     returns_df = coerce_dataframe(returns_df, name="returns_df")
     corr = returns_df.corr().values
@@ -81,6 +99,24 @@ def minimum_spanning_tree(
     -------
     np.ndarray
         (n, n) adjacency matrix of the MST (symmetric, 0/1 entries).
+
+    Example
+    -------
+    >>> import numpy as np
+    >>> from wraquant.math.network import minimum_spanning_tree
+    >>> corr = np.array([[1.0, 0.8, 0.3],
+    ...                   [0.8, 1.0, 0.5],
+    ...                   [0.3, 0.5, 1.0]])
+    >>> mst = minimum_spanning_tree(corr)
+    >>> mst.shape
+    (3, 3)
+    >>> int(mst.sum() / 2)  # MST of 3 nodes has 2 edges
+    2
+
+    See Also
+    --------
+    correlation_network : Build a thresholded correlation network.
+    centrality_measures : Compute centrality on the resulting MST.
     """
     corr = np.asarray(correlation_matrix, dtype=np.float64)
     n = corr.shape[0]
@@ -136,10 +172,27 @@ def centrality_measures(
     Returns
     -------
     dict
-        ``degree``       – degree centrality (normalised).
-        ``betweenness``  – betweenness centrality.
-        ``eigenvector``  – eigenvector centrality.
+        ``degree``       – degree centrality (normalised).  Higher values
+            indicate nodes connected to more of the network.
+        ``betweenness``  – betweenness centrality.  Higher values indicate
+            nodes that bridge different clusters.
+        ``eigenvector``  – eigenvector centrality.  Higher values indicate
+            nodes connected to other well-connected nodes.
         ``asset_names``  – node labels.
+
+    Example
+    -------
+    >>> import numpy as np
+    >>> from wraquant.math.network import centrality_measures
+    >>> adj = np.array([[0, 1, 1], [1, 0, 0], [1, 0, 0]])
+    >>> result = centrality_measures(adj, asset_names=['A', 'B', 'C'])
+    >>> result['degree'][0]  # node A connected to both B and C
+    1.0
+
+    See Also
+    --------
+    correlation_network : Build the adjacency matrix from returns.
+    systemic_risk_score : Systemic importance via MES or CoVaR.
     """
     adj = np.asarray(adjacency_matrix, dtype=np.float64)
     n = adj.shape[0]
@@ -242,6 +295,25 @@ def community_detection(
     -------
     np.ndarray
         Integer community labels of length *n*.
+
+    Example
+    -------
+    >>> import numpy as np
+    >>> from wraquant.math.network import community_detection
+    >>> # Block-diagonal adjacency (two clear communities)
+    >>> adj = np.array([[0, 1, 1, 0, 0],
+    ...                  [1, 0, 1, 0, 0],
+    ...                  [1, 1, 0, 0, 0],
+    ...                  [0, 0, 0, 0, 1],
+    ...                  [0, 0, 0, 1, 0]], dtype=float)
+    >>> labels = community_detection(adj, n_communities=2)
+    >>> labels.shape
+    (5,)
+
+    See Also
+    --------
+    correlation_network : Build a network to cluster.
+    wraquant.ml.clustering.correlation_clustering : ML-based asset clustering.
     """
     adj = np.asarray(adjacency_matrix, dtype=np.float64)
     n = adj.shape[0]
@@ -339,6 +411,22 @@ def systemic_risk_score(
     ------
     ValueError
         If *method* is not recognised.
+
+    Example
+    -------
+    >>> import pandas as pd, numpy as np
+    >>> np.random.seed(42)
+    >>> returns = pd.DataFrame(np.random.randn(252, 3) * 0.01,
+    ...                         columns=['SPY', 'QQQ', 'IWM'])
+    >>> scores = systemic_risk_score(returns, method='mes', quantile=0.05)
+    >>> len(scores) == 3
+    True
+
+    See Also
+    --------
+    contagion_simulation : Simulate shock propagation through a network.
+    centrality_measures : Network centrality as an alternative importance measure.
+    wraquant.risk.metrics : VaR and CVaR risk metrics.
     """
     returns_df = coerce_dataframe(returns_df, name="returns_df")
     if method == "mes":
@@ -437,7 +525,27 @@ def contagion_simulation(
         ``defaulted``     – boolean array of which nodes defaulted.
         ``stress``        – cumulative stress on each node.
         ``rounds``        – number of propagation rounds.
-        ``cascade_size``  – total number of defaults.
+        ``cascade_size``  – total number of defaults.  A cascade_size
+            close to *n* indicates high systemic fragility.
+
+    Example
+    -------
+    >>> import numpy as np
+    >>> from wraquant.math.network import contagion_simulation
+    >>> adj = np.array([[0, 0.6, 0.3],
+    ...                  [0.4, 0, 0.5],
+    ...                  [0.2, 0.3, 0]], dtype=float)
+    >>> result = contagion_simulation(adj, shock_node=0, shock_magnitude=1.0,
+    ...                                threshold=0.5)
+    >>> result['defaulted'][0]
+    True
+    >>> result['cascade_size'] >= 1
+    True
+
+    See Also
+    --------
+    systemic_risk_score : Identify which nodes are most systemically important.
+    correlation_network : Build the adjacency matrix from return data.
     """
     adj = np.asarray(adjacency_matrix, dtype=np.float64)
     n = adj.shape[0]
@@ -499,6 +607,22 @@ def granger_network(
                         means *j* Granger-causes *i*.
         ``pvalues``   – (n, n) matrix of p-values.
         ``asset_names`` – column names.
+
+    Example
+    -------
+    >>> import pandas as pd, numpy as np
+    >>> np.random.seed(42)
+    >>> x = np.random.randn(200)
+    >>> y = np.concatenate([[0], x[:-1]]) + np.random.randn(200) * 0.1
+    >>> df = pd.DataFrame({'X': x, 'Y': y})
+    >>> result = granger_network(df, max_lag=3, significance=0.05)
+    >>> result['adjacency'].shape
+    (2, 2)
+
+    See Also
+    --------
+    correlation_network : Undirected network from correlations.
+    wraquant.math.information.transfer_entropy : Information-theoretic causality.
     """
     from scipy.stats import f as f_dist
 

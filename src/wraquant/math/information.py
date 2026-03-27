@@ -42,6 +42,25 @@ def fisher_information(
     -------
     np.ndarray
         Fisher information matrix of shape ``(len(params), len(params))``.
+        Larger diagonal entries indicate parameters that are more precisely
+        estimable from the data.
+
+    Example
+    -------
+    >>> import numpy as np
+    >>> from wraquant.math.information import fisher_information
+    >>> # Log-likelihood of Normal(mu, sigma=1): -0.5 * sum((x - mu)^2)
+    >>> data = np.array([1.0, 2.0, 3.0])
+    >>> ll_fn = lambda p: -0.5 * np.sum((data - p[0])**2)
+    >>> fim = fisher_information(ll_fn, np.array([2.0]))
+    >>> fim.shape
+    (1, 1)
+    >>> fim[0, 0] > 0  # positive definite
+    True
+
+    See Also
+    --------
+    wraquant.math.numerical.finite_difference_hessian : General Hessian computation.
     """
     params = coerce_array(params, name="params")
     n = len(params)
@@ -100,12 +119,29 @@ def entropy(
     Returns
     -------
     float
-        Shannon entropy in nats.
+        Shannon entropy in nats.  Higher values indicate more
+        dispersed (uncertain) distributions; lower values indicate
+        concentrated distributions.
 
     Raises
     ------
     ValueError
         If *method* is not recognised.
+
+    Example
+    -------
+    >>> import numpy as np
+    >>> from wraquant.math.information import entropy
+    >>> uniform = np.random.uniform(size=1000)
+    >>> peaked = np.random.normal(0, 0.01, size=1000)
+    >>> entropy(uniform) > entropy(peaked)
+    True
+
+    See Also
+    --------
+    conditional_entropy : Entropy of X given Y.
+    mutual_information : Shared information between two variables.
+    wraquant.math.spectral.spectral_entropy : Entropy of the power spectrum.
     """
     if method != "histogram":
         raise ValueError(f"Unknown method {method!r}; only 'histogram' is supported.")
@@ -140,7 +176,24 @@ def mutual_information(
     Returns
     -------
     float
-        Mutual information in nats (>= 0).
+        Mutual information in nats (>= 0).  Zero indicates independence;
+        higher values indicate stronger dependence (linear or nonlinear).
+
+    Example
+    -------
+    >>> import numpy as np
+    >>> from wraquant.math.information import mutual_information
+    >>> rng = np.random.default_rng(42)
+    >>> x = rng.standard_normal(1000)
+    >>> y = x + rng.standard_normal(1000) * 0.1  # highly dependent
+    >>> z = rng.standard_normal(1000)             # independent
+    >>> mutual_information(x, y) > mutual_information(x, z)
+    True
+
+    See Also
+    --------
+    transfer_entropy : Directed (causal) information flow.
+    conditional_entropy : H(X | Y) = H(X) - I(X; Y).
     """
     x = coerce_array(x, name="x")
     y = coerce_array(y, name="y")
@@ -192,7 +245,30 @@ def transfer_entropy(
     Returns
     -------
     float
-        Transfer entropy in nats (>= 0).
+        Transfer entropy in nats (>= 0).  Higher values indicate
+        stronger directional information flow from *source* to *target*.
+
+    Example
+    -------
+    >>> import numpy as np
+    >>> from wraquant.math.information import transfer_entropy
+    >>> rng = np.random.default_rng(42)
+    >>> x = rng.standard_normal(500)
+    >>> y = np.concatenate([[0], x[:-1]]) + rng.standard_normal(500) * 0.1
+    >>> te_x_to_y = transfer_entropy(x, y, lag=1)
+    >>> te_y_to_x = transfer_entropy(y, x, lag=1)
+    >>> te_x_to_y > te_y_to_x  # x drives y, not vice versa
+    True
+
+    Notes
+    -----
+    Reference: Schreiber, T. (2000). "Measuring Information Transfer."
+    *Physical Review Letters*, 85(2), 461-464.
+
+    See Also
+    --------
+    mutual_information : Symmetric (undirected) dependence measure.
+    wraquant.math.network.granger_network : Linear Granger causality.
     """
     source = coerce_array(source, name="source")
     target = coerce_array(target, name="target")
@@ -245,7 +321,24 @@ def kl_divergence(
     Returns
     -------
     float
-        KL divergence in nats (>= 0).
+        KL divergence in nats (>= 0).  Zero when P and Q are identical;
+        larger values indicate greater distributional difference.
+        Note: KL divergence is asymmetric -- D_KL(P||Q) != D_KL(Q||P).
+
+    Example
+    -------
+    >>> import numpy as np
+    >>> from wraquant.math.information import kl_divergence
+    >>> rng = np.random.default_rng(42)
+    >>> p = rng.normal(0, 1, size=5000)
+    >>> q = rng.normal(0.5, 1, size=5000)
+    >>> kl_divergence(p, q) > 0
+    True
+
+    See Also
+    --------
+    entropy : Shannon entropy of a single distribution.
+    mutual_information : Symmetric dependence measure.
     """
     p_arr = coerce_array(p, name="p")
     q_arr = coerce_array(q, name="q")
@@ -294,7 +387,25 @@ def conditional_entropy(
     Returns
     -------
     float
-        Conditional entropy in nats.
+        Conditional entropy in nats.  Lower values mean *Y* is more
+        informative about *X*.  When H(X|Y) = 0, *X* is fully determined
+        by *Y*.
+
+    Example
+    -------
+    >>> import numpy as np
+    >>> from wraquant.math.information import conditional_entropy
+    >>> rng = np.random.default_rng(42)
+    >>> x = rng.standard_normal(1000)
+    >>> y = x + rng.standard_normal(1000) * 0.1  # y almost determines x
+    >>> h_x_given_y = conditional_entropy(x, y)
+    >>> h_x_given_y < 1.0  # low because y is informative about x
+    True
+
+    See Also
+    --------
+    entropy : Unconditional Shannon entropy H(X).
+    mutual_information : I(X;Y) = H(X) - H(X|Y).
     """
     x = coerce_array(x, name="x")
     y = coerce_array(y, name="y")

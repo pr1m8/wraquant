@@ -18,6 +18,7 @@ __all__ = [
     "clip_weights",
     "rebalance_threshold",
     "regime_signal_filter",
+    "volatility_target_sizing",
 ]
 
 
@@ -417,6 +418,66 @@ def regime_conditional_sizing(
     )
     arr = np.asarray(base_weights, dtype=float)
     return arr * effective_mult
+
+
+def volatility_target_sizing(
+    returns: pd.Series,
+    target_vol: float = 0.15,
+    method: str = "ewma",
+    span: int = 30,
+) -> float:
+    """Size positions to target a specific annualised volatility level.
+
+    Computes a scalar multiplier so that the portfolio's expected
+    annualised volatility equals ``target_vol``.  The current volatility
+    is estimated via EWMA (``wraquant.vol.models.ewma_volatility``),
+    providing a responsive, GARCH-inspired estimate that reacts quickly
+    to changing market conditions.
+
+    Mathematical formulation:
+        scalar = target_vol / current_vol
+
+    If ``current_vol`` is zero or negative (constant returns), the
+    function returns 1.0 (no scaling).
+
+    When to use:
+        Use volatility targeting when you want your strategy to maintain
+        a consistent risk profile regardless of market conditions.  This
+        is the foundation of most institutional risk-parity and
+        managed-futures strategies.
+
+    Parameters:
+        returns: Recent asset return series (at least 10 observations).
+        target_vol: Desired annualised volatility (e.g., 0.15 for 15%).
+        method: Volatility estimation method.  Currently only ``"ewma"``
+            is supported.
+        span: EWMA span parameter (default 30).  Higher values produce
+            smoother estimates; lower values react faster to shocks.
+
+    Returns:
+        Scalar multiplier for position size.  Values > 1 indicate the
+        current vol is below target (increase exposure); values < 1
+        indicate it is above target (reduce exposure).
+
+    Example:
+        >>> import pandas as pd, numpy as np
+        >>> np.random.seed(42)
+        >>> returns = pd.Series(np.random.normal(0, 0.01, 100))
+        >>> scalar = volatility_target_sizing(returns, target_vol=0.10)
+        >>> scalar > 0
+        True
+
+    See Also:
+        PositionSizer.volatility_targeting: Simple std-based vol targeting.
+        regime_conditional_sizing: Regime-aware position scaling.
+    """
+    from wraquant.vol.models import ewma_volatility
+
+    vol_series = ewma_volatility(returns, span=span, annualize=True)
+    current_vol = float(vol_series.iloc[-1])
+    if current_vol <= 0 or np.isnan(current_vol):
+        return 1.0
+    return target_vol / current_vol
 
 
 def regime_signal_filter(

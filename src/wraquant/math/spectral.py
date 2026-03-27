@@ -38,6 +38,22 @@ def fft_decompose(
         ``amplitudes``  – amplitude of each frequency component.
         ``phases``      – phase angle (radians) of each component.
         ``power``       – power spectrum (amplitude squared).
+
+    Example
+    -------
+    >>> import numpy as np
+    >>> from wraquant.math.spectral import fft_decompose
+    >>> t = np.arange(256)
+    >>> signal = np.sin(2 * np.pi * t / 20)  # period=20 bars
+    >>> result = fft_decompose(signal, n_components=3)
+    >>> result['frequencies'].shape[0]
+    3
+
+    See Also
+    --------
+    dominant_frequencies : Extract the strongest cyclical components.
+    spectral_density : Power spectral density estimation.
+    bandpass_filter : Isolate a frequency band from the signal.
     """
     data = coerce_array(data, name="data")
     n = len(data)
@@ -81,7 +97,25 @@ def dominant_frequencies(
     dict
         ``frequency`` – normalised frequencies of the top components.
         ``period``    – corresponding period in bars (1 / frequency).
+            Periods near common trading horizons (5, 21, 63 bars) may
+            indicate weekly, monthly, or quarterly cycles.
         ``amplitude`` – amplitude of each component.
+
+    Example
+    -------
+    >>> import numpy as np
+    >>> from wraquant.math.spectral import dominant_frequencies
+    >>> t = np.arange(500)
+    >>> signal = np.sin(2 * np.pi * t / 21) + 0.5 * np.sin(2 * np.pi * t / 63)
+    >>> result = dominant_frequencies(signal, n_top=2)
+    >>> # The two dominant periods should be near 21 and 63
+    >>> sorted(result['period'])[:2]  # doctest: +SKIP
+    [21.0, 63.0]
+
+    See Also
+    --------
+    fft_decompose : Full FFT decomposition.
+    spectral_entropy : Measure spectral complexity.
     """
     data = coerce_array(data, name="data")
     n = len(data)
@@ -125,12 +159,28 @@ def spectral_density(
     -------
     dict
         ``frequencies`` – frequency axis.
-        ``psd``         – power spectral density values.
+        ``psd``         – power spectral density values.  Higher PSD at
+            low frequencies indicates trending behaviour; flat PSD
+            indicates white noise.
 
     Raises
     ------
     ValueError
         If *method* is not recognised.
+
+    Example
+    -------
+    >>> import numpy as np
+    >>> from wraquant.math.spectral import spectral_density
+    >>> data = np.random.randn(500)
+    >>> result = spectral_density(data, method='welch')
+    >>> len(result['frequencies']) == len(result['psd'])
+    True
+
+    See Also
+    --------
+    fft_decompose : Raw FFT decomposition.
+    spectral_entropy : Single-number summary of spectral shape.
     """
     data = coerce_array(data, name="data")
 
@@ -171,6 +221,22 @@ def bandpass_filter(
     -------
     np.ndarray
         Filtered signal.
+
+    Example
+    -------
+    >>> import numpy as np
+    >>> from wraquant.math.spectral import bandpass_filter
+    >>> t = np.arange(500)
+    >>> # Signal with a 21-bar cycle plus high-frequency noise
+    >>> signal = np.sin(2 * np.pi * t / 21) + 0.5 * np.random.randn(500)
+    >>> filtered = bandpass_filter(signal, low_freq=0.04, high_freq=0.06)
+    >>> filtered.shape
+    (500,)
+
+    See Also
+    --------
+    wraquant.math.signals.savitzky_golay : Polynomial smoothing filter.
+    dominant_frequencies : Identify which frequencies to isolate.
     """
     data = coerce_array(data, name="data")
     nyquist = sampling_rate / 2.0
@@ -198,7 +264,25 @@ def spectral_entropy(data: ArrayLike) -> float:
     Returns
     -------
     float
-        Normalised spectral entropy in [0, 1].
+        Normalised spectral entropy in [0, 1].  Values near 0 indicate
+        a strongly periodic signal; values near 1 indicate noise-like
+        behaviour with no dominant frequency.
+
+    Example
+    -------
+    >>> import numpy as np
+    >>> from wraquant.math.spectral import spectral_entropy
+    >>> # Pure sine wave has low spectral entropy
+    >>> t = np.arange(256)
+    >>> se_sine = spectral_entropy(np.sin(2 * np.pi * t / 20))
+    >>> se_noise = spectral_entropy(np.random.randn(256))
+    >>> se_sine < se_noise
+    True
+
+    See Also
+    --------
+    wraquant.math.information.entropy : Shannon entropy of a data distribution.
+    spectral_density : Full PSD estimation.
     """
     data = coerce_array(data, name="data")
     _, psd = sp_signal.periodogram(data)

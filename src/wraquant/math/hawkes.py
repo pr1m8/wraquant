@@ -48,7 +48,24 @@ def hawkes_intensity(
     Returns
     -------
     np.ndarray
-        Intensity evaluated at each event time.
+        Intensity evaluated at each event time.  Values above *mu*
+        indicate self-excitation from recent events.
+
+    Example
+    -------
+    >>> import numpy as np
+    >>> from wraquant.math.hawkes import hawkes_intensity
+    >>> times = np.array([0.1, 0.2, 0.25, 0.5, 1.0])
+    >>> intensity = hawkes_intensity(times, mu=1.0, alpha=0.5, beta=2.0)
+    >>> intensity[0]  # first event: just background
+    1.0
+    >>> intensity[2] > intensity[0]  # cluster of events excites intensity
+    True
+
+    See Also
+    --------
+    simulate_hawkes : Generate event times from a Hawkes process.
+    fit_hawkes : Calibrate parameters from observed event times.
     """
     times = coerce_array(times, name="times")
     n = len(times)
@@ -100,6 +117,22 @@ def simulate_hawkes(
     ------
     ValueError
         If the branching ratio ``alpha / beta >= 1`` (non-stationary).
+
+    Example
+    -------
+    >>> from wraquant.math.hawkes import simulate_hawkes
+    >>> events = simulate_hawkes(mu=1.0, alpha=0.5, beta=2.0, T=100.0,
+    ...                           seed=42)
+    >>> len(events) > 0
+    True
+    >>> events[0] >= 0 and events[-1] <= 100.0
+    True
+
+    See Also
+    --------
+    hawkes_intensity : Compute intensity at observed event times.
+    fit_hawkes : Fit parameters from event data.
+    wraquant.microstructure.toxicity : Toxicity models for order flow.
     """
     if alpha / beta >= 1.0:
         raise ValueError(
@@ -160,7 +193,23 @@ def fit_hawkes(
         ``alpha`` – fitted excitation magnitude.
         ``beta``  – fitted decay rate.
         ``log_likelihood`` – maximised log-likelihood value.
-        ``branching_ratio`` – ``alpha / beta``.
+        ``branching_ratio`` – ``alpha / beta``.  Values close to 1
+            indicate strong self-excitation; close to 0 means events
+            are nearly independent.
+
+    Example
+    -------
+    >>> from wraquant.math.hawkes import simulate_hawkes, fit_hawkes
+    >>> events = simulate_hawkes(mu=1.0, alpha=0.5, beta=2.0, T=1000.0,
+    ...                           seed=42)
+    >>> result = fit_hawkes(events, T=1000.0)
+    >>> 0 < result['branching_ratio'] < 1
+    True
+
+    See Also
+    --------
+    hawkes_intensity : Evaluate intensity with fitted parameters.
+    hawkes_branching_ratio : Quick branching ratio computation.
     """
     times = coerce_array(times, name="times")
     if T is None:
@@ -231,6 +280,16 @@ def hawkes_branching_ratio(alpha: float, beta: float) -> float:
     Returns
     -------
     float
-        Branching ratio ``alpha / beta``.
+        Branching ratio ``alpha / beta``.  Must be < 1 for stationarity.
+
+    Example
+    -------
+    >>> from wraquant.math.hawkes import hawkes_branching_ratio
+    >>> hawkes_branching_ratio(alpha=0.5, beta=2.0)
+    0.25
+
+    See Also
+    --------
+    fit_hawkes : Estimate parameters (includes branching ratio in output).
     """
     return alpha / beta

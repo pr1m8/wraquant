@@ -36,6 +36,8 @@ def mean_variance(
     risk_free: float = 0.0,
     periods_per_year: int = 252,
     bounds: tuple[float, float] = (0.0, 1.0),
+    shrink: bool = False,
+    shrinkage_method: str = "ledoit_wolf",
 ) -> OptimizationResult:
     """Mean-variance optimization (Markowitz).
 
@@ -61,6 +63,13 @@ def mean_variance(
         periods_per_year: Trading periods per year (252 for daily).
         bounds: Weight bounds per asset (min, max).  Use ``(0, 1)`` for
             long-only; ``(-1, 1)`` to allow shorting.
+        shrink: If ``True``, use a shrinkage estimator for the covariance
+            matrix instead of the sample covariance.  Shrinkage produces
+            a better-conditioned matrix when the number of assets is
+            large relative to the number of observations.
+        shrinkage_method: Shrinkage method when ``shrink=True`` --
+            ``"ledoit_wolf"`` (default), ``"oas"``, or ``"basic"``.
+            Forwarded to ``wraquant.stats.correlation.shrunk_covariance``.
 
     Returns:
         OptimizationResult with optimal weights, expected return,
@@ -89,7 +98,12 @@ def mean_variance(
     """
     n = returns.shape[1]
     mu = returns.mean().values
-    cov = returns.cov().values
+    if shrink:
+        from wraquant.stats.correlation import shrunk_covariance
+
+        cov = shrunk_covariance(returns, method=shrinkage_method).values
+    else:
+        cov = returns.cov().values
     assets = list(returns.columns)
 
     weight_bounds = [bounds] * n
@@ -131,6 +145,8 @@ def min_volatility(
     returns: pd.DataFrame,
     bounds: tuple[float, float] = (0.0, 1.0),
     periods_per_year: int = 252,
+    shrink: bool = False,
+    shrinkage_method: str = "ledoit_wolf",
 ) -> OptimizationResult:
     """Minimum volatility portfolio.
 
@@ -146,6 +162,9 @@ def min_volatility(
         returns: Asset return DataFrame.
         bounds: Weight bounds per asset (default long-only ``(0, 1)``).
         periods_per_year: Trading periods per year.
+        shrink: If ``True``, use a shrinkage covariance estimator.
+        shrinkage_method: Shrinkage method (``"ledoit_wolf"``,
+            ``"oas"``, or ``"basic"``).
 
     Returns:
         OptimizationResult with minimum variance weights.  The
@@ -167,7 +186,12 @@ def min_volatility(
     """
     n = returns.shape[1]
     mu = returns.mean().values
-    cov = returns.cov().values
+    if shrink:
+        from wraquant.stats.correlation import shrunk_covariance
+
+        cov = shrunk_covariance(returns, method=shrinkage_method).values
+    else:
+        cov = returns.cov().values
     assets = list(returns.columns)
 
     def portfolio_vol(w: npt.NDArray) -> float:
@@ -201,6 +225,8 @@ def max_sharpe(
     risk_free: float = 0.0,
     bounds: tuple[float, float] = (0.0, 1.0),
     periods_per_year: int = 252,
+    shrink: bool = False,
+    shrinkage_method: str = "ledoit_wolf",
 ) -> OptimizationResult:
     """Maximum Sharpe ratio portfolio.
 
@@ -216,6 +242,9 @@ def max_sharpe(
         risk_free: Annual risk-free rate.
         bounds: Weight bounds per asset.
         periods_per_year: Trading periods per year.
+        shrink: If ``True``, use a shrinkage covariance estimator.
+        shrinkage_method: Shrinkage method (``"ledoit_wolf"``,
+            ``"oas"``, or ``"basic"``).
 
     Returns:
         OptimizationResult with maximum Sharpe weights.  The
@@ -240,6 +269,8 @@ def max_sharpe(
         risk_free=risk_free,
         bounds=bounds,
         periods_per_year=periods_per_year,
+        shrink=shrink,
+        shrinkage_method=shrinkage_method,
     )
 
 

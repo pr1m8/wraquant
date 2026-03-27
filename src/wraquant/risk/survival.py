@@ -82,8 +82,25 @@ def kaplan_meier(
 ) -> dict[str, np.ndarray]:
     """Kaplan-Meier survival curve estimator.
 
-    Non-parametric estimator of the survival function from censored
-    duration data.
+    The Kaplan-Meier (KM) estimator is the standard non-parametric
+    method for estimating the survival function S(t) = P(T > t) from
+    potentially censored data.  "Censored" means some subjects have
+    not yet experienced the event at the time of observation.
+
+    In finance, this answers questions like:
+        - "What fraction of bonds survive to year 5 without defaulting?"
+        - "How long do hedge funds typically survive before closing?"
+        - "What is the probability a drawdown lasts longer than 60 days?"
+
+    Interpretation:
+        - **survival**: S(t) is the probability of surviving beyond
+          time t.  A steep drop indicates a period of high hazard.
+        - **variance** (Greenwood's formula): Use to construct 95%
+          confidence bands as S(t) +/- 1.96 * sqrt(variance(t)).
+        - The median survival time is where S(t) first drops below 0.5.
+        - A flat survival curve = low hazard rate (few events).
+        - A curve that drops quickly early = high initial hazard
+          (e.g., new funds failing in the first year).
 
     Parameters:
         durations: 1-D array of observed durations (time-to-event or
@@ -94,9 +111,23 @@ def kaplan_meier(
     Returns:
         Dictionary with keys:
 
-        - ``timeline``: Sorted unique event times.
-        - ``survival``: Survival probability at each event time.
-        - ``variance``: Greenwood's variance estimate at each event time.
+        - **timeline** (*ndarray*) -- Sorted unique event times.
+        - **survival** (*ndarray*) -- Survival probability S(t) at each
+          event time.
+        - **variance** (*ndarray*) -- Greenwood's variance estimate for
+          constructing confidence bands.
+
+    Example:
+        >>> import numpy as np
+        >>> rng = np.random.default_rng(0)
+        >>> durations = rng.exponential(5.0, 200)  # avg survival 5 years
+        >>> events = rng.binomial(1, 0.7, 200)     # 70% observed, 30% censored
+        >>> km = kaplan_meier(durations, events)
+        >>> print(f"5-year survival: {km['survival'][km['timeline'] <= 5][-1]:.2f}")
+
+    See Also:
+        nelson_aalen: Cumulative hazard estimator.
+        log_rank_test: Compare two survival curves.
     """
     from wraquant.core._coerce import coerce_array
 
@@ -145,7 +176,23 @@ def nelson_aalen(
 ) -> dict[str, np.ndarray]:
     """Nelson-Aalen cumulative hazard estimator.
 
-    Non-parametric estimator of the cumulative hazard function.
+    Estimates the cumulative hazard function H(t), which is related to
+    the survival function by S(t) = exp(-H(t)).  While the Kaplan-Meier
+    directly estimates S(t), the Nelson-Aalen estimator is more natural
+    for estimating the hazard rate and for models where the hazard is
+    the primary quantity of interest.
+
+    Interpretation:
+        - H(t) represents the accumulated risk up to time t.
+        - The slope of H(t) is the instantaneous hazard rate: steep
+          segments indicate periods of high risk.
+        - A linear H(t) suggests a constant hazard rate (exponential
+          survival).
+        - A concave H(t) suggests a decreasing hazard (survival gets
+          easier over time).
+        - A convex H(t) suggests an increasing hazard (risk
+          accelerates -- typical for aging/wear-out or credit
+          deterioration).
 
     Parameters:
         durations: 1-D array of observed durations.
@@ -154,9 +201,13 @@ def nelson_aalen(
     Returns:
         Dictionary with keys:
 
-        - ``timeline``: Sorted unique event times.
-        - ``cumulative_hazard``: Cumulative hazard estimate at each time.
-        - ``variance``: Variance estimate at each time.
+        - **timeline** (*ndarray*) -- Sorted unique event times.
+        - **cumulative_hazard** (*ndarray*) -- H(t) at each time.
+        - **variance** (*ndarray*) -- Variance estimate at each time.
+
+    See Also:
+        kaplan_meier: Direct survival function estimator.
+        hazard_rate: Smoothed instantaneous hazard from Nelson-Aalen.
     """
     from wraquant.core._coerce import coerce_array
 
@@ -202,19 +253,38 @@ def hazard_rate(
     """Kernel-smoothed hazard rate estimate.
 
     Applies Epanechnikov kernel smoothing to the Nelson-Aalen increments
-    to produce a smooth hazard rate function.
+    to produce a smooth instantaneous hazard rate function h(t).
+
+    The hazard rate answers: "Given that a subject has survived to time
+    t, what is the instantaneous probability of the event?" This is
+    more informative than the cumulative survival function for
+    understanding *when* risk is highest.
+
+    Interpretation:
+        - A flat hazard rate means constant risk (exponential model).
+        - An increasing hazard means risk accelerates with time
+          (typical for credit deterioration, infrastructure aging).
+        - A decreasing hazard means early failures dominate and
+          survivors become stronger ("infant mortality").
+        - A bathtub-shaped hazard (decreasing then increasing) is
+          common in reliability engineering.
 
     Parameters:
         durations: 1-D array of observed durations.
         event_observed: 1-D boolean/int array indicating event occurrence.
-        bandwidth: Kernel bandwidth. If ``None``, uses Silverman's rule
-            of thumb.
+        bandwidth: Kernel bandwidth. If ``None``, uses Silverman's rule.
+            Larger bandwidth = smoother curve. Smaller = more detail
+            but noisier.
 
     Returns:
         Dictionary with keys:
 
-        - ``timeline``: Evaluation grid (same as Nelson-Aalen times).
-        - ``hazard``: Smoothed hazard rate at each time point.
+        - **timeline** (*ndarray*) -- Evaluation grid.
+        - **hazard** (*ndarray*) -- Smoothed hazard rate at each point.
+
+    See Also:
+        nelson_aalen: The cumulative hazard from which this is derived.
+        kaplan_meier: Survival function estimator.
     """
     from wraquant.core._coerce import coerce_array
 
@@ -261,8 +331,31 @@ def cox_partial_likelihood(
 ) -> dict[str, np.ndarray | float]:
     """Cox proportional hazards model via Newton-Raphson.
 
-    Fits the Cox PH model by maximising the partial likelihood.  This is
-    a simplified implementation (Breslow method for ties).
+    The Cox PH model is the workhorse of survival regression.  It
+    estimates the effect of covariates on the hazard rate without
+    specifying the baseline hazard function (semi-parametric).  The
+    model assumes the hazard ratio is constant over time (proportional
+    hazards assumption).
+
+    In finance: "Does leverage, profitability, or market beta affect
+    the hazard of default, controlling for other factors?"
+
+    Interpretation:
+        - **beta[j]** is the log hazard ratio for covariate j.
+          exp(beta[j]) > 1 means the covariate increases the hazard
+          (bad for survival).  exp(beta[j]) < 1 means it decreases
+          the hazard (protective).
+        - **se[j]**: Standard error. beta[j] / se[j] gives a z-statistic.
+          |z| > 1.96 is significant at the 5% level.
+        - **log_partial_likelihood**: Higher (less negative) = better
+          fit.  Use for comparing nested models via likelihood ratio
+          tests.
+
+    Red flags:
+        - Very large beta (|beta| > 5): possible separation/convergence
+          issues.
+        - n_iter = max_iter: did not converge, results unreliable.
+        - se contains NaN: Hessian is singular, model is degenerate.
 
     Parameters:
         durations: 1-D array of observed durations.
@@ -274,10 +367,26 @@ def cox_partial_likelihood(
     Returns:
         Dictionary with keys:
 
-        - ``beta``: Estimated regression coefficients.
-        - ``se``: Standard errors of the coefficients.
-        - ``log_partial_likelihood``: Maximised log partial likelihood.
-        - ``n_iter``: Number of iterations to convergence.
+        - **beta** (*ndarray*) -- Regression coefficients. exp(beta)
+          gives hazard ratios.
+        - **se** (*ndarray*) -- Standard errors of coefficients.
+        - **log_partial_likelihood** (*float*) -- Maximised log partial
+          likelihood.
+        - **n_iter** (*int*) -- Number of iterations to convergence.
+
+    Example:
+        >>> import numpy as np
+        >>> rng = np.random.default_rng(0)
+        >>> n = 200
+        >>> leverage = rng.uniform(0.2, 0.8, n)
+        >>> durations = rng.exponential(5 / (1 + leverage), n)
+        >>> events = np.ones(n, dtype=bool)
+        >>> result = cox_partial_likelihood(durations, events, leverage.reshape(-1, 1))
+        >>> print(f"Leverage HR: {np.exp(result['beta'][0]):.2f}")
+
+    See Also:
+        kaplan_meier: Non-parametric survival curve (no covariates).
+        weibull_survival: Parametric survival model.
     """
     from wraquant.core._coerce import coerce_array
 
@@ -372,12 +481,28 @@ def exponential_survival(
 ) -> float | np.ndarray:
     """Exponential survival function S(t) = exp(-lambda * t).
 
+    The exponential model assumes a constant hazard rate -- the
+    probability of the event in the next instant is the same
+    regardless of how long the subject has already survived.  This is
+    the "memoryless" property.
+
+    Interpretation:
+        - lambda = 0.1 means roughly a 10% chance of the event per
+          unit of time.
+        - Mean survival time = 1 / lambda.
+        - If the hazard is actually increasing or decreasing over time,
+          this model is too simplistic.  Use ``weibull_survival`` instead.
+
     Parameters:
-        lambda_param: Hazard rate (constant).
+        lambda_param: Hazard rate (constant, > 0). Higher = faster
+            time to event.
         t: Time point(s) at which to evaluate.
 
     Returns:
         Survival probability at each *t*.
+
+    See Also:
+        weibull_survival: Generalises exponential with time-varying hazard.
     """
     from wraquant.core._coerce import coerce_array
 
@@ -395,13 +520,40 @@ def weibull_survival(
 ) -> float | np.ndarray:
     """Weibull survival function S(t) = exp(-(t / lambda)^k).
 
+    The Weibull distribution generalises the exponential by allowing
+    the hazard rate to increase or decrease over time.  It is the
+    most commonly used parametric survival model in practice.
+
+    Interpretation of the shape parameter k:
+        - **k = 1**: Constant hazard (reduces to exponential). The
+          event is equally likely at any time.
+        - **k < 1**: Decreasing hazard ("burn-in"). Early failures
+          are most common; survivors become stronger.  Typical for
+          infant mortality in manufactured goods.
+        - **k > 1**: Increasing hazard ("aging"). Risk increases over
+          time.  Typical for credit deterioration in distressed firms
+          or aging infrastructure.
+
+    In finance:
+        - k > 1 for time-to-default: firms that have survived a long
+          time in distress become more likely to default (debt maturity
+          approaches, liquidity dries up).
+        - k < 1 for drawdown recovery: if a drawdown has already
+          lasted a long time, recovery becomes more likely (mean
+          reversion kicks in).
+
     Parameters:
-        lambda_param: Scale parameter (> 0).
-        k: Shape parameter (> 0).  k=1 reduces to exponential.
+        lambda_param: Scale parameter (> 0). Larger = longer survival.
+        k: Shape parameter (> 0). k=1 is exponential. k>1 is
+            increasing hazard. k<1 is decreasing hazard.
         t: Time point(s) at which to evaluate.
 
     Returns:
         Survival probability at each *t*.
+
+    See Also:
+        exponential_survival: Simplest case (k=1).
+        kaplan_meier: Non-parametric alternative.
     """
     from wraquant.core._coerce import coerce_array
 
@@ -423,7 +575,23 @@ def log_rank_test(
     """Log-rank test comparing two survival curves.
 
     Tests the null hypothesis that the survival functions of two groups
-    are identical.
+    are identical.  This is the standard test for comparing survival
+    experiences between groups.
+
+    In finance: "Do investment-grade bonds have significantly different
+    time-to-default than high-yield bonds?" or "Do value stocks have
+    different drawdown durations than growth stocks?"
+
+    Interpretation:
+        - **p_value < 0.05**: reject H0 -- the two groups have
+          significantly different survival experiences.
+        - **observed1 >> expected1**: Group 1 has more events than
+          expected (worse survival).
+        - **observed1 << expected1**: Group 1 has fewer events than
+          expected (better survival).
+        - The test is most powerful when the hazard ratio is constant
+          (proportional hazards).  For crossing survival curves, the
+          Wilcoxon (Breslow) test may be more appropriate.
 
     Parameters:
         durations1: Durations for group 1.
@@ -434,10 +602,20 @@ def log_rank_test(
     Returns:
         Dictionary with keys:
 
-        - ``test_statistic``: Chi-squared test statistic.
-        - ``p_value``: P-value from chi-squared distribution with 1 df.
-        - ``observed1``: Total observed events in group 1.
-        - ``expected1``: Expected events in group 1 under H0.
+        - **test_statistic** (*float*) -- Chi-squared statistic (1 df).
+        - **p_value** (*float*) -- P-value. < 0.05 rejects equality.
+        - **observed1** (*float*) -- Total observed events in group 1.
+        - **expected1** (*float*) -- Expected events under H0.
+
+    Example:
+        >>> import numpy as np
+        >>> rng = np.random.default_rng(0)
+        >>> d1 = rng.exponential(5.0, 100)  # group 1: avg survival 5y
+        >>> d2 = rng.exponential(3.0, 100)  # group 2: avg survival 3y
+        >>> e1 = np.ones(100, dtype=bool)
+        >>> e2 = np.ones(100, dtype=bool)
+        >>> result = log_rank_test(d1, e1, d2, e2)
+        >>> print(f"p-value: {result['p_value']:.4f}")  # should be small
     """
     from wraquant.core._coerce import coerce_array
 
@@ -503,15 +681,29 @@ def median_survival_time(
     """Median survival time from the Kaplan-Meier estimator.
 
     The median survival time is the smallest time *t* at which the
-    estimated survival function drops to or below 0.5.
+    estimated survival function drops to or below 0.5 -- i.e., the
+    time by which half the subjects have experienced the event.
+
+    Interpretation:
+        - This is the "half-life" of the population.
+        - More robust than mean survival (which is heavily influenced
+          by censoring and long survivors).
+        - Returns np.inf if the survival curve never reaches 0.5,
+          which happens with heavy censoring or if more than half
+          the subjects never experience the event.
+
+    In finance:
+        - "The median time-to-default for CCC-rated firms is 2.3 years."
+        - "The median drawdown recovery time for equity portfolios
+          is 45 trading days."
 
     Parameters:
         durations: 1-D array of observed durations.
         event_observed: 1-D boolean/int array indicating event occurrence.
 
     Returns:
-        Median survival time, or ``np.inf`` if the survival curve never
-        drops to 0.5.
+        Median survival time, or ``np.inf`` if the survival curve
+        never drops to 0.5 (too much censoring).
     """
     from wraquant.core._coerce import coerce_array
 

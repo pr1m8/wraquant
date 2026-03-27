@@ -39,6 +39,22 @@ def savitzky_golay(
     -------
     np.ndarray
         Smoothed signal.
+
+    Example
+    -------
+    >>> import numpy as np
+    >>> from wraquant.math.signals import savitzky_golay
+    >>> noisy = np.sin(np.linspace(0, 4*np.pi, 200)) + np.random.randn(200)*0.3
+    >>> smooth = savitzky_golay(noisy, window=15, polyorder=3)
+    >>> smooth.shape
+    (200,)
+    >>> np.std(smooth) < np.std(noisy)  # smoothing reduces variance
+    True
+
+    See Also
+    --------
+    kalman_smooth : Kalman-filter-based smoothing (adaptive).
+    exponential_smooth : Simple exponential smoothing.
     """
     data = coerce_array(data, name="data")
     # Ensure window is odd
@@ -69,6 +85,28 @@ def kalman_smooth(
     -------
     np.ndarray
         Kalman-smoothed estimate (same length as *data*).
+
+    Example
+    -------
+    >>> import numpy as np
+    >>> from wraquant.math.signals import kalman_smooth
+    >>> true_signal = np.cumsum(np.random.randn(200) * 0.01)
+    >>> noisy = true_signal + np.random.randn(200) * 0.05
+    >>> smooth = kalman_smooth(noisy, process_var=1e-5, measurement_var=0.01)
+    >>> smooth.shape
+    (200,)
+
+    Notes
+    -----
+    Larger *process_var* makes the filter more responsive to changes;
+    larger *measurement_var* makes it smoother.  For trending markets,
+    increase process_var; for noisy mean-reverting signals, increase
+    measurement_var.
+
+    See Also
+    --------
+    savitzky_golay : Polynomial smoothing (no tuning parameters beyond window).
+    wraquant.regimes : Kalman filter with state-space models.
     """
     data = coerce_array(data, name="data")
     n = len(data)
@@ -124,6 +162,20 @@ def wavelet_denoise(
     ------
     ImportError
         If ``pywt`` is not installed.
+
+    Example
+    -------
+    >>> import numpy as np
+    >>> from wraquant.math.signals import wavelet_denoise  # doctest: +SKIP
+    >>> noisy = np.sin(np.linspace(0, 4*np.pi, 256)) + np.random.randn(256)*0.5
+    >>> clean = wavelet_denoise(noisy, wavelet='db4')  # doctest: +SKIP
+    >>> np.std(clean) < np.std(noisy)  # doctest: +SKIP
+    True
+
+    See Also
+    --------
+    savitzky_golay : Polynomial smoothing (no optional dependencies).
+    median_filter : Robust to outlier spikes.
     """
     try:
         import pywt  # type: ignore[import-untyped]
@@ -168,6 +220,19 @@ def median_filter(
     -------
     np.ndarray
         Filtered signal.
+
+    Example
+    -------
+    >>> import numpy as np
+    >>> from wraquant.math.signals import median_filter
+    >>> data = np.array([1.0, 1.1, 50.0, 1.05, 0.95])  # spike at index 2
+    >>> filtered = median_filter(data, kernel_size=3)
+    >>> filtered[2] < 10  # spike removed
+    True
+
+    See Also
+    --------
+    savitzky_golay : Polynomial smoothing for continuous signals.
     """
     data = coerce_array(data, name="data")
     return _scipy_median_filter(data, size=kernel_size).astype(float)
@@ -194,6 +259,22 @@ def exponential_smooth(
     -------
     np.ndarray
         Smoothed signal.
+
+    Example
+    -------
+    >>> import numpy as np
+    >>> from wraquant.math.signals import exponential_smooth
+    >>> data = np.array([1.0, 2.0, 3.0, 2.5, 2.0])
+    >>> smooth = exponential_smooth(data, alpha=0.5)
+    >>> smooth[0]
+    1.0
+    >>> smooth[-1] < data[-2]  # smoothed toward the end
+    True
+
+    See Also
+    --------
+    kalman_smooth : Adaptive smoothing with noise model.
+    savitzky_golay : Local polynomial smoothing.
     """
     data = coerce_array(data, name="data")
     n = len(data)
@@ -224,6 +305,28 @@ def hodrick_prescott(
     -------
     tuple of np.ndarray
         ``(trend, cycle)`` where ``trend + cycle == data``.
+
+    Example
+    -------
+    >>> import numpy as np
+    >>> from wraquant.math.signals import hodrick_prescott
+    >>> data = np.cumsum(np.random.randn(100) * 0.01)  # random walk
+    >>> trend, cycle = hodrick_prescott(data, lamb=1600)
+    >>> trend.shape == cycle.shape == (100,)
+    True
+    >>> np.allclose(trend + cycle, data)
+    True
+
+    Notes
+    -----
+    Common lambda values: 6.25 (annual), 1600 (quarterly), 129600 (monthly).
+    The HP filter is controversial for financial data due to end-point bias
+    and spurious cyclicality.
+
+    See Also
+    --------
+    wraquant.ts.decomposition : Seasonal decomposition of time series.
+    wraquant.math.spectral.bandpass_filter : Frequency-domain detrending.
     """
     data = coerce_array(data, name="data")
     n = len(data)
