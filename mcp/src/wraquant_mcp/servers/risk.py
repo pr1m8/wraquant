@@ -80,7 +80,7 @@ def register_risk_tools(mcp, ctx: AnalysisContext) -> None:
             from wraquant.risk.stress import stress_test_returns
 
             for name, shock in scenarios.items():
-                stressed = stress_test_returns(returns, shocks={name: shock})
+                stressed = stress_test_returns(returns, scenarios={name: shock})
                 results[name] = _sanitize_for_json(stressed)
 
         if not scenarios and not historical:
@@ -346,10 +346,10 @@ def register_risk_tools(mcp, ctx: AnalysisContext) -> None:
         from wraquant.risk.credit import merton_model
 
         merton = merton_model(
-            asset_value=total_assets,
-            debt_face=total_liabilities,
-            risk_free_rate=risk_free_rate,
-            asset_vol=asset_volatility,
+            equity=equity_value,
+            debt=total_liabilities,
+            vol=asset_volatility,
+            rf_rate=risk_free_rate,
             maturity=maturity,
         )
 

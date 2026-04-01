@@ -227,6 +227,8 @@ strategic multi-asset allocation with Black-Litterman views.
     def portfolio_rebalance(current_dataset: str = "current_portfolio", target_dataset: str = "target_weights") -> list[dict]:
         """Analyze rebalancing costs and optimal execution."""
         return [{"role": "user", "content": {"type": "text", "text": f"""
+First load the wraquant_system_context prompt for full module context.
+
 Rebalance analysis: {current_dataset} → {target_dataset}:
 
 1. Compare current weights vs target weights — drift analysis.
@@ -241,6 +243,8 @@ Rebalance analysis: {current_dataset} → {target_dataset}:
     def factor_attribution(dataset: str = "portfolio_returns", factors_dataset: str = "factor_returns") -> list[dict]:
         """Factor exposure and risk attribution analysis."""
         return [{"role": "user", "content": {"type": "text", "text": f"""
+First load the wraquant_system_context prompt for full module context.
+
 Factor attribution for {dataset}:
 
 1. factor_analysis — regress returns on factors.
@@ -255,6 +259,8 @@ Factor attribution for {dataset}:
     def portfolio_stress_test(dataset: str = "portfolio_returns") -> list[dict]:
         """Comprehensive portfolio stress testing."""
         return [{"role": "user", "content": {"type": "text", "text": f"""
+First load the wraquant_system_context prompt for full module context.
+
 Stress test portfolio {dataset}:
 
 1. stress_test with all 7 crisis scenarios.
@@ -269,6 +275,8 @@ Stress test portfolio {dataset}:
     def asset_allocation(datasets: str = "equity,bonds,gold,reits") -> list[dict]:
         """Multi-asset strategic allocation with regime awareness."""
         return [{"role": "user", "content": {"type": "text", "text": f"""
+First load the wraquant_system_context prompt for full module context.
+
 Strategic asset allocation across {datasets}:
 
 1. Load/compute returns for each asset class.

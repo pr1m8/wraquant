@@ -217,6 +217,8 @@ momentum_strategy to build a trading strategy from these signals.
     def sector_comparison(tickers: str = "XLK,XLF,XLE,XLV") -> list[dict]:
         """Compare multiple sectors/stocks side by side."""
         return [{"role": "user", "content": {"type": "text", "text": f"""
+First load the wraquant_system_context prompt for full module context.
+
 Compare these assets: {tickers}
 
 1. Load/check data for each ticker.
@@ -232,6 +234,8 @@ Compare these assets: {tickers}
     def macro_analysis() -> list[dict]:
         """Macro regime and cross-asset correlation analysis."""
         return [{"role": "user", "content": {"type": "text", "text": """
+First load the wraquant_system_context prompt for full module context.
+
 Analyze current macro environment:
 
 1. Check workspace for macro data (SPY, TLT, GLD, VIX, DXY).
@@ -246,6 +250,8 @@ Analyze current macro environment:
     def earnings_impact(ticker: str = "AAPL", event_date: str = "2024-01-25") -> list[dict]:
         """Event study around earnings announcement."""
         return [{"role": "user", "content": {"type": "text", "text": f"""
+First load the wraquant_system_context prompt for full module context.
+
 Analyze {ticker} earnings impact on {event_date}:
 
 1. Load price data: 60 days before, 20 days after the event.
@@ -261,6 +267,8 @@ Analyze {ticker} earnings impact on {event_date}:
     def ipo_analysis(ticker: str = "TICKER") -> list[dict]:
         """Post-IPO behavior analysis."""
         return [{"role": "user", "content": {"type": "text", "text": f"""
+First load the wraquant_system_context prompt for full module context.
+
 Analyze {ticker} post-IPO:
 
 1. Load price data from IPO date.
@@ -276,6 +284,8 @@ Analyze {ticker} post-IPO:
     def market_breadth(universe: str = "sp500") -> list[dict]:
         """Market breadth analysis: advance/decline, McClellan, percent above MA."""
         return [{"role": "user", "content": {"type": "text", "text": f"""
+First load the wraquant_system_context prompt for full module context.
+
 Market breadth analysis for {universe}:
 
 1. **Data**: Check workspace_status for universe constituent data. If not present, note that
@@ -303,6 +313,8 @@ Market breadth analysis for {universe}:
     def cross_asset_study(datasets: str = "SPY,TLT,GLD,DXY") -> list[dict]:
         """Cross-asset correlation regime and flight-to-quality analysis."""
         return [{"role": "user", "content": {"type": "text", "text": f"""
+First load the wraquant_system_context prompt for full module context.
+
 Cross-asset study for {datasets}:
 
 1. **Data**: Check workspace_status for each asset in [{datasets}]. Load/verify all datasets.
@@ -332,6 +344,8 @@ Cross-asset study for {datasets}:
     def seasonality_analysis(dataset: str = "returns", column: str = "close") -> list[dict]:
         """Seasonality analysis: day-of-week, month effects, holiday patterns."""
         return [{"role": "user", "content": {"type": "text", "text": f"""
+First load the wraquant_system_context prompt for full module context.
+
 Seasonality analysis on {dataset} (column: {column}):
 
 1. **Data**: Load {dataset} from workspace. compute_returns if raw prices.
@@ -361,6 +375,8 @@ Seasonality analysis on {dataset} (column: {column}):
     def liquidity_screen(universe_dataset: str = "universe_prices") -> list[dict]:
         """Liquidity screening: rank assets by Amihud illiquidity, spread, and turnover."""
         return [{"role": "user", "content": {"type": "text", "text": f"""
+First load the wraquant_system_context prompt for full module context.
+
 Liquidity screen on {universe_dataset}:
 
 1. **Data**: Load {universe_dataset} from workspace. Needs price and volume data for each asset.

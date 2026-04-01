@@ -9,6 +9,8 @@ def register_risk_prompts(mcp: Any) -> None:
     def volatility_deep_dive(dataset: str = "returns_aapl") -> list[dict]:
         """GARCH model selection, forecasting, news impact, realized vs implied."""
         return [{"role": "user", "content": {"type": "text", "text": f"""
+First load the wraquant_system_context prompt for full module context.
+
 Deep volatility analysis on {dataset}:
 
 1. realized_volatility with yang_zhang estimator — current annualized vol?
@@ -257,6 +259,8 @@ portfolio_stress_test for multi-asset stress, var_backtesting to validate VaR ac
     def tail_risk_assessment(dataset: str = "returns") -> list[dict]:
         """Extreme value theory and tail dependence analysis."""
         return [{"role": "user", "content": {"type": "text", "text": f"""
+First load the wraquant_system_context prompt for full module context.
+
 Tail risk assessment for {dataset}:
 
 1. distribution_fit — fit Student-t, compare to normal. Tail index?
@@ -271,6 +275,8 @@ Tail risk assessment for {dataset}:
     def stress_test_battery(dataset: str = "portfolio_returns") -> list[dict]:
         """Run all stress scenarios and rank by severity."""
         return [{"role": "user", "content": {"type": "text", "text": f"""
+First load the wraquant_system_context prompt for full module context.
+
 Stress test battery for {dataset}:
 
 1. stress_test with all built-in scenarios: GFC 2008, COVID 2020, dot-com, rate hike, vol spike, flash crash, EM crisis.
@@ -284,6 +290,8 @@ Stress test battery for {dataset}:
     def correlation_breakdown(dataset: str = "multi_asset_returns") -> list[dict]:
         """Dynamic correlation and contagion analysis."""
         return [{"role": "user", "content": {"type": "text", "text": f"""
+First load the wraquant_system_context prompt for full module context.
+
 Correlation analysis for {dataset}:
 
 1. correlation_analysis — static correlation matrix.
@@ -298,6 +306,8 @@ Correlation analysis for {dataset}:
     def vol_surface_analysis(dataset: str = "options_data") -> list[dict]:
         """Implied volatility surface and skew analysis."""
         return [{"role": "user", "content": {"type": "text", "text": f"""
+First load the wraquant_system_context prompt for full module context.
+
 Volatility surface analysis:
 
 1. If options data available: compute implied vols across strikes and maturities.
@@ -312,6 +322,8 @@ Volatility surface analysis:
     def credit_risk_assessment(dataset: str = "firm_data") -> list[dict]:
         """Credit risk assessment: Merton model, Altman Z-score, default probability."""
         return [{"role": "user", "content": {"type": "text", "text": f"""
+First load the wraquant_system_context prompt for full module context.
+
 Credit risk assessment for {dataset}:
 
 1. **Data**: Load {dataset} from workspace. Needs equity price, total assets, total liabilities,
@@ -342,6 +354,8 @@ Credit risk assessment for {dataset}:
     def copula_risk(dataset: str = "multi_asset_returns") -> list[dict]:
         """Copula-based risk analysis: tail dependence and crash co-movement."""
         return [{"role": "user", "content": {"type": "text", "text": f"""
+First load the wraquant_system_context prompt for full module context.
+
 Copula risk analysis for {dataset}:
 
 1. **Data**: Load {dataset} from workspace. Needs multi-asset return series.
@@ -374,6 +388,8 @@ Copula risk analysis for {dataset}:
     def liquidity_risk(dataset: str = "returns") -> list[dict]:
         """Liquidity risk analysis: Amihud crisis comparison and spread widening."""
         return [{"role": "user", "content": {"type": "text", "text": f"""
+First load the wraquant_system_context prompt for full module context.
+
 Liquidity risk analysis for {dataset}:
 
 1. **Data**: Load {dataset} from workspace. Needs return and volume data.
@@ -407,6 +423,8 @@ Liquidity risk analysis for {dataset}:
     def var_backtesting(dataset: str = "returns", var_dataset: str = "var_forecasts") -> list[dict]:
         """VaR backtesting: compare VaR predictions vs actual realized losses."""
         return [{"role": "user", "content": {"type": "text", "text": f"""
+First load the wraquant_system_context prompt for full module context.
+
 VaR backtesting for {dataset} against {var_dataset}:
 
 1. **Data**: Load {dataset} (realized returns) and {var_dataset} (VaR forecasts) from workspace.

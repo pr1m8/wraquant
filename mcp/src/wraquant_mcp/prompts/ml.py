@@ -9,18 +9,315 @@ def register_ml_prompts(mcp: Any) -> None:
     def ml_alpha_research(dataset: str = "prices") -> list[dict]:
         """Full ML alpha research pipeline: features → model → backtest."""
         return [{"role": "user", "content": {"type": "text", "text": f"""
-ML alpha research on {dataset}:
+First load the wraquant_system_context prompt for full module context.
 
-1. compute_returns.
-2. build_features with types=["returns", "volatility", "ta"] — generate feature matrix.
-3. Define target: binary (up/down next day) or continuous (next-day return).
-4. train_model with gradient_boost — walk-forward with purged CV.
-5. feature_importance — which features drive predictions? Remove noise.
-6. Retrain with top features only.
-7. run_backtest using model predictions as signals.
-8. backtest_metrics — Sharpe? Hit rate? Profit factor?
-9. detect_regimes — does the model work in all regimes?
-10. Summary: is there alpha? Robust out-of-sample? Regime-dependent?
+Full ML alpha research pipeline on {dataset}. This is the most comprehensive workflow,
+touching ml/ (44 functions), ta/ (265 indicators), stats/ (79 functions), regimes/
+(38 functions), backtest/ (38 functions), and risk/ (95 functions). The pipeline goes
+from raw data to a fully validated, out-of-sample tested trading strategy.
+
+The single most important principle: EVERYTHING must be out-of-sample. In-sample
+results are meaningless for financial ML. The data is noisy, the signal-to-noise
+ratio is extremely low (typically 0.01-0.05), and overfitting is the default outcome.
+Every decision — feature selection, model selection, hyperparameters — must be validated
+on data the model has never seen.
+
+---
+
+## Phase 1: Data Preparation & Target Definition
+
+1. **Workspace check**: Run workspace_status. Verify {dataset} exists.
+   For ML, we need LONG history: minimum 5 years (1250+ trading days).
+   Walk-forward validation splits burn a lot of data for estimation windows.
+   10+ years is ideal for financial ML.
+
+2. **Compute returns**: compute_returns on {dataset}.
+   Use log returns for ML (more symmetric, better behaved for many models).
+   Verify no NaN, no returns > 30% (data error unless IPO/event day).
+
+3. **Target variable definition**: The target is what we are trying to predict.
+   Choose ONE of:
+   - **Binary classification**: next-day return direction (up = 1, down = 0).
+     Easier for models. Hit rate > 52% is tradeable after costs.
+   - **5-day forward return sign**: Smooths noise. Easier to predict than 1-day.
+   - **Continuous regression**: next-day return magnitude. Harder but more informative.
+     Model can output position size proportional to predicted return.
+
+   **Critical**: The target must be computed BEFORE features to avoid look-ahead bias.
+   target_t = sign(return_{t+1}). Feature_t uses only data up to time t.
+   There must be NO overlap between features and target — this is the #1 source of
+   bugs in financial ML. A 1-day gap between feature computation and target is standard.
+
+4. **Data splitting strategy** — DO NOT use random train/test split.
+   Financial data is temporal. Use time-series aware splitting:
+   - **Walk-forward**: Train on [0, T], test on [T+gap, T+gap+window], step forward.
+   - **Purged cross-validation**: Leave a gap between train and test to prevent leakage
+     from overlapping features (e.g., 21-day rolling vol computed on day T uses data
+     from T-20, which could overlap with the test set).
+   - Minimum gap = max lookback window in your features (e.g., if longest feature uses
+     63-day window, gap should be >= 63 days).
+   - Use 5 walk-forward splits minimum. 10 is better.
+
+---
+
+## Phase 2: Feature Engineering (ml/ + ta/ + stats/ + regimes/ modules)
+
+5. **Return features**: build_features with types=["returns"].
+   - 1-day, 5-day, 21-day, 63-day returns (momentum at multiple horizons)
+   - 1-day, 5-day, 21-day log returns
+   - Return acceleration: 5d return - 21d return (momentum change)
+   - These capture short, medium, and long-term price momentum
+
+6. **Volatility features**: build_features with types=["volatility"].
+   - Rolling realized vol: 5, 10, 21, 63 day windows
+   - GARCH conditional volatility: fit_garch, extract sigma_t series
+   - Vol ratio: short-term vol / long-term vol (vol regime proxy)
+   - Vol change: today's vol / yesterday's vol (vol momentum)
+   - Intraday range: (high - low) / close if OHLC available (Parkinson proxy)
+
+7. **Technical indicator features**: build_features with types=["ta"].
+   Use compute_indicator for a curated set (NOT all 265 — that's noise):
+   - **Momentum**: RSI(14), RSI(5), MACD histogram, ROC(5), ROC(21), Stochastic %K
+   - **Trend**: ADX(14), Aroon oscillator, SMA(10)/SMA(50) ratio
+   - **Volume**: OBV rate of change, CMF(20), volume ratio (today / 20d avg)
+   - **Volatility**: Bollinger %b, ATR(14), Keltner channel position
+   - **Pattern**: Distance from 52-week high, distance from 52-week low
+
+   **Feature count target**: 30-50 features total. More features = more overfitting risk.
+   Each feature must have a financial rationale. No "kitchen sink" approach.
+
+8. **Regime features** (optional but often powerful):
+   - detect_regimes on the return series -> current regime label and probability
+   - Regime duration (days in current regime)
+   - Transition probability from HMM transition matrix
+   - These capture market state which affects how other features should be interpreted
+
+9. **Cross-asset features** (if benchmark/related data available):
+   - Rolling correlation with SPY (market beta proxy)
+   - Rolling relative strength (asset return - benchmark return)
+   - Market volatility (VIX level or SPY rolling vol)
+
+---
+
+## Phase 3: Feature Preprocessing & Selection
+
+10. **Feature quality check**: For each feature:
+    - Missing values: drop features with > 5% NaN. Fill remainder with forward-fill.
+    - Stationarity: stationarity_test on each feature. Non-stationary features should
+      be differenced or replaced with returns (e.g., use RSI change instead of RSI level
+      if RSI is non-stationary, though RSI is bounded so this is rare).
+    - Variance: drop features with near-zero variance (< 0.01 * median variance).
+    - Extreme values: winsorize at 1st and 99th percentiles to limit outlier influence.
+
+11. **Multicollinearity check**: Compute pairwise correlation among features.
+    - Remove one feature from each pair with |corr| > 0.90 (keep the one with
+      higher correlation to the target).
+    - Compute VIF (Variance Inflation Factor). Drop features with VIF > 10.
+    - Target: no feature pair with |corr| > 0.85 after filtering.
+
+    **Why multicollinearity matters**: Tree models (RF, GBM) are somewhat robust to
+    correlated features, but feature importance becomes unreliable. Linear models and
+    neural networks suffer more directly. Removing redundancy also speeds training.
+
+12. **Univariate screening**: For each feature, compute:
+    - Mutual information with the target (non-linear association).
+    - Spearman rank correlation with the target.
+    - Information coefficient (IC): rank correlation between feature rank and forward return.
+      IC > 0.02 is meaningful in finance. IC > 0.05 is excellent.
+    - Drop features with IC < 0.01 (no predictive signal detectable).
+
+    Report the top 20 features by IC. These are your strongest signal candidates.
+
+---
+
+## Phase 4: Model Training & Selection
+
+13. **Model 1 — Gradient Boosting (primary)**: train_model with gradient_boost.
+    GBM is the workhorse of financial ML: handles non-linearity, missing values,
+    feature interactions. Does NOT need feature scaling.
+
+    **Walk-forward setup**:
+    - Estimation window: 756 days (3 years)
+    - Test window: 63 days (1 quarter)
+    - Gap: max(feature lookback windows) days
+    - Number of splits: as many as data allows (typically 5-15)
+    - Re-train from scratch each split (no warm start — distribution may shift)
+
+    **Hyperparameters** (reasonable defaults):
+    - n_estimators: 200-500 (more is NOT better — overfitting)
+    - max_depth: 3-5 (shallow trees generalize better for noisy financial data)
+    - learning_rate: 0.05-0.1
+    - subsample: 0.7-0.8 (bagging regularization)
+    - min_child_weight: 50-100 (prevents fitting to small groups)
+    - early_stopping_rounds: 20 (stop when validation loss stops improving)
+
+14. **Model 2 — Random Forest (comparison)**: train_model with random_forest.
+    RF is more robust to overfitting than GBM but less powerful.
+    Same walk-forward splits. Compare directly.
+
+15. **Model 3 — LSTM (if torch available)**: train_model with lstm.
+    LSTM captures sequential patterns that tree models miss.
+    Input: 20-day lookback window of features (sequence input).
+    Same walk-forward splits but LSTM needs more data per split.
+    If torch unavailable or data < 2000 days, skip LSTM.
+
+    **If training fails**: LSTM is sensitive to learning rate and architecture.
+    Try: lr=0.001, hidden_dim=32, num_layers=1, dropout=0.3.
+    If still failing, use SVM as Model 3 instead.
+
+16. **Out-of-sample metrics for each model** (on test splits only):
+    | Metric | GBM | RF | LSTM |
+    |--------|-----|----|----|
+    | Hit rate (accuracy) | | | |
+    | Information Coefficient (IC) | | | |
+    | Sharpe of predictions-as-signals | | | |
+    | Precision (long signals) | | | |
+    | Recall (long signals) | | | |
+    | Max drawdown of signal strategy | | | |
+    | Consistency (% of splits with Sharpe > 0) | | | |
+
+    **Critical check**: If in-sample Sharpe > 3x out-of-sample Sharpe, the model is
+    heavily overfit. Reduce complexity (fewer features, shallower trees, more regularization).
+
+---
+
+## Phase 5: Feature Importance & Model Interpretation
+
+17. **Feature importance**: feature_importance on the best model.
+    - For GBM: SHAP values (most reliable). Compute mean(|SHAP|) per feature.
+    - For RF: permutation importance (more reliable than built-in importance).
+    - Rank features by importance. Report top 10 with interpretation.
+
+    **Key questions**:
+    - Do the top features make financial sense? If "arbitrary_feature_42" is #1,
+      the model may be fitting noise.
+    - Is importance concentrated in 1-2 features? If so, the model is fragile.
+      Ideal: importance spread across 5-10 features.
+    - Do return features dominate? (momentum signal)
+    - Do vol features dominate? (vol timing signal)
+    - Do TA features dominate? (technical signal)
+
+18. **Feature stability**: Run feature_importance across all walk-forward splits.
+    Are the same features important in each split?
+    - If the top 5 features are consistent across splits: robust signal.
+    - If feature importance changes dramatically between splits: model is fitting noise.
+    Compute "importance stability score": fraction of splits where each feature ranks top 10.
+    Keep only features with stability score > 0.5 (top 10 in more than half the splits).
+
+19. **Retrain with selected features**: Take the top 15-20 features that are:
+    - High IC (> 0.01)
+    - Stable across walk-forward splits
+    - Not redundant (pairwise |corr| < 0.85)
+    - Financially interpretable
+    Retrain the best model with ONLY these features. Same walk-forward setup.
+    Compare to the full-feature model. The selected-feature model should have
+    EQUAL or BETTER out-of-sample Sharpe (fewer features = less overfitting).
+
+---
+
+## Phase 6: Signal Generation & Backtesting
+
+20. **Signal construction**: Convert model predictions to trading signals.
+    - For classification: probability > 0.55 -> long, < 0.45 -> short, else flat.
+      The 0.55/0.45 thresholds filter for high-confidence predictions.
+    - For regression: position size proportional to predicted return (capped at 2x).
+    - Apply signal delay: predict at close of day T, trade at open of day T+1.
+      This accounts for realistic execution (cannot trade at the same close you used for prediction).
+
+21. **Walk-forward backtest**: run_backtest with the model predictions as signals.
+    This must use ONLY out-of-sample predictions (no in-sample predictions in the backtest).
+
+    **Position sizing options**:
+    - Equal size: always 100% long or 100% short or flat
+    - Vol-targeted: size inversely proportional to predicted vol (volatility_target at 15%)
+    - Kelly: size proportional to edge / variance. Use half-Kelly for safety.
+
+22. **Backtest metrics**: backtest_metrics on the walk-forward strategy.
+    | Metric | Value | Target | Status |
+    |--------|-------|--------|--------|
+    | Ann. Return | X% | > 5% (after costs) | PASS/FAIL |
+    | Ann. Volatility | X% | 10-20% | |
+    | Sharpe Ratio | X.XX | > 0.5 (walk-forward) | PASS/FAIL |
+    | Max Drawdown | -X% | < 25% | PASS/FAIL |
+    | Hit Rate | X% | > 52% (for daily) | PASS/FAIL |
+    | Profit Factor | X.XX | > 1.2 | PASS/FAIL |
+    | Avg Win / Avg Loss | X.XX | > 0.8 | PASS/FAIL |
+    | # Trades | X | > 100 | PASS/FAIL |
+    | % Profitable Splits | X% | > 60% | PASS/FAIL |
+    | Max Consecutive Losses | X | < 15 | PASS/FAIL |
+
+    **Walk-forward Sharpe benchmarks**: For daily ML strategies on single stocks:
+    - Sharpe > 1.0: Excellent (rare and suspicious — double-check for look-ahead bias)
+    - Sharpe 0.5-1.0: Good. Potentially tradeable.
+    - Sharpe 0.3-0.5: Marginal. May not survive transaction costs.
+    - Sharpe < 0.3: Insufficient alpha. Model is not predicting well enough.
+
+23. **Transaction cost sensitivity**: Re-run backtest with costs of 5, 10, 20, 30 bps.
+    At what cost level does Sharpe drop below 0.3? This is the break-even cost.
+    For US large-cap equities, realistic costs are 5-15 bps. For small-cap, 20-50 bps.
+
+---
+
+## Phase 7: Regime Robustness
+
+24. **Regime analysis**: detect_regimes on the underlying returns with method="hmm", n_regimes=2.
+    Compute strategy performance SEPARATELY in each regime:
+
+    | Regime | Ann. Return | Sharpe | Hit Rate | Max DD | % of Time |
+    |--------|-------------|--------|----------|--------|-----------|
+    | Bull (0) | | | | | |
+    | Bear (1) | | | | | |
+
+    **Common patterns**:
+    - Model works in bull, fails in bear: momentum signal that doesn't adapt to regime change.
+    - Model works in bear, fails in bull: mean-reversion signal.
+    - Model works in both: robust alpha (rare and valuable).
+    - Model fails in both: insufficient signal.
+
+25. **Regime-conditional trading**: Consider a regime filter:
+    - Trade only in the favorable regime.
+    - Or trade in both regimes but with different position sizes (smaller in adverse regime).
+    - Or train separate models per regime (see regime_ml prompt for this approach).
+
+    Compare: unfiltered strategy vs regime-filtered strategy.
+    Does regime filtering improve Sharpe or reduce drawdown?
+
+---
+
+## Phase 8: Final Assessment & Deployment Readiness
+
+26. **Alpha assessment checklist**:
+    | Criterion | Result | Pass/Fail |
+    |-----------|--------|-----------|
+    | Walk-forward Sharpe > 0.5 | X.XX | |
+    | Profitable after 10bps costs | X% ann. | |
+    | > 100 out-of-sample trades | X trades | |
+    | > 60% of splits profitable | X% | |
+    | Top features are interpretable | Yes/No | |
+    | Feature importance is stable | Yes/No | |
+    | Works in > 1 regime | Yes/No | |
+    | In-sample/OOS Sharpe ratio < 2.5 | X.XX | |
+    | Max drawdown < 25% | -X% | |
+
+    **If 7+ criteria pass**: Alpha is likely real. Consider paper trading for 3-6 months
+    before live deployment.
+    **If 4-6 pass**: Marginal. Needs improvement. Try different features, models, or targets.
+    **If < 4 pass**: No tradeable alpha found. The signal-to-noise ratio is too low for
+    this asset / feature set / model combination. Try a different approach.
+
+27. **Summary**:
+    - Best model and its key features (top 5)
+    - Walk-forward Sharpe and max drawdown
+    - Transaction cost break-even
+    - Regime robustness assessment
+    - Is the alpha real? Confidence level (high / moderate / low)
+    - Recommended next steps (deploy / refine / abandon)
+    - One-sentence conclusion
+
+**Related prompts**: Use feature_engineering for deeper feature construction,
+model_comparison for systematic model comparison, hyperparameter_sweep for optimization,
+ensemble_strategy for combining multiple models, regime_ml for regime-enhanced ML,
+feature_selection for rigorous feature filtering.
 """}}]
 
     @mcp.prompt()
