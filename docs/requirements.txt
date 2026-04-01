@@ -1,6 +1,7 @@
 sphinx>=7.0
 furo
 sphinx-autodoc-typehints
+sphinx-autoapi
 sphinx-copybutton
 sphinx-design
 myst-parser

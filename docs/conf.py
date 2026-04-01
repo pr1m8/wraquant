@@ -12,6 +12,50 @@ from datetime import datetime
 # Add the source tree so autodoc can import wraquant
 sys.path.insert(0, os.path.abspath(os.path.join("..", "src")))
 
+# Mock OPTIONAL dependencies that may not be installed on RTD.
+# Core deps (numpy, scipy, pandas, statsmodels, pydantic) are installed
+# via the pip install in .readthedocs.yaml.
+autodoc_mock_imports = [
+    # Volatility / regimes
+    "arch", "hmmlearn", "pomegranate", "filterpy", "pykalman", "dynamax",
+    "river", "ruptures", "stumpy", "tsfresh", "sktime", "tslearn", "pywt",
+    # Optimization
+    "cvxpy", "cvxopt", "osqp", "scs", "clarabel", "qpsolvers", "pulp",
+    "pymoo", "pyomo", "ortools",
+    # Bayesian
+    "pymc", "arviz", "bambi", "numpyro", "blackjax", "emcee", "dynesty",
+    "pyro", "cmdstanpy", "pytensor",
+    # Deep learning
+    "torch", "torchsde",
+    # Pricing
+    "QuantLib", "financepy", "rateslib", "mibian", "py_vollib",
+    # Data
+    "yfinance", "fredapi", "nasdaqdatalink",
+    "exchange_calendars", "pandas_market_calendars",
+    # Backtesting
+    "vectorbt", "quantstats", "empyrical", "pyfolio", "alphalens", "ffn",
+    # Risk
+    "pypfopt", "riskfolio", "skfolio", "copulas", "copulae",
+    "pyvinecopulib", "pyextremes",
+    # Visualization
+    "plotly", "bokeh", "altair", "seaborn", "matplotlib", "kaleido",
+    # Workflow / scale
+    "streamlit", "prefect", "dagster", "apscheduler",
+    "dask", "ray",
+    # Causal
+    "dowhy", "econml", "doubleml",
+    # Cleaning / validation
+    "pandera", "pyjanitor", "rapidfuzz", "dateparser",
+    # Math / JAX
+    "jax", "jaxlib", "jaxopt", "optax", "equinox", "diffrax",
+    "sympy", "symengine",
+    # Misc
+    "polars", "duckdb", "numba",
+    "sqlalchemy", "connectorx", "httpx", "aiohttp", "websockets",
+    "sdeint", "sdepy", "darts", "shap",
+    "loguru",
+]
+
 # -- Project information -----------------------------------------------------
 
 project = "wraquant"
@@ -43,6 +87,7 @@ extensions = [
     "sphinx.ext.inheritance_diagram",
     # Third-party
     "sphinx_autodoc_typehints",
+    "autoapi.extension",
     "myst_parser",
     "sphinx_copybutton",
 ]
@@ -61,6 +106,22 @@ try:
     extensions.append("sphinxcontrib.mermaid")
 except ImportError:
     pass
+
+# -- AutoAPI settings --------------------------------------------------------
+
+autoapi_type = "python"
+autoapi_dirs = ["../src/wraquant"]
+autoapi_ignore = ["*/__pycache__/*", "*/_compat.py"]
+autoapi_options = [
+    "members",
+    "show-inheritance",
+    "show-module-summary",
+    "imported-members",
+]
+autoapi_python_class_content = "both"
+autoapi_member_order = "bysource"
+autoapi_keep_files = True
+autoapi_add_toctree_entry = True
 
 # -- Napoleon settings -------------------------------------------------------
 
