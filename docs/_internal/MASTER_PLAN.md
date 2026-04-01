@@ -98,6 +98,8 @@
 | **flow/** | 8 | Low | Infra | Support | 2 | pipeline orchestration |
 | **scale/** | 10 | Medium | Infra | Support | 2 | parallel_backtest |
 | **compose/** | 14 | Medium | Orchestration | All | 1 | run_workflow |
+| **news/** | TBD | Medium | Analysis | 2. Analyze | TBD | earnings, sentiment, macro |
+| **fundamental/** | TBD | Medium | Analysis | 2. Analyze | TBD | valuation, screening, factor |
 
 ### Process Stages (how modules link in a workflow):
 
@@ -251,6 +253,14 @@
 - [ ] `bayesian_portfolio` — posterior returns → BL with uncertainty → credible intervals on weights → model comparison
 - [ ] `bayesian_regime` — Bayesian HMM → posterior regime probs → uncertainty on transition matrix
 
+#### News & Fundamental Analysis (placeholder — separate agent work)
+- [ ] `sentiment_analysis` — news sentiment scoring → aggregate → correlation with returns → signal
+- [ ] `earnings_preview` — estimate consensus → surprise history → vol around earnings → positioning
+- [ ] `fundamental_screen` — P/E, P/B, ROE, debt ratios → rank universe → quality filter
+- [ ] `valuation_model` — DCF → comparable → sum-of-parts → fair value range
+- [ ] `news_impact_study` — event detection → abnormal returns → decay analysis → persistence
+- [ ] `sector_rotation` — sector fundamentals → relative value → momentum overlay → allocation
+
 #### Reporting & Monitoring
 - [ ] `daily_risk_monitor` — current VaR → regime check → correlation change → stress breach → alert summary
 - [ ] `weekly_portfolio_review` — performance → attribution → rebalance signal → risk budget → regime outlook
@@ -367,6 +377,48 @@ Agent 9:  servers/price.py     (wraps wraquant.price — 5 tools)
 Agent 10: servers/ts.py        (wraps wraquant.ts — 6 tools)
 Agent 11: servers/ml.py        (wraps wraquant.ml — 6 tools)
 Agent 12: servers/viz.py       (wraps wraquant.viz — 5 tools)
+```
+
+### Team Structure: One agent per file, team lead coordinates
+
+Each team = 1 lead + N file agents. Lead ensures consistency.
+File agents work in parallel. Lead merges and tests.
+
+```
+Risk Team (lead + 3 file agents):
+  Agent R1: servers/risk.py (10 tools wrapping risk/)
+  Agent R2: prompts/risk_report.py + prompts/tail_risk.py + prompts/stress_test.py
+  Agent R3: tests/test_risk_server.py
+  Lead: verifies tools match wraquant API, tests composition
+
+Vol Team (lead + 2 file agents):
+  Agent V1: servers/vol.py (6 tools)
+  Agent V2: prompts/volatility_deep_dive.py + prompts/vol_surface.py
+  Lead: tests GARCH → VaR pipeline works end-to-end
+
+Regime Team (lead + 2 file agents):
+  Agent G1: servers/regimes.py (5 tools)
+  Agent G2: prompts/regime_detection.py + prompts/regime_backtest.py
+  Lead: tests regime → portfolio → backtest chain
+
+Strategy Team (lead + 3 file agents):
+  Agent S1: servers/backtest.py + servers/opt.py
+  Agent S2: prompts/pairs_trading.py + prompts/momentum.py + prompts/mean_reversion.py
+  Agent S3: prompts/portfolio_construction.py + prompts/asset_allocation.py
+  Lead: tests full strategy lifecycle
+
+Data/Infra Team (lead + 2 file agents):
+  Agent D1: servers/data.py + servers/ta.py + servers/stats.py
+  Agent D2: servers/ts.py + servers/ml.py
+  Lead: tests data ingestion → feature pipeline
+
+Pricing/Micro Team (lead + 2 file agents):
+  Agent P1: servers/price.py + servers/viz.py
+  Agent P2: prompts/option_pricing.py + prompts/liquidity.py + prompts/execution.py
+  Lead: tests pricing and execution workflows
+
+For massive files: split into sub-agents (e.g., risk/ has 95 funcs,
+split into risk_metrics_tools, risk_var_tools, risk_factor_tools)
 ```
 
 Then one integration agent:
