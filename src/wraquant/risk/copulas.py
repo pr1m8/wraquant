@@ -84,43 +84,83 @@ def _empirical_cdf(x: np.ndarray) -> np.ndarray:
 def fit_gaussian_copula(
     returns: np.ndarray,
 ) -> dict[str, Any]:
-    """Fit a Gaussian copula to multivariate returns.
+    r"""Fit a Gaussian copula to multivariate returns.
 
     The Gaussian copula models dependence via a multivariate normal
-    distribution applied to the rank-transformed data.  It captures
-    linear dependence but has zero tail dependence: in the limit,
-    extreme co-movements become independent.
+    distribution applied to the rank-transformed (uniform) data.  It
+    captures linear dependence but has **zero tail dependence**: in the
+    limit, extreme co-movements become independent.
+
+    Mathematical formulation:
+
+        C(u_1, ..., u_d) = Phi_R(Phi^{-1}(u_1), ..., Phi^{-1}(u_d))
+
+    where Phi is the standard normal CDF, Phi^{-1} is its inverse
+    (quantile function), and Phi_R is the multivariate normal CDF with
+    correlation matrix R.
+
+    The density is:
+
+        c(u) = |R|^{-1/2} exp(-1/2 z^T (R^{-1} - I) z)
+
+    where z_i = Phi^{-1}(u_i).
+
+    Tail dependence:
+
+        lambda_L = lambda_U = 0 (for rho < 1)
+
+    This means the Gaussian copula predicts that extreme co-movements
+    vanish in the tails — a dangerous assumption for financial risk.
 
     Interpretation:
-        - The correlation matrix describes the "normal-like" dependence
+        - The correlation matrix R describes the "normal-like" dependence
           structure of the data.
-        - The key limitation: the Gaussian copula implies that joint
+        - **Key limitation**: the Gaussian copula implies that joint
           extreme events (crashes, rallies) are asymptotically
-          independent.  This is dangerous for risk management -- the
-          2008 crisis demonstrated that assets crash together more
-          than the Gaussian copula predicts.
-        - Use as a baseline for comparison.  If tail dependence is
-          non-negligible (check with ``tail_dependence``), switch to
-          the Student-t copula.
+          independent.  The 2008 crisis demonstrated that assets crash
+          together far more than the Gaussian copula predicts.
+        - If ``tail_dependence()`` returns non-negligible lower tail
+          dependence (> 0.1), the Gaussian copula is inappropriate —
+          use ``fit_t_copula`` or ``fit_clayton_copula`` instead.
+        - The fitted correlation matrix R is NOT the same as the Pearson
+          correlation of raw returns.  It is the correlation of the
+          rank-transformed (copula) data.
 
     When to use:
-        - As a baseline for dependence modelling.
-        - When you have evidence that tail dependence is genuinely
-          absent.
-        - For quick-and-dirty simulation of correlated returns.
+        - As a **baseline** for dependence modelling.
+        - When tail dependence is genuinely absent (rare in equities).
+        - For quick simulation of correlated returns.
+        - Compare its AIC/BIC against Student-t to test for tail dependence.
 
     Parameters:
         returns: Array of shape ``(n_obs, n_assets)`` with raw returns.
+            Each column is one asset's return series.
 
     Returns:
         Dict with keys:
 
-        * ``"correlation"`` -- estimated copula correlation matrix.
-        * ``"copula_type"`` -- ``"gaussian"``.
+        * ``"correlation"`` (*ndarray*) -- estimated copula correlation
+          matrix R of shape (d, d).  Off-diagonal values measure the
+          normal-copula dependence.  Higher values = stronger co-movement.
+        * ``"copula_type"`` (*str*) -- ``"gaussian"``.
+
+    Example:
+        >>> import numpy as np
+        >>> from wraquant.risk.copulas import fit_gaussian_copula, fit_t_copula
+        >>> rng = np.random.default_rng(42)
+        >>> returns = rng.multivariate_normal([0, 0], [[1, 0.6], [0.6, 1]], 500)
+        >>> gauss = fit_gaussian_copula(returns)
+        >>> print(f"Copula correlation: {gauss['correlation'][0, 1]:.3f}")
+        >>> # Compare with t-copula to test for tail dependence
+        >>> t_cop = fit_t_copula(returns)
+        >>> print(f"t-copula df: {t_cop['df']:.1f} (lower = heavier tails)")
 
     See Also:
         fit_t_copula: Student-t copula with symmetric tail dependence.
-        tail_dependence: Check whether tail dependence is present.
+          Use when df < 30 to capture crash co-movement.
+        fit_clayton_copula: Lower-tail dependence only (crash contagion).
+        tail_dependence: Empirically check if tail dependence exists.
+        copula_simulate: Generate correlated samples from the fitted copula.
     """
     from wraquant.core._coerce import coerce_array
 
@@ -152,48 +192,85 @@ def fit_t_copula(
     returns: np.ndarray,
     df: float = 5.0,
 ) -> dict[str, Any]:
-    """Fit a Student-t copula to multivariate returns.
+    r"""Fit a Student-t copula to multivariate returns.
 
-    The Student-t copula is the standard choice for equity portfolios
+    The Student-t copula is the **standard choice for equity portfolios**
     because it captures symmetric tail dependence: the tendency of
     assets to experience extreme co-movements (both crashes and
     rallies) more often than a Gaussian model would predict.
 
+    Mathematical formulation:
+
+        C(u_1, ..., u_d) = t_{R,df}(t_df^{-1}(u_1), ..., t_df^{-1}(u_d))
+
+    where t_df is the univariate Student-t CDF with df degrees of freedom,
+    and t_{R,df} is the multivariate t CDF with correlation matrix R.
+
+    Tail dependence coefficient (bivariate case):
+
+        lambda_L = lambda_U = 2 * t_{df+1}(-sqrt((df+1)(1-rho)/(1+rho)))
+
+    Unlike the Gaussian copula, this is **strictly positive** for finite
+    df, meaning extreme co-movements DO occur.
+
     Interpretation:
         - **df** (degrees of freedom) controls tail heaviness:
-          - df = 3-5: very heavy tails, strong tail dependence.
-            Appropriate for equity portfolios during turbulent markets.
-          - df = 10-20: moderate tails. Appropriate for investment-grade
-            fixed income.
-          - df -> infinity: converges to Gaussian copula (no tail
-            dependence).
-        - The tail dependence coefficient is approximately
-          2 * t_{df+1}(-sqrt((df+1)(1-rho)/(1+rho))), where rho is
-          the copula correlation.
-        - Higher df means the copula becomes more "Gaussian-like" in
-          the tails.
+
+          - **df = 3-5**: Very heavy tails, strong tail dependence.
+            Typical for equity portfolios during turbulent markets.
+            lambda ~ 0.3-0.5 for rho=0.5.
+          - **df = 10-20**: Moderate tails. Appropriate for investment-
+            grade fixed income or diversified portfolios.
+          - **df > 30**: Nearly Gaussian (tail dependence < 0.05).
+          - **df -> inf**: Converges to Gaussian copula exactly.
+
+        - Compare df across time periods: if df drops from 15 to 5,
+          tail dependence has increased — crisis contagion is building.
+        - Compare fitted df to Gaussian AIC: if t-copula AIC is much
+          lower, tail dependence is statistically significant.
 
     When to use:
-        - Equity risk modelling where joint crashes are a concern.
+        - **Default choice** for equity and credit risk modelling.
         - VaR/CVaR estimation for multi-asset portfolios.
-        - As the default copula for portfolio risk (unless there is
-          evidence of asymmetric tail dependence).
+        - When you expect both crashes AND rallies to be correlated
+          (symmetric dependence).
+        - If you need asymmetric tail dependence (crashes correlated
+          but rallies independent), use ``fit_clayton_copula`` instead.
 
     Parameters:
-        returns: Array of shape ``(n_obs, n_assets)``.
-        df: Degrees of freedom. Lower = heavier tails. Typical values
-            3-10 for equities. If unsure, start with 5.
+        returns: Array of shape ``(n_obs, n_assets)`` with raw returns.
+        df: Degrees of freedom. Lower = heavier tails. **Typical values:
+            3-5 for equities, 10-20 for bonds, 5-10 as a safe default.**
+            If unsure, start with 5 and compare AIC against df=10,15,20.
 
     Returns:
         Dict with keys:
 
-        * ``"correlation"`` -- shape correlation matrix.
-        * ``"df"`` -- degrees of freedom.
-        * ``"copula_type"`` -- ``"student_t"``.
+        * ``"correlation"`` (*ndarray*) -- Copula correlation matrix R.
+        * ``"df"`` (*float*) -- Degrees of freedom used.
+        * ``"copula_type"`` (*str*) -- ``"student_t"``.
+
+    Example:
+        >>> import numpy as np
+        >>> from wraquant.risk.copulas import fit_t_copula, tail_dependence
+        >>> rng = np.random.default_rng(42)
+        >>> # Simulate fat-tailed correlated returns
+        >>> returns = rng.multivariate_normal([0, 0], [[1, 0.5], [0.5, 1]], 1000)
+        >>> result = fit_t_copula(returns, df=5)
+        >>> print(f"Copula corr: {result['correlation'][0, 1]:.3f}")
+        >>> print(f"df={result['df']} → heavier tails than Gaussian")
+        >>> # Check tail dependence
+        >>> td = tail_dependence(returns)
+        >>> print(f"Lower tail dep: {td['lower']:.3f}")
+
+    Notes:
+        Reference: Demarta, S. & McNeil, A.J. (2005). "The t Copula
+        and Related Copulas." *International Statistical Review*, 73, 111-129.
 
     See Also:
-        fit_gaussian_copula: No tail dependence (df -> infinity).
-        fit_clayton_copula: Lower tail dependence only.
+        fit_gaussian_copula: No tail dependence (Gaussian = t with df=inf).
+        fit_clayton_copula: Asymmetric — lower tail dependence only.
+        tail_dependence: Empirically estimate lambda_L and lambda_U.
     """
     from wraquant.core._coerce import coerce_array
 
