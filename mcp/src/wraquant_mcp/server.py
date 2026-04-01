@@ -27,6 +27,8 @@ def build_server(name: str = "wraquant") -> Any:
     """
     from fastmcp import FastMCP
 
+    from wraquant_mcp.servers import register_all
+
     mcp = FastMCP(name)
 
     # Shared context (DuckDB state + models + journal)
@@ -446,6 +448,12 @@ def build_server(name: str = "wraquant") -> Any:
 
         df = pd.DataFrame(data)
         return ctx.store_dataset(name, df, source_op="store_data")
+
+    # ------------------------------------------------------------------
+    # Tier 3: Module-specific tools (deep capabilities)
+    # ------------------------------------------------------------------
+
+    register_all(mcp, ctx)
 
     return mcp
 
