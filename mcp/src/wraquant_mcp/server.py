@@ -455,6 +455,31 @@ def build_server(name: str = "wraquant") -> Any:
 
     register_all(mcp, ctx)
 
+    # ------------------------------------------------------------------
+    # Prompt templates (guided multi-step workflows)
+    # ------------------------------------------------------------------
+
+    from wraquant_mcp.prompts import register_all_prompts
+
+    register_all_prompts(mcp)
+
+    # ------------------------------------------------------------------
+    # Workspace management tools
+    # ------------------------------------------------------------------
+
+    from wraquant_mcp.workspace import register_workspace_tools
+
+    ctx_holder = [ctx]
+    register_workspace_tools(mcp, ctx_holder)
+
+    # ------------------------------------------------------------------
+    # Tier 3: Auto-registered tools (ALL wraquant functions)
+    # ------------------------------------------------------------------
+
+    from wraquant_mcp.auto_register import register_auto_tools
+
+    register_auto_tools(mcp, ctx)
+
     return mcp
 
 
