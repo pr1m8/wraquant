@@ -224,8 +224,8 @@ class TestBetaAnalysis:
 
         cond = conditional_beta(returns.iloc[-n:], benchmark.iloc[-n:])
         assert isinstance(cond, dict)
-        assert "up_beta" in cond
-        assert "down_beta" in cond
+        assert "upside_beta" in cond
+        assert "downside_beta" in cond
 
     def test_blume_adjusted_beta(self):
         """Test Blume adjustment."""

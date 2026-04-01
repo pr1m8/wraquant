@@ -9,18 +9,250 @@ def register_strategy_prompts(mcp: Any) -> None:
     def pairs_trading(ticker_a: str = "GLD", ticker_b: str = "GDX") -> list[dict]:
         """Pairs trading: cointegration, spread, signals, backtest."""
         return [{"role": "user", "content": {"type": "text", "text": f"""
-Pairs trading analysis for {ticker_a} vs {ticker_b}:
+First load the wraquant_system_context prompt for full module context.
 
-1. Load price data for both.
-2. cointegration_test — are they cointegrated? What's the p-value?
-3. Compute hedge ratio and spread.
-4. stationarity_test on the spread — must be stationary.
-5. Compute half-life of mean reversion.
-6. Generate z-score signals: enter at |z| > 2, exit at |z| < 0.5.
-7. run_backtest with the signals.
-8. backtest_metrics — Sharpe? Max drawdown? Win rate?
-9. detect_regimes on the spread — does mean reversion break in certain regimes?
-10. Summary: viable pair? Expected return/risk?
+Comprehensive pairs trading analysis for {ticker_a} vs {ticker_b}. This is a full
+statistical arbitrage workflow using stats/ (cointegration, stationarity), regimes/
+(regime-conditional behavior), backtest/ (walk-forward validation), and risk/ (position
+sizing and drawdown management). The goal is to determine whether this pair is tradeable,
+build the trading signals, and validate with a rigorous out-of-sample backtest.
+
+---
+
+## Phase 1: Data Acquisition & Preliminary Check
+
+1. **Workspace check**: Run workspace_status. Look for prices_{ticker_a.lower()} and
+   prices_{ticker_b.lower()}. If not present, note that price data needs loading
+   via OpenBB MCP or store_data.
+
+2. **Data requirements**: Both assets need at least 3 years (750+ trading days) of history.
+   Cointegration tests need long samples for reliability. 5+ years is ideal.
+   Both must be price series (not returns) for cointegration analysis.
+   Verify dates are aligned (same trading calendar). If one has gaps, inner-join on dates.
+
+3. **Preliminary correlation**: compute_returns on both assets. Then correlation_analysis.
+   - Correlation > 0.7: Good candidate. Assets move together (economically linked).
+   - Correlation 0.3-0.7: Moderate. Might work if fundamentally related.
+   - Correlation < 0.3: Unlikely to be cointegrated. Reconsider the pair.
+
+   **Why correlation alone is insufficient**: High correlation does NOT imply cointegration.
+   Two assets can have 0.95 correlation but diverge permanently (not cointegrated).
+   Cointegration means the spread is stationary — it MUST mean-revert. Correlation
+   only says they move in similar directions, not that the spread reverts.
+
+4. **Economic rationale**: Before statistical tests, ask: WHY should this pair be cointegrated?
+   - {ticker_a} and {ticker_b}: What is the economic link? Same sector? Input/output relationship?
+     Gold (GLD) and gold miners (GDX) are cointegrated because miner revenue = f(gold price).
+   - Without economic rationale, statistical cointegration may be spurious and will break.
+
+---
+
+## Phase 2: Cointegration Testing (stats/ module)
+
+5. **Engle-Granger test**: cointegration_test on the two price series.
+   This runs OLS: price_A = alpha + beta * price_B + residual,
+   then tests if the residual is stationary (ADF test on residuals).
+
+   **Interpreting results**:
+   - **p-value < 0.05**: Cointegrated at 5% significance. Proceed with pairs trading.
+   - **p-value 0.05-0.10**: Marginal. The pair might be cointegrated but evidence is weak.
+     Consider using a longer sample or Johansen test for confirmation.
+   - **p-value > 0.10**: NOT cointegrated. The spread may not mean-revert. STOP HERE
+     unless the economic rationale is very strong (maybe the relationship broke recently).
+
+   - **Hedge ratio (beta)**: Units of {ticker_b} to short per unit of {ticker_a} long.
+     E.g., beta = 0.5 means short 0.5 shares of {ticker_b} for each share of {ticker_a}.
+     This should be roughly stable over time. If it drifts a lot, dynamic hedging is needed.
+
+6. **Johansen test** (more powerful): If Engle-Granger is marginal (p-value 0.05-0.15),
+   run Johansen cointegration test. Johansen tests for cointegrating rank (0, 1, or 2).
+   - Rank 0: No cointegration (reject the pair).
+   - Rank 1: One cointegrating vector (the pair is cointegrated — proceed).
+   - Rank 2: Both series are stationary individually (trivial case — just trade each alone).
+
+7. **Rolling cointegration stability**: The critical question — is cointegration STABLE?
+   Run cointegration_test on rolling 2-year windows (step forward 63 days at a time).
+   Track the p-value over time. If p-value frequently exceeds 0.10, the cointegration
+   relationship breaks periodically. This is dangerous — the spread can diverge permanently
+   during those periods, causing large losses.
+
+   **If cointegration is unstable**: This pair requires careful regime monitoring.
+   You must exit the trade when cointegration weakens (see Phase 4).
+
+---
+
+## Phase 3: Spread Construction & Properties
+
+8. **Spread construction**: Compute the spread: spread_t = price_A_t - beta * price_B_t.
+   Store as a dataset. This is the tradeable signal.
+
+9. **Stationarity confirmation**: stationarity_test (ADF) on the spread.
+   - ADF p-value < 0.01: Strongly stationary. Excellent for pairs trading.
+   - ADF p-value 0.01-0.05: Stationary. Good.
+   - ADF p-value > 0.05: NOT stationary. Contradicts cointegration result. Investigate.
+     (This can happen with short samples or structural breaks in the relationship.)
+
+10. **Half-life of mean reversion**: Fit an AR(1) to the spread:
+    spread_t = c + phi * spread_{t-1} + epsilon.
+    Half-life = -log(2) / log(phi) trading days.
+
+    **Interpretation**:
+    - Half-life < 10 days: Very fast reversion. Aggressive entry/exit. High-frequency pair.
+    - Half-life 10-30 days: Moderate. Standard pairs trading window. Monthly signals.
+    - Half-life 30-60 days: Slow. Need patience. Wider stops. Less capital-efficient.
+    - Half-life > 60 days: Too slow. Transaction costs and carry costs eat the profit.
+      Reconsider unless the spread is very wide.
+
+    **If half-life > 60**: The pair mean-reverts but too slowly. Consider:
+    - Using a different lookback window for z-score calculation.
+    - Trading only when z-score > 3 (wider entry, bigger expected profit per trade).
+    - Or dropping this pair and finding a faster-reverting alternative.
+
+11. **Spread distribution**: analyze() on the spread. Report mean, std, skewness, kurtosis.
+    - Is the spread distribution symmetric? Skewed spreads may have directional bias.
+    - Fat tails in the spread = risk of extreme divergence (large losses on the trade).
+    - distribution_fit with Student-t — how fat are the spread tails?
+
+---
+
+## Phase 4: Signal Generation
+
+12. **Z-score computation**: Compute rolling z-score of the spread.
+    z_t = (spread_t - rolling_mean) / rolling_std.
+    Use a lookback window of 2x the half-life (e.g., half-life 15 days -> lookback 30 days).
+
+    **Signal rules** (standard):
+    - **Enter long spread** (long A, short B) when z < -2.0 (spread is cheap).
+    - **Enter short spread** (short A, long B) when z > +2.0 (spread is rich).
+    - **Exit** when |z| < 0.5 (spread has reverted to near the mean).
+    - **Stop loss** at |z| > 4.0 (spread has diverged too far — cointegration may have broken).
+
+    **Signal tuning considerations**:
+    - Entry threshold 2.0 vs 1.5 vs 2.5: Lower threshold = more trades, lower profit per trade.
+      Higher threshold = fewer trades, higher profit per trade but may miss opportunities.
+    - Exit threshold 0.5 vs 0.0 vs 1.0: Exit at 0 (mean) captures full reversion but risks
+      whipsaws. Exit at 0.5 is more conservative. Exit at 1.0 leaves money on the table.
+    - Stop loss 4.0 is a safety net. Triggers rarely but limits catastrophic losses.
+
+13. **Dynamic hedge ratio**: The hedge ratio may drift over time. Consider using a rolling
+    OLS or Kalman filter to estimate the hedge ratio dynamically.
+    - Rolling OLS: Re-estimate beta every 63 days using trailing 252 days.
+    - Kalman filter: Continuously updates beta. Better for non-stationary hedge ratios.
+    If the hedge ratio drifts > 20% from its mean, the spread definition is changing.
+    More frequent rebalancing is needed.
+
+---
+
+## Phase 5: Regime Analysis
+
+14. **Regime detection on the spread**: detect_regimes on the spread series with method="hmm",
+    n_regimes=2. This identifies periods where mean reversion works vs breaks.
+
+    **Expected regimes**:
+    - Regime 0 (low-vol): Tight spread, fast mean reversion. Pairs trading works well.
+      Expected Sharpe in this regime should be high.
+    - Regime 1 (high-vol): Wide, volatile spread. Mean reversion may be slow or absent.
+      Expected Sharpe in this regime is lower, possibly negative.
+
+    **Current regime**: Which regime is the spread in right now?
+    If Regime 1 (stressed): Consider reducing position size or pausing the strategy.
+
+15. **Regime-conditional half-life**: Compute half-life separately in each regime.
+    If half-life is much longer in the stressed regime (> 2x normal), mean reversion
+    slows dramatically under stress. This is the main risk of pairs trading —
+    the trade works until it doesn't, and failures cluster in volatile markets.
+
+16. **Market regime overlay**: detect_regimes on SPY (or broad market).
+    Does the spread's behavior change with the market regime?
+    Many pairs strategies break during market crises (all correlations spike,
+    spread diverges). Test: in market bear regime, does the pairs strategy
+    still have positive Sharpe? If not, add a regime filter — only trade in bull regime.
+
+---
+
+## Phase 6: Backtesting & Performance
+
+17. **Walk-forward backtest**: run_backtest with the z-score signals.
+    CRITICAL: Use walk-forward validation, NOT in-sample backtest.
+    - Estimation window: 252 days (estimate mean, std, hedge ratio).
+    - Trading window: 63 days (trade using estimated parameters).
+    - Step forward 63 days, re-estimate, repeat.
+    This prevents look-ahead bias. In-sample pairs trading results are ALWAYS
+    misleading because the parameters were fitted to the same data.
+
+18. **Backtest metrics**: backtest_metrics on the walk-forward results.
+    Report:
+    | Metric | Value | Interpretation |
+    |--------|-------|----------------|
+    | Annualized Return | X% | Net of transaction costs? |
+    | Annualized Volatility | X% | Should be low for pairs (market-neutral) |
+    | Sharpe Ratio | X.XX | > 1.0 for a pairs strategy = very good |
+    | Max Drawdown | -X% | For pairs, > 15% drawdown = concerning |
+    | Win Rate | X% | > 60% typical for mean reversion |
+    | Profit Factor | X.XX | Gross profit / gross loss. > 1.5 is good |
+    | Avg Trade Duration | X days | Should be close to half-life |
+    | Number of Trades | X | Enough for statistical significance? (> 30 minimum) |
+    | Avg Win / Avg Loss | X.XX | > 1.0 = wins are bigger than losses |
+
+19. **Transaction cost sensitivity**: Pairs trading involves 4 legs (buy A, sell B, then
+    reverse). Estimate round-trip cost (spread + commission) for both assets.
+    Re-run backtest with costs of 5bps, 10bps, 20bps per leg.
+    At what cost level does the strategy become unprofitable?
+    If the break-even cost is < 10bps, the strategy may not survive real-world execution.
+
+20. **Capacity estimation**: What is the maximum capital this strategy can deploy?
+    Capacity = min(ADV_A, ADV_B) * 0.05 * avg_trade_duration / avg_number_of_concurrent_trades.
+    If capacity < $1M, the strategy may not be worth the operational cost.
+
+---
+
+## Phase 7: Risk Management & Position Sizing
+
+21. **Position sizing**: Size the position based on the spread's volatility.
+    - Target vol approach: position_size = target_portfolio_vol / spread_vol * capital.
+    - Example: if target = 10% annual vol and spread vol = 20%, use 50% of capital.
+    - Kelly criterion: f* = Sharpe^2 / (spread_vol * sqrt(252)). Use half-Kelly for safety.
+
+22. **Stop loss calibration**: The z = 4 stop loss should be backtested.
+    What fraction of trades would have been stopped out? What is the average loss
+    on stopped trades? If stops are hit > 5% of the time, the spread is too volatile
+    or the cointegration is unreliable.
+
+23. **Maximum concurrent exposure**: If running multiple pairs, total pairs exposure
+    should be limited. Pairs strategies are correlated in crises (all spreads diverge
+    simultaneously). Set max pairs exposure to 2x single-pair sizing.
+
+---
+
+## Phase 8: Final Assessment
+
+24. **Viability scorecard**:
+
+    | Criterion | Result | Pass/Fail |
+    |-----------|--------|-----------|
+    | Cointegration p-value < 0.05 | X | PASS/FAIL |
+    | Spread ADF stationary | p = X | PASS/FAIL |
+    | Half-life < 60 days | X days | PASS/FAIL |
+    | Walk-forward Sharpe > 0.5 | X.XX | PASS/FAIL |
+    | Profitable after 10bps costs | X% return | PASS/FAIL |
+    | Spread regime: currently normal | Regime X | PASS/FAIL |
+    | > 30 trades in backtest | X trades | PASS/FAIL |
+    | Max drawdown < 15% | -X% | PASS/FAIL |
+
+    **Decision**: If 6+ criteria pass, the pair is viable. 4-5 pass = borderline, proceed
+    with caution and smaller sizing. < 4 pass = reject the pair.
+
+25. **Summary**:
+    - Is the pair cointegrated? How stable is the relationship?
+    - Current spread z-score: is there a trade right now?
+    - Expected annual return (walk-forward) and max drawdown
+    - Current spread regime: favorable or stressed?
+    - Key risk: what could break the cointegration? (Structural change, M&A, sector divergence)
+    - One-sentence verdict: trade / monitor / reject
+
+**Related prompts**: Use statistical_arbitrage for a multi-asset PCA-based extension,
+mean_reversion for single-asset mean reversion, regime_detection for deeper regime analysis,
+cointegration analysis in equity_deep_dive for individual stock assessment.
 """}}]
 
     @mcp.prompt()

@@ -107,14 +107,23 @@ def register_microstructure_tools(mcp, ctx: AnalysisContext) -> None:
         volume = volume.iloc[-n:]
 
         # Classify volume into buy/sell via BVC
-        bvc = bulk_volume_classification(prices, volume)
-        buy_vol = bvc * volume.values[-len(bvc):]
-        sell_vol = (1 - bvc) * volume.values[-len(bvc):]
+        # BVC requires close, high, low, volume columns
+        if "high" in df.columns and "low" in df.columns:
+            high = df["high"].dropna().iloc[-n:]
+            low = df["low"].dropna().iloc[-n:]
+        else:
+            # Approximate high/low from close if not available
+            high = prices + prices.abs() * 0.005
+            low = prices - prices.abs() * 0.005
 
-        buy_series = pd.Series(buy_vol, index=volume.index[-len(bvc):])
-        sell_series = pd.Series(sell_vol, index=volume.index[-len(bvc):])
+        bvc = bulk_volume_classification(prices, high, low, volume)
+        buy_vol = bvc["buy_volume"].values
+        sell_vol = bvc["sell_volume"].values
 
-        vpin_values = vpin(volume.values[-len(bvc):], buy_vol, n_buckets=n_buckets)
+        buy_series = pd.Series(buy_vol, index=volume.index[-len(buy_vol):])
+        sell_series = pd.Series(sell_vol, index=volume.index[-len(sell_vol):])
+
+        vpin_values = vpin(volume.values[-len(buy_vol):], buy_vol, n_buckets=n_buckets)
         ofi = order_flow_imbalance(buy_series, sell_series, window=20)
 
         toxicity_df = pd.DataFrame({

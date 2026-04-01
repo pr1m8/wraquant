@@ -9,16 +9,218 @@ def register_portfolio_prompts(mcp: Any) -> None:
     def portfolio_construction(dataset: str = "multi_asset_returns") -> list[dict]:
         """Full portfolio construction: optimize, decompose, regime-adjust."""
         return [{"role": "user", "content": {"type": "text", "text": f"""
-Construct an optimal portfolio from {dataset}:
+First load the wraquant_system_context prompt for full module context.
 
-1. compute_returns if needed.
-2. correlation_analysis — check for high correlations (>0.8).
-3. optimize_portfolio with method="risk_parity" — equal risk contribution.
-4. Also try method="max_sharpe" and method="hrp" — compare weights.
-5. portfolio_risk — component VaR, diversification ratio for best method.
-6. detect_regimes — adjust weights for current regime.
-7. comprehensive_tearsheet on the portfolio returns.
-8. Summary: recommended weights, risk breakdown, regime adjustment.
+Construct an optimal portfolio from {dataset} using a rigorous multi-method approach.
+This workflow uses opt/ (26 functions), risk/ (95 functions), regimes/ (38 functions),
+and backtest/ (38 functions). The goal is not just to find optimal weights, but to
+understand WHY those weights are optimal, how robust they are, and how they should
+adapt to the current market regime.
+
+---
+
+## Phase 1: Data Preparation & Universe Assessment
+
+1. **Workspace check**: Run workspace_status. Verify {dataset} exists.
+   Need multi-asset return data with at least 3 assets (ideally 5-15).
+   Minimum 252 trading days. 500+ preferred for regime detection.
+   More than 20 assets may cause optimization instability — consider screening first.
+
+2. **Compute returns**: compute_returns on {dataset} if raw prices.
+   Verify all assets have the same date range (inner join on dates).
+   Check for survivorship bias — are there any assets that started/stopped mid-sample?
+
+3. **Universe quality check**: For each asset, run a quick risk_metrics.
+   - Remove assets with annualized vol > 60% (too volatile for portfolio construction).
+   - Remove assets with < 200 days of history (insufficient for covariance estimation).
+   - Flag assets with identical or near-identical returns (data error or same underlying).
+
+---
+
+## Phase 2: Correlation & Dependence Analysis
+
+4. **Static correlation matrix**: correlation_analysis across all assets.
+   Present the full correlation matrix. Flag notable relationships:
+   - Pairs with |corr| > 0.80: Very high — limited diversification benefit.
+     Consider removing one from each highly correlated pair.
+   - Pairs with |corr| < 0.20: Low correlation — excellent diversification candidates.
+   - Pairs with corr < -0.20: Negative correlation — natural hedges.
+
+   **Why this matters for optimization**: Mean-variance optimization is extremely sensitive
+   to the correlation matrix. Small estimation errors in correlations cause large weight
+   swings. This is the fundamental challenge of portfolio optimization.
+
+5. **Correlation stability**: Are correlations stable or time-varying?
+   Compute rolling 60-day correlations for the top 3-5 most correlated pairs.
+   If correlations are unstable, sample covariance will mislead the optimizer.
+   Use DCC-GARCH or shrinkage to get better estimates.
+
+6. **Covariance estimation methods** — compare three approaches:
+   - **Sample covariance**: Naive. Works if T >> N (many more observations than assets).
+   - **Ledoit-Wolf shrinkage**: Shrinks sample covariance toward a structured target.
+     More stable. Recommended default for N > 5 assets.
+   - **DCC-GARCH**: Time-varying. Best for capturing current conditions but noisier.
+   Report how different the estimates are. If they agree, the estimate is robust.
+   If they disagree, the portfolio is sensitive to estimation — use HRP or risk parity.
+
+---
+
+## Phase 3: Multi-Method Portfolio Optimization (opt/ module)
+
+7. **Method 1 — Risk Parity**: optimize_portfolio with method="risk_parity".
+   Equal risk contribution from each asset. Each asset contributes 1/N of total portfolio risk.
+
+   **Verify risk contributions**: After optimization, compute component risk for each asset.
+   Each should be approximately 1/N. Deviations > 2% from equal = convergence issue.
+
+   **When to use risk parity**: When you have no views on expected returns (agnostic).
+   Risk parity doesn't need return estimates — only the covariance matrix.
+   This avoids the biggest source of estimation error (expected returns are nearly
+   impossible to estimate reliably). Risk parity is the safest default allocation.
+
+   **Limitations**: Risk parity often overweights low-vol assets (bonds) and underweights
+   high-vol assets (equities). This needs leverage to match equity-like returns.
+   Compute the leverage ratio needed to target 10% annualized portfolio vol.
+
+8. **Method 2 — Maximum Sharpe**: optimize_portfolio with method="max_sharpe".
+   Maximizes expected return per unit of risk. Uses both expected returns AND covariance.
+
+   **Warning**: Max Sharpe is EXTREMELY sensitive to expected return estimates.
+   Small changes in expected returns cause large weight swings. Often produces
+   concentrated portfolios (one or two assets dominate). This is the optimization's
+   way of saying "I'm not confident in my inputs."
+
+   **Sanity checks on max Sharpe weights**:
+   - Any asset > 40%? Concentration risk. Consider adding a max-weight constraint (e.g., 25%).
+   - Any asset at 0%? The optimizer thinks it's dominated. Is that reasonable?
+   - Expected Sharpe > 2.0? Almost certainly overfitting. Out-of-sample will be worse.
+
+9. **Method 3 — Hierarchical Risk Parity (HRP)**: optimize_portfolio with method="hrp".
+   Uses hierarchical clustering on the correlation matrix. No matrix inversion needed
+   (avoids the instability of mean-variance). Robust to estimation error.
+
+   **When to use HRP**: When you have many assets (> 10) or the correlation matrix is
+   unstable. HRP produces more diversified and stable weights than mean-variance.
+   It's the best "set and forget" allocation for most portfolios.
+
+10. **Method 4 — Minimum Variance**: optimize_portfolio with method="min_variance".
+    Minimizes total portfolio volatility. Ignores expected returns entirely.
+    Overweights low-vol, low-correlation assets. Conservative choice.
+
+    **When to use**: In bear markets or when risk reduction is priority over return.
+    Min-variance portfolios tend to have lower drawdowns but also lower returns.
+
+11. **Method comparison table**:
+    | Method | Asset 1 | Asset 2 | ... | Ann. Return | Ann. Vol | Sharpe | Max DD |
+    |--------|---------|---------|-----|-------------|----------|--------|--------|
+    | Risk Parity | | | | | | | |
+    | Max Sharpe | | | | | | | |
+    | HRP | | | | | | | |
+    | Min Variance | | | | | | | |
+    | Equal Weight | | | | | | | |
+
+    Include equal weight (1/N) as a naive benchmark. If 1/N beats optimized portfolios,
+    the optimization is overfitting — the "1/N puzzle" strikes again.
+
+---
+
+## Phase 4: Risk Decomposition of Best Portfolio
+
+12. **Select best method**: Based on the comparison, select the recommended method.
+    Criteria: highest out-of-sample Sharpe (from walk-forward), lowest max drawdown,
+    most stable weights over time. Usually HRP or risk parity wins.
+
+13. **Portfolio risk analytics** (risk/ module) on the selected portfolio:
+    - **Component VaR**: Each asset's contribution to total portfolio VaR.
+      Is risk concentrated? Any asset contributing > 30% of portfolio VaR = concentration.
+    - **Marginal VaR**: Adding $1 to each asset — which increases risk most?
+    - **Diversification ratio**: Sum of standalone vols / portfolio vol.
+      > 1.5 = well diversified. < 1.2 = concentrated or highly correlated.
+    - **Risk budgeting**: Actual risk allocation vs intended. Any unintended risk tilts?
+
+14. **VaR and stress testing**:
+    - var_analysis on the portfolio returns: 95% and 99% VaR and CVaR.
+    - stress_test with the top 3 crisis scenarios (GFC, COVID, and the portfolio's
+      specific worst-case from Phase 3 analysis).
+    - If worst-case loss > 20%: recommend tail hedges (put options, VIX calls, managed futures).
+
+---
+
+## Phase 5: Regime-Aware Adjustment (regimes/ module)
+
+15. **Regime detection**: detect_regimes on the portfolio returns (or a representative
+    index like SPY) with method="hmm", n_regimes=2.
+    - Current regime: bull (state 0) or bear (state 1)?
+    - Confidence: regime probability > 0.8 = high confidence.
+    - Expected duration: how long should this regime last?
+
+16. **Regime-conditional optimization**: Re-run optimize_portfolio separately on data
+    from each regime only.
+    - Bull regime optimal weights: Should overweight risky assets.
+    - Bear regime optimal weights: Should overweight defensive assets / cash.
+    - How different are regime-conditional weights from unconditional?
+      Large differences = the portfolio SHOULD be adjusted for the current regime.
+
+17. **Tactical adjustment**: Blend unconditional and regime-conditional weights.
+    If regime confidence > 80%: use regime-conditional weights.
+    If regime confidence 50-80%: blend 50/50 with unconditional weights.
+    If regime confidence < 50%: stick with unconditional weights.
+    This avoids over-reacting to noisy regime signals.
+
+18. **Regime transition warning**: From the transition matrix, compute the probability
+    of switching regimes in the next 5 trading days. If > 20%, flag as "regime transition
+    risk" — don't make large allocation changes, wait for regime to stabilize.
+
+---
+
+## Phase 6: Backtesting & Validation
+
+19. **Walk-forward backtest**: run_backtest for the selected optimization method.
+    Use walk-forward (re-optimize every 63 days using trailing 252 days of data).
+    This tests TRUE out-of-sample performance — the only performance that matters.
+
+    Compare walk-forward to static (optimize once on full sample). If static >> walk-forward,
+    the optimization is overfitting to in-sample data.
+
+20. **Backtest metrics**: backtest_metrics for the walk-forward portfolio.
+    Report: annualized return, vol, Sharpe, Sortino, max drawdown, Calmar,
+    hit ratio, recovery factor. Monthly returns table.
+
+21. **Comprehensive tearsheet**: comprehensive_tearsheet on the walk-forward portfolio.
+    Include: equity curve, drawdown chart, rolling Sharpe, monthly returns heatmap.
+
+---
+
+## Phase 7: Final Recommendation
+
+22. **Recommended portfolio** — present in a structured format:
+
+    **Allocation**:
+    | Asset | Weight | Risk Contribution | Rationale |
+    |-------|--------|-------------------|-----------|
+    | ... | X% | Y% of total risk | ... |
+
+    **Expected characteristics**:
+    - Annualized return: X% (based on walk-forward)
+    - Annualized volatility: X%
+    - Sharpe ratio: X.XX
+    - Max drawdown: X% (historical worst case)
+    - 99% daily VaR: X%
+
+    **Regime adjustment** (if applicable):
+    - Current regime: [bull/bear] with X% confidence
+    - Adjustment: [increase/decrease] equity by X%, [increase/decrease] bonds by X%
+    - Revert to strategic weights when regime confidence drops below 60%
+
+    **Rebalancing rule**: Rebalance when any position drifts > 5% from target weight
+    or monthly, whichever comes first.
+
+    **Key risks**: Top 3 risks to this allocation and their mitigants.
+
+**Related prompts**: Use risk_parity_deep_dive for deeper risk parity analysis,
+factor_tilt to add factor exposures, tactical_allocation for dynamic regime adjustment,
+portfolio_stress_test for comprehensive stress testing, asset_allocation for
+strategic multi-asset allocation with Black-Litterman views.
 """}}]
 
     @mcp.prompt()

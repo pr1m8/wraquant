@@ -112,8 +112,18 @@ def register_causal_tools(mcp, ctx: AnalysisContext) -> None:
                 idx_positions = returns.index.get_indexer([dt], method="nearest")
                 event_indices.append(int(idx_positions[0]))
         else:
-            # Assume sequential indices
-            event_indices = list(range(0, len(returns), max(1, len(returns) // len(event_dates))))[:len(event_dates)]
+            # Try parsing as integer indices
+            event_indices = []
+            for d in event_dates:
+                try:
+                    event_indices.append(int(d))
+                except (ValueError, TypeError):
+                    # Fallback: evenly spaced
+                    event_indices = list(range(
+                        0, len(returns),
+                        max(1, len(returns) // len(event_dates)),
+                    ))[:len(event_dates)]
+                    break
 
         result = _es(
             returns_arr,
@@ -173,13 +183,18 @@ def register_causal_tools(mcp, ctx: AnalysisContext) -> None:
 
         result = _did(outcome, treatment, post)
 
+        from scipy import stats as sp_stats
+
+        t_stat = result.ate / result.se if result.se > 0 else 0.0
+        p_value = float(2.0 * (1.0 - sp_stats.norm.cdf(abs(t_stat))))
+
         return _sanitize_for_json({
             "tool": "diff_in_diff",
             "dataset": dataset,
             "ate": result.ate,
             "se": result.se,
-            "t_stat": result.t_stat,
-            "p_value": result.p_value,
+            "t_stat": t_stat,
+            "p_value": p_value,
             "pre_treatment_mean": result.pre_treatment_mean,
             "post_treatment_mean": result.post_treatment_mean,
             "pre_control_mean": result.pre_control_mean,
@@ -329,6 +344,11 @@ def register_causal_tools(mcp, ctx: AnalysisContext) -> None:
 
         result = _rd(outcome, running, cutoff=cutoff)
 
+        from scipy import stats as sp_stats
+
+        t_stat = result.ate / result.se if result.se > 0 else 0.0
+        p_value = float(2.0 * (1.0 - sp_stats.norm.cdf(abs(t_stat))))
+
         return _sanitize_for_json({
             "tool": "regression_discontinuity",
             "dataset": dataset,
@@ -337,10 +357,10 @@ def register_causal_tools(mcp, ctx: AnalysisContext) -> None:
             "cutoff": cutoff,
             "ate": result.ate,
             "se": result.se,
-            "t_stat": result.t_stat,
-            "p_value": result.p_value,
-            "n_treated": result.n_treated,
-            "n_control": result.n_control,
+            "t_stat": t_stat,
+            "p_value": p_value,
+            "n_treated": result.n_right,
+            "n_control": result.n_left,
         })
 
     @mcp.tool()

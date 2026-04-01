@@ -299,6 +299,12 @@ def _sanitize_for_json(obj: Any) -> Any:
         return {k: _sanitize_for_json(v) for k, v in obj.items()}
     if isinstance(obj, (list, tuple)):
         return [_sanitize_for_json(v) for v in obj]
+    if isinstance(obj, pd.DataFrame):
+        return _sanitize_for_json(obj.to_dict(orient="list"))
+    if isinstance(obj, pd.Series):
+        return _sanitize_for_json(obj.tolist())
+    if isinstance(obj, pd.Index):
+        return _sanitize_for_json(obj.tolist())
     if isinstance(obj, (np.integer,)):
         return int(obj)
     if isinstance(obj, (np.floating,)):
@@ -309,6 +315,9 @@ def _sanitize_for_json(obj: Any) -> Any:
         return obj.isoformat()
     if isinstance(obj, (np.bool_,)):
         return bool(obj)
-    if pd.isna(obj):
-        return None
+    try:
+        if pd.isna(obj):
+            return None
+    except (ValueError, TypeError):
+        pass
     return obj

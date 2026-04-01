@@ -151,6 +151,11 @@ def register_execution_tools(mcp, ctx: AnalysisContext) -> None:
             source_op="almgren_chriss", parent=dataset,
         )
 
+        import numpy as np
+
+        # Trade rates: shares traded per period (positive = selling)
+        trades = -np.diff(trajectory)
+
         return _sanitize_for_json({
             "tool": "almgren_chriss",
             "total_shares": total_shares,
@@ -159,12 +164,12 @@ def register_execution_tools(mcp, ctx: AnalysisContext) -> None:
             "estimated_sigma": sigma,
             "estimated_eta": eta,
             "estimated_gamma": gamma,
-            "front_loaded_pct": float(trajectory[:n_periods // 4].sum() / total_shares)
+            "front_loaded_pct": float(trades[:n_periods // 4].sum() / total_shares)
             if n_periods >= 4 else None,
             "trajectory_summary": {
-                "first_period": float(trajectory[0]),
-                "last_period": float(trajectory[-1]),
-                "max_rate": float(trajectory.max()),
+                "first_period": float(trades[0]),
+                "last_period": float(trades[-1]),
+                "max_rate": float(trades.max()),
             },
             **stored,
         })

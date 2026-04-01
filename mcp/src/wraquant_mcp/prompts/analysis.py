@@ -9,17 +9,208 @@ def register_analysis_prompts(mcp: Any) -> None:
     def equity_deep_dive(ticker: str = "AAPL") -> list[dict]:
         """Comprehensive single-stock analysis: stats, vol, regimes, TA, risk."""
         return [{"role": "user", "content": {"type": "text", "text": f"""
-Perform a deep analysis of {ticker}:
+First load the wraquant_system_context prompt for full module context.
 
-1. **Data**: Check workspace_status. If no data, note it needs loading via OpenBB MCP or store_data.
-2. **Returns**: compute_returns on price data.
-3. **Statistics**: analyze() for comprehensive stats — mean, vol, skew, kurtosis, stationarity.
-4. **Distribution**: Check normality. Note fat tails if present.
-5. **Volatility**: fit_garch with model="GJR", dist="t". Report persistence (>0.95 = high), half-life.
-6. **Regimes**: detect_regimes with 2 states. Current regime? Per-regime Sharpe?
-7. **Technical**: compute_indicator for RSI (overbought >70?), MACD (crossover?), Bollinger Bands (squeeze?).
-8. **Risk**: risk_metrics — Sharpe, Sortino, max drawdown. Is drawdown recovering?
-9. **Summary**: Synthesize — favorable regime? Good risk-adjusted return? Any signals?
+Perform a comprehensive deep-dive analysis of {ticker}. This is a multi-phase workflow
+that touches stats/, vol/, regimes/, ta/, and risk/ modules. The goal is a complete
+picture: statistical properties, volatility dynamics, regime state, technical signals,
+and risk profile — synthesized into an actionable assessment.
+
+---
+
+## Phase 1: Data Acquisition & Validation
+
+1. **Check workspace**: Run workspace_status to see if prices_{ticker.lower()} already exists.
+   If it does, verify the date range — we need at least 2 years (500+ trading days) for
+   GARCH and HMM to converge reliably. 3-5 years is ideal.
+
+2. **Load data**: If no data exists, note that price data for {ticker} needs to be loaded
+   via OpenBB MCP (openbb_equity_price_historical) or store_data with OHLCV columns.
+   Required columns: open, high, low, close, volume. Adjusted close preferred.
+
+3. **Compute returns**: compute_returns on prices_{ticker.lower()}.
+   This produces returns_{ticker.lower()} with log or simple returns.
+   Verify: no NaN values, no returns > 50% (likely data error if so).
+
+   **If this fails**: Check that the price dataset has a 'close' column. Use
+   query_data("SELECT * FROM prices_{ticker.lower()} LIMIT 5") to inspect columns.
+
+---
+
+## Phase 2: Statistical Profile (stats/ module)
+
+4. **Comprehensive statistics**: analyze() on returns_{ticker.lower()}.
+   This computes: mean, median, std, skewness, kurtosis, min, max, Jarque-Bera,
+   Shapiro-Wilk, ADF stationarity test, autocorrelation (Ljung-Box).
+
+   **Interpretation guide**:
+   - Annualized mean return: multiply daily mean by 252. > 10% is good for equities.
+   - Annualized volatility: multiply daily std by sqrt(252). 15-25% is typical for single stocks.
+   - Skewness: Negative skew is normal for equities (crashes are bigger than rallies).
+     < -0.5 means significant left tail risk.
+   - Excess kurtosis: > 3 means fat tails (returns are more extreme than normal distribution
+     would predict). Most stocks have excess kurtosis of 3-10. This makes standard VaR
+     unreliable — use Cornish-Fisher or GARCH-based VaR instead.
+   - Jarque-Bera p-value < 0.05: returns are NOT normally distributed (almost always true).
+   - ADF p-value < 0.05: returns are stationary (should be true for log returns).
+   - Ljung-Box p-value < 0.05: significant autocorrelation (possible momentum or mean reversion).
+
+5. **Distribution analysis**: distribution_fit on returns_{ticker.lower()}.
+   Fit Student-t, skewed-t, and normal distributions. Compare AIC/BIC.
+   - Student-t degrees of freedom: < 5 = very fat tails, 5-10 = moderate, > 30 ~ normal.
+   - Skewed-t captures both asymmetry and fat tails — usually best fit for equities.
+   - Report the best-fit distribution and its parameters.
+
+   **Why this matters**: The distribution determines which risk measures are reliable.
+   If tails are fat, standard VaR underestimates risk. If skewed, symmetric measures
+   (like standard deviation) understate downside risk.
+
+---
+
+## Phase 3: Volatility Dynamics (vol/ module)
+
+6. **GARCH modeling**: fit_garch on returns_{ticker.lower()} with model="GJR", dist="t".
+   GJR-GARCH captures the leverage effect (negative shocks cause more vol than positive).
+   Student-t innovations handle fat tails.
+
+   **Report these key metrics**:
+   - **Persistence** (alpha + beta + 0.5*gamma): How long vol shocks last.
+     > 0.95 = highly persistent (vol regime changes are sticky).
+     > 0.99 = near integrated (almost IGARCH — vol shocks are permanent).
+   - **Half-life**: = log(0.5) / log(persistence). Days for a vol shock to decay 50%.
+     10-30 days is typical. > 60 days = vol is very sticky.
+   - **Unconditional volatility**: Long-run average vol (annualized).
+   - **Gamma** (leverage coefficient): > 0 confirms leverage effect.
+     Typical range: 0.05-0.15 for equities.
+   - **Current conditional vol** vs unconditional: Is vol elevated or compressed right now?
+     Ratio > 1.5 = vol stress. Ratio < 0.7 = vol compression (breakout may be coming).
+
+7. **Model comparison** (if time permits): Also fit GARCH(1,1) and EGARCH.
+   Compare AIC/BIC. GJR usually wins for equities, EGARCH for FX.
+   If GARCH(1,1) wins (gamma ~ 0), leverage effect is weak for this stock.
+
+8. **News impact curve**: Compute news_impact_curve from the fitted GARCH.
+   This shows how positive vs negative shocks of the same magnitude affect volatility.
+   - Symmetric curve = no leverage effect (unusual for equities).
+   - Asymmetric with steeper left side = leverage effect (negative news causes more vol).
+   - The steepness ratio (left/right slope) quantifies the asymmetry.
+
+   **If GARCH fails to converge**: Try with model="GARCH" (simpler). If still failing,
+   the series may be too short (< 250 obs) or have structural breaks. Try a shorter window.
+
+---
+
+## Phase 4: Regime Detection (regimes/ module)
+
+9. **HMM regime detection**: detect_regimes on returns_{ticker.lower()} with method="hmm",
+   n_regimes=2. This identifies bull (low-vol) and bear (high-vol) market states.
+
+   **Key outputs to report**:
+   - **Current regime**: 0 (low-vol/bull) or 1 (high-vol/bear). By convention,
+     regimes are sorted by ascending variance, so state 0 = calm.
+   - **Current regime probability**: How confident is the model? > 0.8 = high confidence.
+     0.5-0.8 = uncertain / possibly transitioning. < 0.5 = likely in the other regime.
+   - **Transition matrix**: [[p_00, p_01], [p_10, p_11]].
+     p_00 = probability bull stays bull. p_11 = probability bear stays bear.
+     Expected duration of bull = 1/(1-p_00). Expected duration of bear = 1/(1-p_11).
+   - **Per-regime statistics**: Mean return, volatility, Sharpe, max drawdown in EACH regime.
+     Bull regime Sharpe should be much higher. Bear regime usually has negative Sharpe.
+
+10. **Regime history**: How many regime switches in the sample? Dates of the last 3-5 switches.
+    Did they align with known market events (COVID, rate hikes, earnings)?
+    Is the current regime young (just switched) or mature (been here a while)?
+    Mature regimes have higher probability of continuing. Young regimes are uncertain.
+
+   **If HMM fails**: Try n_regimes=3 if the data is long enough (1000+ obs).
+   Or try method="gmm" which ignores temporal structure (faster, less powerful).
+
+---
+
+## Phase 5: Technical Analysis (ta/ module — 265 indicators available)
+
+11. **Momentum signals**: compute_indicator for:
+    - **RSI(14)**: Current value. > 70 = overbought (potential sell), < 30 = oversold (potential buy).
+      Between 40-60 = neutral. RSI divergence (price makes new high but RSI doesn't) = bearish warning.
+    - **MACD(12, 26, 9)**: Current MACD line vs signal line. MACD > signal = bullish.
+      MACD histogram: positive and increasing = strengthening momentum.
+      Histogram just crossed zero = fresh signal.
+    - **ROC(20)**: 20-day rate of change. Positive = positive momentum. Compare to 63-day ROC
+      for short vs medium-term momentum alignment. Both positive = trend confirmed.
+
+12. **Trend and volatility indicators**: compute_indicator for:
+    - **Bollinger Bands(20, 2)**: Where is price relative to bands?
+      At upper band = extended. At lower band = potential support.
+      **Bandwidth** (upper - lower) / middle: Squeeze (low bandwidth) = low vol, breakout imminent.
+      Typical bandwidth for this stock? Current vs average.
+    - **ADX(14)**: > 25 = strong trend (trend-following strategies work). < 20 = no trend
+      (mean-reversion strategies work). 20-25 = developing.
+    - **Supertrend**: Current direction (above or below price). Flip = trend reversal signal.
+
+13. **Volume analysis** (if volume data available): compute_indicator for:
+    - **OBV**: On-Balance Volume trend. Rising OBV + rising price = confirmed uptrend.
+      Rising price + falling OBV = bearish divergence (distribution).
+    - **CMF(20)**: Chaikin Money Flow. Positive = buying pressure, negative = selling pressure.
+
+   **Signal synthesis**: Count bullish vs bearish signals. 5+ aligned = strong signal.
+   Mixed signals = uncertain — wait for confirmation.
+
+---
+
+## Phase 6: Risk Assessment (risk/ module)
+
+14. **Core risk metrics**: risk_metrics on returns_{ticker.lower()}.
+    Report: Sharpe, Sortino, Calmar, max drawdown (depth, dates, recovery),
+    hit ratio, tail ratio, skewness, kurtosis.
+
+    **Risk scorecard**:
+    - Sharpe > 1.0: Excellent risk-adjusted return
+    - Sharpe 0.5-1.0: Good
+    - Sharpe < 0.5: Poor (might not be worth the risk)
+    - Max drawdown > 30%: Very high single-stock risk
+    - Sortino > Sharpe: Positive skew (upside vol > downside) — desirable
+    - Sortino < Sharpe: Negative skew (more downside surprises) — concerning
+
+15. **Value-at-Risk**: var_analysis at 95% and 99% confidence levels.
+    Report both historical and Cornish-Fisher VaR (CF adjusts for skew/kurtosis).
+    - If CF VaR is much worse than historical: tails are fatter than history shows.
+    - 99% VaR: the "worst 1-in-100 day" loss. For single stocks, typically 3-6%.
+
+16. **Stress testing**: stress_test with at least GFC 2008, COVID 2020, and vol_spike scenarios.
+    Report expected loss under each scenario. Which scenario is worst for {ticker}?
+    - Sector matters: tech stocks worst in dot-com, financials worst in GFC.
+    - Cyclical stocks worst in COVID. Defensive stocks more resilient.
+
+17. **Drawdown analysis**: crisis_drawdowns — top 5 worst drawdowns.
+    For the current drawdown (if any): how deep, how long, is it recovering?
+    Compare current drawdown to historical average and worst.
+
+---
+
+## Phase 7: Synthesis & Actionable Assessment
+
+18. **Cross-module synthesis** — combine findings into a coherent view:
+
+    **Regime + Volatility**: Is the stock in a low-vol regime with compressed GARCH vol?
+    That is a bullish setup (calm markets tend to drift up). Is it in high-vol regime
+    with elevated GARCH vol? That is a cautious setup (risk of further decline).
+
+    **Technical + Regime**: Do TA signals align with the regime? Bullish TA in bull regime
+    = high conviction. Bullish TA in bear regime = potential bear market rally (lower conviction).
+
+    **Risk + Volatility**: Is current vol > unconditional vol? Risk of further vol expansion.
+    Is max drawdown still recovering? Position sizing should be smaller during drawdown recovery.
+
+    **Overall assessment**:
+    - Current regime and confidence level
+    - Risk-adjusted return quality (Sharpe-based)
+    - Volatility state (compressed / normal / elevated)
+    - Technical signal direction and strength
+    - Key risk (what could go wrong from here?)
+    - One-sentence conclusion: favorable/neutral/unfavorable for new positions
+
+**Related prompts**: Use volatility_deep_dive for deeper vol analysis, risk_report for
+portfolio-level risk, regime_detection for multi-method regime comparison,
+momentum_strategy to build a trading strategy from these signals.
 """}}]
 
     @mcp.prompt()

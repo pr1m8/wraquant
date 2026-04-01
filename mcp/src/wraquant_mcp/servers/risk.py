@@ -86,7 +86,7 @@ def register_risk_tools(mcp, ctx: AnalysisContext) -> None:
         if not scenarios and not historical:
             from wraquant.risk.stress import vol_stress_test
 
-            vol_result = vol_stress_test(returns, multipliers=[1.5, 2.0, 3.0])
+            vol_result = vol_stress_test(returns, vol_shocks=[1.5, 2.0, 3.0])
             results["vol_stress"] = _sanitize_for_json(vol_result)
 
         return {
@@ -131,8 +131,10 @@ def register_risk_tools(mcp, ctx: AnalysisContext) -> None:
         benchmark = benchmark.iloc[-n:]
 
         rb = rolling_beta(returns, benchmark, window=window)
-        blume = blume_adjusted_beta(returns, benchmark)
-        vasicek = vasicek_adjusted_beta(returns, benchmark)
+        # Compute raw beta for adjustment functions
+        raw_beta = float(rb.dropna().iloc[-1]) if len(rb.dropna()) > 0 else 1.0
+        blume = blume_adjusted_beta(raw_beta)
+        vasicek = vasicek_adjusted_beta(raw_beta)
         cond = conditional_beta(returns, benchmark)
 
         import pandas as pd
@@ -296,16 +298,17 @@ def register_risk_tools(mcp, ctx: AnalysisContext) -> None:
         df = ctx.get_dataset(dataset)
         returns = df[column].dropna()
 
-        cf_var = cornish_fisher_var(returns, confidence=confidence)
-        cdar = conditional_drawdown_at_risk(returns, confidence=confidence)
+        alpha = 1.0 - confidence
+        cf_result = cornish_fisher_var(returns, alpha=alpha)
+        cdar = conditional_drawdown_at_risk(returns, alpha=alpha)
         tra = tail_ratio_analysis(returns)
-        dar = drawdown_at_risk(returns, confidence=confidence)
+        dar = drawdown_at_risk(returns, alpha=alpha)
 
         return _sanitize_for_json({
             "tool": "tail_risk",
             "dataset": dataset,
             "confidence": confidence,
-            "cornish_fisher_var": float(cf_var),
+            "cornish_fisher_var": cf_result if isinstance(cf_result, dict) else float(cf_result),
             "conditional_drawdown_at_risk": float(cdar),
             "drawdown_at_risk": float(dar),
             "tail_ratio_analysis": tra,
