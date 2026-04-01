@@ -336,6 +336,125 @@
 
 ---
 
+## Execution Strategy
+
+### Principle: Build in parallel, integrate sequentially
+
+**Building is parallelizable** — each module server, prompt template,
+and test file is independent. Launch N agents, each builds one piece.
+
+**Integrating is sequential** — wiring modules together, testing
+composition, fixing conflicts requires focused single-agent work.
+
+### MCP Build: Team of 12 agents (parallel)
+
+Each agent gets:
+1. The adaptor template (same pattern for all)
+2. The AnalysisContext interface (read/write DuckDB)
+3. One wraquant module to wrap
+4. Its module's `__all__` exports
+
+```
+Agent 1:  servers/data.py      (wraps wraquant.data — 5 tools)
+Agent 2:  servers/stats.py     (wraps wraquant.stats — 8 tools)
+Agent 3:  servers/risk.py      (wraps wraquant.risk — 10 tools)
+Agent 4:  servers/vol.py       (wraps wraquant.vol — 6 tools)
+Agent 5:  servers/regimes.py   (wraps wraquant.regimes — 5 tools)
+Agent 6:  servers/ta.py        (wraps wraquant.ta — 1 dispatcher)
+Agent 7:  servers/opt.py       (wraps wraquant.opt — 5 tools)
+Agent 8:  servers/backtest.py  (wraps wraquant.backtest — 5 tools)
+Agent 9:  servers/price.py     (wraps wraquant.price — 5 tools)
+Agent 10: servers/ts.py        (wraps wraquant.ts — 6 tools)
+Agent 11: servers/ml.py        (wraps wraquant.ml — 6 tools)
+Agent 12: servers/viz.py       (wraps wraquant.viz — 5 tools)
+```
+
+Then one integration agent:
+- Mounts all servers under parent
+- Tests tool discovery
+- Tests cross-module workflows
+- Verifies DuckDB state sharing
+
+### Prompt Build: Team of agents (parallel)
+
+Each agent writes 3-5 related prompt templates:
+```
+Agent A: Analysis prompts (equity, sector, macro, earnings, IPO)
+Agent B: Risk prompts (vol, risk_report, tail, stress, correlation, surface)
+Agent C: Regime prompts (detection, monitor, backtest, changepoint)
+Agent D: Portfolio prompts (construction, rebalance, factor, stress, allocation)
+Agent E: Strategy prompts (pairs, momentum, mean_rev, trend, stat_arb)
+Agent F: ML prompts (alpha, features, compare, sweep)
+Agent G: Pricing prompts (option, yield, exotic)
+Agent H: Micro prompts (liquidity, execution, quality)
+Agent I: Other prompts (causal, bayesian, reporting, monitoring)
+```
+
+---
+
+## Additional Concepts Discussed
+
+### Journaling Agent / Process
+- Auto-log every MCP tool call with params + results to journal.jsonl
+- Periodic summaries: "what happened since last session"
+- Decision tracking: "tried GARCH(1,1), persistence too high → switched to EGARCH"
+- Research notes the agent adds as it discovers things
+- `workspace_journal` MCP resource readable by any agent for context
+- Enables multi-session memory without re-explaining context
+
+### Existing MCPs to Compose With
+| MCP Server | What it does | How wraquant uses it |
+|-----------|-------------|---------------------|
+| OpenBB MCP | Multi-provider financial data | Agent fetches data, passes to wraquant |
+| DuckDB MCP | SQL on tabular data | Shared state layer, agent queries results |
+| Jupyter MCP | Notebook interaction | Human + agent share same workspace |
+| Alpaca MCP | Live trading execution | Agent sends wraquant signals to execute |
+| EODHD MCP | 75 data tools, tick data | Alternative data source |
+| Alpha Vantage MCP | Real-time + historical | Another data source |
+| QuantConnect MCP | Cloud algo lifecycle | Cloud backtesting alternative |
+
+### DataFrame Interaction Pattern
+- Agent NEVER passes raw DataFrame through MCP
+- All data stored in shared DuckDB, referenced by ID
+- wraquant-mcp tools read from DuckDB → compute → write back
+- DuckDB MCP handles SQL queries for inspection
+- Pattern: "compute_indicator('prices_aapl', 'rsi')" not "here's 10K rows of JSON"
+
+### Float Conversion for MCP
+- All numeric outputs must be native `float()` not np.float64
+- JSON serialization fails on numpy types
+- Systematic: adaptor layer wraps all dict values in float()
+
+### Conditional / Circular Workflows
+- Real workflows aren't linear (1→7)
+- Backtest fails → re-model → re-validate (loop)
+- Regime changes → re-optimize → re-execute (trigger)
+- Feature importance → drop features → rebuild → retest (iteration)
+- MCP prompts are guidance, not enforcement — LLM decides flow
+- The journal tracks the actual path taken
+
+### Tool Tiers (Discovery Pattern)
+- Tier 1: Meta-tools (list_modules, list_tools, describe, workspace_status) — always loaded
+- Tier 2: Common ops (~30 most-used tools) — loaded by default
+- Tier 3: Full module tools (~200+) — lazy loaded when agent requests a module
+- Prevents context bloat while making everything accessible
+
+### Viz Decorator for Indicators
+- `@plotable` decorator or registry for auto-charting
+- Oscillators → subplot below price
+- Overlays → on price chart
+- Bands → shaded region
+- `indicator.plot()` returns Plotly figure
+- MCP viz tools use `Image(fig.to_image())` for Claude vision
+
+### Skills / Agents / Scripts Export
+- .claude/agents.md already defines 12 domain agents
+- Each wraquant module gets a corresponding MCP prompt
+- Scripts can export analysis results to workspace
+- Potential for agent-to-agent delegation via MCP
+
+---
+
 ## Decision Log
 
 | Decision | Choice | Rationale |
