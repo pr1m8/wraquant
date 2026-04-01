@@ -232,6 +232,15 @@ def polarized_fractal_efficiency(
     Measures the efficiency of the price path using fractal geometry.
     A straight-line move yields +/- 100; a random walk yields ~0.
 
+    Interpretation:
+        - **> 0**: Price is moving efficiently upward (trending up).
+        - **< 0**: Price is moving efficiently downward (trending down).
+        - **Near 0**: Choppy, inefficient movement (no trend).
+        - **> +50**: Strong bullish trend.
+        - **< -50**: Strong bearish trend.
+        - Think of it as "how direct is the price path" -- values near
+          +/-100 mean a straight line, near 0 means a random walk.
+
     ``PFE = sign(direction) * sqrt(sum_sq_diff + direction^2) / sum_single_diff * 100``
 
     The raw PFE is then smoothed with an EMA.
