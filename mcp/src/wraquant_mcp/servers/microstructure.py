@@ -1,7 +1,7 @@
 """Market microstructure MCP tools.
 
 Tools: liquidity_metrics, toxicity_analysis, market_quality,
-spread_decomposition.
+spread_decomposition, price_impact, depth_analysis.
 """
 
 from __future__ import annotations
@@ -12,28 +12,25 @@ from wraquant_mcp.context import AnalysisContext, _sanitize_for_json
 
 
 def register_microstructure_tools(mcp, ctx: AnalysisContext) -> None:
-    """Register microstructure tools on the MCP server."""
+    """Register microstructure-specific tools on the MCP server."""
 
     @mcp.tool()
     def liquidity_metrics(
         dataset: str,
-        returns_col: str = "returns",
-        volume_col: str = "volume",
         price_col: str = "close",
-        window: int | None = None,
+        volume_col: str = "volume",
+        window: int = 20,
     ) -> dict[str, Any]:
-        """Compute multiple liquidity measures.
-
-        Returns Amihud illiquidity ratio, Kyle's lambda (price impact),
-        Roll spread estimate, and turnover ratio.
+        """Compute liquidity measures: Amihud illiquidity, Kyle lambda, Roll spread, effective spread.
 
         Parameters:
-            dataset: Dataset with returns, volume, and price columns.
-            returns_col: Returns column name.
-            volume_col: Volume column name.
+            dataset: Dataset containing price and volume data.
             price_col: Price column name.
-            window: Rolling window (None = full-sample scalar).
+            volume_col: Volume column name.
+            window: Rolling window for Kyle lambda and Amihud.
         """
+        import pandas as pd
+
         from wraquant.microstructure.liquidity import (
             amihud_illiquidity,
             kyle_lambda,
@@ -41,175 +38,281 @@ def register_microstructure_tools(mcp, ctx: AnalysisContext) -> None:
         )
 
         df = ctx.get_dataset(dataset)
-        returns = df[returns_col].dropna()
+        prices = df[price_col].dropna()
         volume = df[volume_col].dropna()
-        price = df[price_col].dropna()
 
-        n = min(len(returns), len(volume), len(price))
-        returns = returns.iloc[-n:]
+        n = min(len(prices), len(volume))
+        prices = prices.iloc[-n:]
         volume = volume.iloc[-n:]
-        price = price.iloc[-n:]
 
-        dollar_volume = price * volume
+        returns = prices.pct_change().dropna()
+        vol_aligned = volume.iloc[-len(returns):]
 
-        amihud = amihud_illiquidity(returns, dollar_volume, window=window)
-        kyle = kyle_lambda(returns, dollar_volume)
-        roll = roll_spread(price)
+        amihud = amihud_illiquidity(returns, vol_aligned, window=window)
+        kyle = kyle_lambda(prices, volume, window=window)
+        roll = roll_spread(prices)
+
+        metrics_df = pd.DataFrame({
+            "amihud_illiquidity": amihud if isinstance(amihud, pd.Series) else pd.Series([amihud]),
+            "kyle_lambda": kyle,
+        })
+        stored = ctx.store_dataset(
+            f"liquidity_{dataset}", metrics_df,
+            source_op="liquidity_metrics", parent=dataset,
+        )
 
         return _sanitize_for_json({
             "tool": "liquidity_metrics",
             "dataset": dataset,
-            "amihud_illiquidity": float(amihud) if not hasattr(amihud, "__len__") else float(amihud.iloc[-1]),
-            "kyle_lambda": float(kyle),
+            "window": window,
+            "amihud_illiquidity": float(amihud) if not isinstance(amihud, pd.Series) else float(amihud.iloc[-1]),
+            "kyle_lambda_latest": float(kyle.iloc[-1]) if len(kyle) > 0 else None,
             "roll_spread": float(roll),
             "observations": n,
+            **stored,
         })
 
     @mcp.tool()
     def toxicity_analysis(
         dataset: str,
+        price_col: str = "close",
         volume_col: str = "volume",
-        buy_volume_col: str = "buy_volume",
         n_buckets: int = 50,
     ) -> dict[str, Any]:
-        """Analyze informed trading using VPIN and order flow metrics.
+        """Analyze order flow toxicity: VPIN, order flow imbalance, toxicity index.
 
-        Computes Volume-Synchronized Probability of Informed Trading
-        (VPIN) and order flow imbalance.
+        Estimates buy/sell volume via bulk volume classification when
+        explicit buy/sell columns are not available.
 
         Parameters:
-            dataset: Dataset with volume and buy volume columns.
-            volume_col: Total volume column.
-            buy_volume_col: Buy-initiated volume column.
+            dataset: Dataset containing price and volume data.
+            price_col: Price column name.
+            volume_col: Volume column name.
             n_buckets: Number of volume buckets for VPIN.
         """
-        from wraquant.microstructure.toxicity import order_flow_imbalance, vpin
-
-        df = ctx.get_dataset(dataset)
-        volume = df[volume_col].dropna().values
-        buy_volume = df[buy_volume_col].dropna().values
-
-        n = min(len(volume), len(buy_volume))
-        volume = volume[-n:]
-        buy_volume = buy_volume[-n:]
-
-        vpin_vals = vpin(volume, buy_volume, n_buckets=n_buckets)
-
         import pandas as pd
 
-        sell_volume = volume - buy_volume
-        ofi = order_flow_imbalance(
-            pd.Series(buy_volume), pd.Series(sell_volume),
+        from wraquant.microstructure.toxicity import (
+            bulk_volume_classification,
+            order_flow_imbalance,
+            vpin,
+        )
+
+        df = ctx.get_dataset(dataset)
+        prices = df[price_col].dropna()
+        volume = df[volume_col].dropna()
+
+        n = min(len(prices), len(volume))
+        prices = prices.iloc[-n:]
+        volume = volume.iloc[-n:]
+
+        # Classify volume into buy/sell via BVC
+        bvc = bulk_volume_classification(prices, volume)
+        buy_vol = bvc * volume.values[-len(bvc):]
+        sell_vol = (1 - bvc) * volume.values[-len(bvc):]
+
+        buy_series = pd.Series(buy_vol, index=volume.index[-len(bvc):])
+        sell_series = pd.Series(sell_vol, index=volume.index[-len(bvc):])
+
+        vpin_values = vpin(volume.values[-len(bvc):], buy_vol, n_buckets=n_buckets)
+        ofi = order_flow_imbalance(buy_series, sell_series, window=20)
+
+        toxicity_df = pd.DataFrame({
+            "vpin": pd.Series(vpin_values),
+            "ofi": ofi.reset_index(drop=True),
+        })
+        stored = ctx.store_dataset(
+            f"toxicity_{dataset}", toxicity_df,
+            source_op="toxicity_analysis", parent=dataset,
         )
 
         return _sanitize_for_json({
             "tool": "toxicity_analysis",
             "dataset": dataset,
-            "vpin_latest": float(vpin_vals[-1]) if len(vpin_vals) > 0 else None,
-            "vpin_mean": float(vpin_vals.mean()),
-            "vpin_max": float(vpin_vals.max()),
-            "ofi_latest": float(ofi.iloc[-1]) if len(ofi) > 0 else None,
-            "ofi_mean": float(ofi.mean()),
             "n_buckets": n_buckets,
+            "vpin_latest": float(vpin_values[-1]) if len(vpin_values) > 0 else None,
+            "vpin_mean": float(vpin_values.mean()) if len(vpin_values) > 0 else None,
+            "ofi_latest": float(ofi.iloc[-1]) if len(ofi) > 0 else None,
+            "observations": n,
+            **stored,
         })
 
     @mcp.tool()
     def market_quality(
         dataset: str,
-        bid_col: str = "bid",
-        ask_col: str = "ask",
-        returns_col: str = "returns",
+        price_col: str = "close",
     ) -> dict[str, Any]:
-        """Compute market quality and efficiency metrics.
-
-        Returns quoted spread, relative spread, variance ratio
-        (efficiency), and market efficiency ratio.
+        """Assess market quality: variance ratio, efficiency ratio, quoted spread proxy.
 
         Parameters:
-            dataset: Dataset with bid/ask/returns columns.
-            bid_col: Bid price column.
-            ask_col: Ask price column.
-            returns_col: Returns column (for efficiency metrics).
+            dataset: Dataset containing price data.
+            price_col: Price column name.
         """
-        import numpy as np
-
         from wraquant.microstructure.market_quality import (
             market_efficiency_ratio,
-            quoted_spread,
-            relative_spread,
             variance_ratio,
         )
 
         df = ctx.get_dataset(dataset)
+        prices = df[price_col].dropna()
 
-        results: dict[str, Any] = {"tool": "market_quality", "dataset": dataset}
+        vr = variance_ratio(prices)
+        mer = market_efficiency_ratio(prices)
 
-        if bid_col in df.columns and ask_col in df.columns:
-            bid = df[bid_col].dropna()
-            ask = df[ask_col].dropna()
-            n = min(len(bid), len(ask))
-            bid = bid.iloc[-n:]
-            ask = ask.iloc[-n:]
-
-            qs = quoted_spread(bid.values, ask.values)
-            rs = relative_spread(bid.values, ask.values)
-
-            results["mean_quoted_spread"] = float(np.mean(qs))
-            results["mean_relative_spread"] = float(np.mean(rs))
-
-        if returns_col in df.columns:
-            returns = df[returns_col].dropna()
-            vr = variance_ratio(returns)
-            mer = market_efficiency_ratio(returns)
-
-            results["variance_ratio"] = vr
-            results["market_efficiency_ratio"] = mer
-
-        return _sanitize_for_json(results)
+        return _sanitize_for_json({
+            "tool": "market_quality",
+            "dataset": dataset,
+            "variance_ratio": vr,
+            "market_efficiency_ratio": mer,
+            "observations": len(prices),
+        })
 
     @mcp.tool()
     def spread_decomposition(
         dataset: str,
-        trade_col: str = "trade_price",
         bid_col: str = "bid",
         ask_col: str = "ask",
-        direction_col: str = "direction",
-        delay: int = 5,
+        price_col: str = "close",
+        volume_col: str = "volume",
     ) -> dict[str, Any]:
         """Huang-Stoll three-way spread decomposition.
 
-        Decomposes the effective spread into adverse selection,
-        order processing, and inventory holding components.
+        Decomposes the spread into adverse selection, inventory holding,
+        and order processing components.
 
         Parameters:
-            dataset: Dataset with trade-level data.
-            trade_col: Trade price column.
+            dataset: Dataset with bid, ask, price, and volume columns.
             bid_col: Bid price column.
             ask_col: Ask price column.
-            direction_col: Trade direction column (+1 buy, -1 sell).
-            delay: Number of periods for adverse selection measurement.
+            price_col: Trade price column.
+            volume_col: Volume column.
         """
-        from wraquant.microstructure.liquidity import spread_decomposition as _sd
+        import numpy as np
+        import pandas as pd
+
+        from wraquant.microstructure.liquidity import (
+            spread_decomposition as _spread_decomp,
+        )
 
         df = ctx.get_dataset(dataset)
-        trade_prices = df[trade_col].dropna()
         bid = df[bid_col].dropna()
         ask = df[ask_col].dropna()
-        direction = df[direction_col].dropna()
+        trade_prices = df[price_col].dropna()
+        volume = df[volume_col].dropna()
 
-        n = min(len(trade_prices), len(bid), len(ask), len(direction))
-        trade_prices = trade_prices.iloc[-n:]
+        n = min(len(bid), len(ask), len(trade_prices), len(volume))
         bid = bid.iloc[-n:]
         ask = ask.iloc[-n:]
-        direction = direction.iloc[-n:]
+        trade_prices = trade_prices.iloc[-n:]
+        volume = volume.iloc[-n:]
 
-        result = _sd(trade_prices, bid, ask, direction, delay=delay)
+        # Compute trade direction from price relative to midpoint
+        mid = (bid + ask) / 2
+        direction = np.sign(trade_prices.values - mid.values).astype(float)
+        direction_series = pd.Series(direction, index=bid.index)
+
+        result = _spread_decomp(
+            trade_prices, bid, ask, direction_series, delay=5,
+        )
 
         return _sanitize_for_json({
             "tool": "spread_decomposition",
             "dataset": dataset,
-            "adverse_selection": result.get("adverse_selection"),
-            "order_processing": result.get("order_processing"),
-            "inventory_holding": result.get("inventory_holding"),
-            "effective_spread": result.get("effective_spread"),
+            "huang_stoll": result,
+            "observations": n,
+        })
+
+    @mcp.tool()
+    def price_impact(
+        dataset: str,
+        price_col: str = "close",
+        volume_col: str = "volume",
+    ) -> dict[str, Any]:
+        """Measure permanent vs temporary price impact.
+
+        Parameters:
+            dataset: Dataset containing trade prices and volume.
+            price_col: Trade price column.
+            volume_col: Volume column.
+        """
+        import numpy as np
+        import pandas as pd
+
+        from wraquant.microstructure.liquidity import (
+            price_impact as _price_impact,
+        )
+
+        df = ctx.get_dataset(dataset)
+        prices = df[price_col].dropna()
+        volume = df[volume_col].dropna()
+
+        n = min(len(prices), len(volume))
+        prices = prices.iloc[-n:]
+        volume = volume.iloc[-n:]
+
+        # Infer direction from price changes
+        direction = np.sign(prices.diff().fillna(0).values)
+        direction_series = pd.Series(direction, index=prices.index)
+
+        impact = _price_impact(prices, volume, direction_series)
+
+        impact_df = pd.DataFrame({"price_impact": impact})
+        stored = ctx.store_dataset(
+            f"price_impact_{dataset}", impact_df,
+            source_op="price_impact", parent=dataset,
+        )
+
+        return _sanitize_for_json({
+            "tool": "price_impact",
+            "dataset": dataset,
+            "mean_impact": float(impact.mean()) if len(impact) > 0 else None,
+            "median_impact": float(impact.median()) if len(impact) > 0 else None,
+            "observations": n,
+            **stored,
+        })
+
+    @mcp.tool()
+    def depth_analysis(
+        dataset: str,
+        bid_depth_col: str = "bid_depth",
+        ask_depth_col: str = "ask_depth",
+    ) -> dict[str, Any]:
+        """Analyze order book depth imbalance.
+
+        Computes the depth imbalance ratio (bid_depth - ask_depth) /
+        (bid_depth + ask_depth), indicating directional pressure.
+
+        Parameters:
+            dataset: Dataset with bid and ask depth columns.
+            bid_depth_col: Bid depth column name.
+            ask_depth_col: Ask depth column name.
+        """
+        import pandas as pd
+
+        from wraquant.microstructure.liquidity import depth_imbalance
+
+        df = ctx.get_dataset(dataset)
+        bid_depth = df[bid_depth_col].dropna()
+        ask_depth = df[ask_depth_col].dropna()
+
+        n = min(len(bid_depth), len(ask_depth))
+        bid_depth = bid_depth.iloc[-n:]
+        ask_depth = ask_depth.iloc[-n:]
+
+        imbalance = depth_imbalance(bid_depth, ask_depth)
+
+        imbalance_df = pd.DataFrame({"depth_imbalance": imbalance})
+        stored = ctx.store_dataset(
+            f"depth_{dataset}", imbalance_df,
+            source_op="depth_analysis", parent=dataset,
+        )
+
+        return _sanitize_for_json({
+            "tool": "depth_analysis",
+            "dataset": dataset,
+            "mean_imbalance": float(imbalance.mean()) if len(imbalance) > 0 else None,
+            "latest_imbalance": float(imbalance.iloc[-1]) if len(imbalance) > 0 else None,
+            "buy_pressure_pct": float((imbalance > 0).mean()) if len(imbalance) > 0 else None,
+            "observations": n,
+            **stored,
         })

@@ -1,6 +1,7 @@
-"""Advanced mathematics MCP tools.
+"""Advanced math MCP tools.
 
-Tools: correlation_network, levy_simulate, optimal_stopping.
+Tools: correlation_network, systemic_risk, levy_simulate,
+optimal_stopping, hawkes_fit, spectral_analysis.
 """
 
 from __future__ import annotations
@@ -11,68 +12,122 @@ from wraquant_mcp.context import AnalysisContext, _sanitize_for_json
 
 
 def register_math_tools(mcp, ctx: AnalysisContext) -> None:
-    """Register advanced math tools on the MCP server."""
+    """Register math-specific tools on the MCP server."""
 
     @mcp.tool()
     def correlation_network(
         dataset: str,
-        threshold: float = 0.3,
+        threshold: float = 0.5,
     ) -> dict[str, Any]:
-        """Build and analyze a correlation network from asset returns.
+        """Build a correlation network from multi-asset returns.
 
-        Constructs an adjacency matrix from pairwise correlations,
-        computes centrality measures, and identifies clusters.
+        Creates an adjacency matrix where edges connect assets with
+        absolute correlation above the threshold.
 
         Parameters:
             dataset: Dataset with multi-asset returns (one column per asset).
-            threshold: Minimum absolute correlation for an edge.
+            threshold: Minimum absolute correlation to create an edge.
         """
         import numpy as np
 
-        from wraquant.math.network import centrality_measures, correlation_network as _cn
+        from wraquant.math.network import (
+            centrality_measures,
+            correlation_network as _corr_net,
+        )
 
         df = ctx.get_dataset(dataset)
         returns = df.select_dtypes(include=[np.number]).dropna()
 
-        net = _cn(returns, threshold=threshold)
-
-        centrality = centrality_measures(net["adjacency"], net["asset_names"])
+        net = _corr_net(returns, threshold=threshold)
+        centrality = centrality_measures(net["adjacency"])
 
         return _sanitize_for_json({
             "tool": "correlation_network",
             "dataset": dataset,
-            "n_assets": len(net["asset_names"]),
-            "asset_names": net["asset_names"],
-            "n_edges": int(np.sum(net["adjacency"]) / 2),
             "threshold": threshold,
-            "centrality": centrality,
+            "n_assets": len(net["labels"]),
+            "labels": net["labels"],
+            "n_edges": int((net["adjacency"] != 0).sum() // 2),
+            "centrality": {
+                label: float(centrality["degree"][i])
+                for i, label in enumerate(net["labels"])
+            },
+        })
+
+    @mcp.tool()
+    def systemic_risk(
+        dataset: str,
+    ) -> dict[str, Any]:
+        """Compute systemic risk scores for each asset in a portfolio.
+
+        Uses Marginal Expected Shortfall (MES) to measure each asset's
+        contribution to systemic risk.
+
+        Parameters:
+            dataset: Dataset with multi-asset returns (one column per asset).
+        """
+        import numpy as np
+        import pandas as pd
+
+        from wraquant.math.network import systemic_risk_score
+
+        df = ctx.get_dataset(dataset)
+        returns = df.select_dtypes(include=[np.number]).dropna()
+
+        scores = systemic_risk_score(returns)
+
+        scores_df = scores.to_frame("systemic_risk_score")
+        stored = ctx.store_dataset(
+            f"systemic_risk_{dataset}", scores_df,
+            source_op="systemic_risk", parent=dataset,
+        )
+
+        return _sanitize_for_json({
+            "tool": "systemic_risk",
+            "dataset": dataset,
+            "n_assets": len(scores),
+            "scores": {str(k): float(v) for k, v in scores.items()},
+            "most_systemic": str(scores.idxmax()) if len(scores) > 0 else None,
+            "least_systemic": str(scores.idxmin()) if len(scores) > 0 else None,
+            **stored,
         })
 
     @mcp.tool()
     def levy_simulate(
         model: str = "variance_gamma",
-        n_steps: int = 252,
-        sigma: float = 0.01,
+        n_steps: int = 1000,
+        sigma: float = 0.2,
         nu: float = 0.5,
-        theta: float = -0.001,
-        seed: int = 42,
+        theta: float = -0.1,
+        alpha_levy: float = 1.5,
+        beta_levy: float = 0.0,
+        mu_nig: float = 0.0,
+        delta_nig: float = 1.0,
+        alpha_nig: float = 1.0,
+        beta_nig: float = 0.0,
+        seed: int | None = None,
     ) -> dict[str, Any]:
         """Simulate a Levy process path.
 
-        Generates sample paths from heavy-tailed Levy processes that
-        capture the jumps and fat tails observed in real asset returns.
+        Supports Variance Gamma, Normal Inverse Gaussian, CGMY, and
+        stable Levy models for fat-tailed asset return simulation.
 
         Parameters:
-            model: Levy model ('variance_gamma', 'nig', 'levy_stable').
-            n_steps: Number of time steps.
-            sigma: Volatility parameter.
-            nu: Variance rate (VG) or tail heaviness (NIG).
-            theta: Drift / skewness parameter.
+            model: Levy model — 'variance_gamma', 'nig', 'cgmy', or 'stable'.
+            n_steps: Number of simulation steps.
+            sigma: Volatility parameter (VG, CGMY).
+            nu: Variance rate of the Gamma subordinator (VG).
+            theta: Drift of the VG process.
+            alpha_levy: Stability index for stable process (0 < alpha <= 2).
+            beta_levy: Skewness for stable process (-1 <= beta <= 1).
+            mu_nig: Location parameter for NIG.
+            delta_nig: Scale parameter for NIG.
+            alpha_nig: Tail heaviness for NIG.
+            beta_nig: Asymmetry for NIG.
             seed: Random seed for reproducibility.
         """
+        import numpy as np
         import pandas as pd
-
-        simulators = {}
 
         if model == "variance_gamma":
             from wraquant.math.levy import variance_gamma_simulate
@@ -85,26 +140,33 @@ def register_math_tools(mcp, ctx: AnalysisContext) -> None:
             from wraquant.math.levy import nig_simulate
 
             path = nig_simulate(
-                alpha=1.0 / nu, beta=theta, delta=sigma,
+                alpha=alpha_nig, beta=beta_nig, mu=mu_nig, delta=delta_nig,
                 n_steps=n_steps, seed=seed,
             )
-        elif model == "levy_stable":
+        elif model == "cgmy":
+            from wraquant.math.levy import cgmy_simulate
+
+            # C, G, M from sigma/nu/theta mapping
+            path = cgmy_simulate(
+                C=sigma, G=abs(theta) + 1.0, M=abs(theta) + 1.0 + nu,
+                Y=0.5, n_steps=n_steps, seed=seed,
+            )
+        elif model == "stable":
             from wraquant.math.levy import levy_stable_simulate
 
             path = levy_stable_simulate(
-                alpha=1.5, beta=theta, scale=sigma,
+                alpha=alpha_levy, beta=beta_levy,
                 n_steps=n_steps, seed=seed,
             )
         else:
-            return {"error": f"Unknown model '{model}'. Options: variance_gamma, nig, levy_stable"}
+            msg = f"Unknown model '{model}'. Use 'variance_gamma', 'nig', 'cgmy', or 'stable'."
+            raise ValueError(msg)
 
         path_df = pd.DataFrame({"path": path})
         stored = ctx.store_dataset(
             f"levy_{model}", path_df,
             source_op="levy_simulate",
         )
-
-        import numpy as np
 
         increments = np.diff(path)
 
@@ -113,48 +175,185 @@ def register_math_tools(mcp, ctx: AnalysisContext) -> None:
             "model": model,
             "n_steps": n_steps,
             "final_value": float(path[-1]),
-            "min_value": float(path.min()),
             "max_value": float(path.max()),
-            "increment_mean": float(increments.mean()),
-            "increment_std": float(increments.std()),
-            "increment_skew": float(
-                ((increments - increments.mean()) ** 3).mean()
-                / increments.std() ** 3
-            ) if increments.std() > 0 else 0.0,
+            "min_value": float(path.min()),
+            "increment_stats": {
+                "mean": float(increments.mean()),
+                "std": float(increments.std()),
+                "skew": float(
+                    ((increments - increments.mean()) ** 3).mean()
+                    / (increments.std() ** 3)
+                ) if increments.std() > 0 else 0.0,
+                "kurtosis": float(
+                    ((increments - increments.mean()) ** 4).mean()
+                    / (increments.std() ** 4)
+                ) if increments.std() > 0 else 0.0,
+            },
             **stored,
         })
 
     @mcp.tool()
     def optimal_stopping(
-        mu: float,
-        sigma: float,
-        transaction_cost: float = 0.001,
+        dataset: str,
+        column: str = "close",
+        method: str = "cusum",
+        threshold: float = 2.0,
     ) -> dict[str, Any]:
-        """Compute optimal entry/exit thresholds for mean-reverting process.
-
-        Uses the analytical solution for an Ornstein-Uhlenbeck process
-        to determine optimal trading thresholds balancing expected
-        profit against transaction costs.
+        """Detect optimal exit points in a price series.
 
         Parameters:
-            mu: Mean-reversion speed (higher = faster reversion).
-            sigma: Process volatility.
-            transaction_cost: Round-trip transaction cost per unit.
+            dataset: Dataset containing price data.
+            column: Column to analyze.
+            method: Stopping method — 'cusum' (changepoint detection) or
+                'ou_exit' (mean-reversion optimal exit threshold).
+            threshold: CUSUM threshold or transaction cost for OU exit.
         """
-        from wraquant.math.optimal_stopping import optimal_exit_threshold
+        df = ctx.get_dataset(dataset)
+        series = df[column].dropna()
 
-        result = optimal_exit_threshold(
-            mu=mu,
-            sigma=sigma,
-            transaction_cost=transaction_cost,
+        if method == "cusum":
+            from wraquant.math.optimal_stopping import cusum_stopping
+
+            target_mean = float(series.mean())
+            result = cusum_stopping(
+                observations=series.values,
+                target_mean=target_mean,
+                threshold=threshold,
+            )
+
+            return _sanitize_for_json({
+                "tool": "optimal_stopping",
+                "dataset": dataset,
+                "column": column,
+                "method": "cusum",
+                "threshold": threshold,
+                "target_mean": target_mean,
+                **result,
+            })
+
+        elif method == "ou_exit":
+            from wraquant.math.optimal_stopping import optimal_exit_threshold
+
+            returns = series.pct_change().dropna()
+            mu = float(-returns.autocorr())
+            sigma = float(returns.std())
+
+            result = optimal_exit_threshold(
+                mu=mu, sigma=sigma, transaction_cost=threshold,
+            )
+
+            return _sanitize_for_json({
+                "tool": "optimal_stopping",
+                "dataset": dataset,
+                "column": column,
+                "method": "ou_exit",
+                "estimated_mu": mu,
+                "estimated_sigma": sigma,
+                "transaction_cost": threshold,
+                **result,
+            })
+
+        else:
+            msg = f"Unknown method '{method}'. Use 'cusum' or 'ou_exit'."
+            raise ValueError(msg)
+
+    @mcp.tool()
+    def hawkes_fit(
+        event_times_dataset: str,
+        column: str = "time",
+    ) -> dict[str, Any]:
+        """Fit a Hawkes self-exciting process to event arrival times.
+
+        Estimates baseline intensity (mu), excitation magnitude (alpha),
+        and decay rate (beta) via maximum likelihood.
+
+        Parameters:
+            event_times_dataset: Dataset containing event times.
+            column: Column with event timestamps or numeric times.
+        """
+        import numpy as np
+
+        from wraquant.math.hawkes import fit_hawkes, hawkes_branching_ratio
+
+        df = ctx.get_dataset(event_times_dataset)
+        times = df[column].dropna()
+
+        # Convert to numeric if timestamps
+        if hasattr(times.iloc[0], "timestamp"):
+            t0 = times.iloc[0]
+            times_numeric = np.array([(t - t0).total_seconds() for t in times])
+        else:
+            times_numeric = times.values.astype(float)
+
+        result = fit_hawkes(times_numeric)
+
+        branching = hawkes_branching_ratio(result["alpha"], result["beta"])
+
+        stored = ctx.store_model(
+            f"hawkes_{event_times_dataset}",
+            result,
+            model_type="hawkes",
+            source_dataset=event_times_dataset,
+            metrics={"branching_ratio": branching},
         )
 
         return _sanitize_for_json({
-            "tool": "optimal_stopping",
-            "mu": mu,
-            "sigma": sigma,
-            "transaction_cost": transaction_cost,
-            "entry_threshold": result["entry_threshold"],
-            "exit_threshold": result["exit_threshold"],
-            "expected_profit": result["expected_profit"],
+            "tool": "hawkes_fit",
+            "dataset": event_times_dataset,
+            "n_events": len(times_numeric),
+            "mu": result["mu"],
+            "alpha": result["alpha"],
+            "beta": result["beta"],
+            "branching_ratio": branching,
+            "stationary": branching < 1.0,
+            **stored,
+        })
+
+    @mcp.tool()
+    def spectral_analysis(
+        dataset: str,
+        column: str = "close",
+    ) -> dict[str, Any]:
+        """FFT spectral analysis: dominant frequencies, power spectrum, entropy.
+
+        Identifies cyclical patterns in financial time series.
+
+        Parameters:
+            dataset: Dataset containing the time series.
+            column: Column to analyze.
+        """
+        import pandas as pd
+
+        from wraquant.math.spectral import (
+            dominant_frequencies,
+            fft_decompose,
+            spectral_entropy,
+        )
+
+        df = ctx.get_dataset(dataset)
+        series = df[column].dropna()
+
+        fft_result = fft_decompose(series.values)
+        dominant = dominant_frequencies(series.values)
+        entropy = spectral_entropy(series.values)
+
+        spectral_df = pd.DataFrame({
+            "frequencies": fft_result["frequencies"],
+            "magnitudes": fft_result["magnitudes"],
+        })
+        stored = ctx.store_dataset(
+            f"spectral_{dataset}_{column}", spectral_df,
+            source_op="spectral_analysis", parent=dataset,
+        )
+
+        return _sanitize_for_json({
+            "tool": "spectral_analysis",
+            "dataset": dataset,
+            "column": column,
+            "spectral_entropy": float(entropy),
+            "dominant_frequencies": dominant["frequencies"].tolist(),
+            "dominant_periods": (1.0 / dominant["frequencies"][dominant["frequencies"] > 0]).tolist(),
+            "dominant_magnitudes": dominant["magnitudes"].tolist(),
+            "observations": len(series),
+            **stored,
         })

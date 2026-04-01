@@ -52,13 +52,13 @@ def register_all(mcp, ctx):
     register_econometrics_tools(mcp, ctx)
     register_microstructure_tools(mcp, ctx)
 
-    # Medium priority
+    # Specialized domains
     register_execution_tools(mcp, ctx)
     register_forex_tools(mcp, ctx)
     register_math_tools(mcp, ctx)
+
+    # Experiment, data, fundamental, news
     register_experiment_tools(mcp, ctx)
     register_data_tools(mcp, ctx)
-
-    # Low priority — stubs
     register_fundamental_tools(mcp, ctx)
     register_news_tools(mcp, ctx)

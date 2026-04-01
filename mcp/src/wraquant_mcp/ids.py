@@ -20,7 +20,7 @@ class ResourceMeta:
     """Metadata for any workspace resource."""
 
     name: str
-    resource_type: str  # "dataset", "model", "result"
+    resource_type: str = ""  # "dataset", "model", "result"
     created: datetime = field(default_factory=datetime.now)
     source_op: str | None = None  # function that created this
     parent: str | None = None  # ID of parent resource (lineage)

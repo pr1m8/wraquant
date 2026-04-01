@@ -167,10 +167,10 @@ def register_experiment_tools(mcp, ctx: AnalysisContext) -> None:
     def experiment_results(
         name: str,
     ) -> dict[str, Any]:
-        """Get results summary for a completed experiment.
+        """Get results summary, best params, and stability for an experiment.
 
-        Returns the stored configuration, best parameters, and
-        stability metrics from the journal.
+        Returns the stored configuration, best parameters, performance
+        metrics, and journal history.
 
         Parameters:
             name: Name of the experiment.
@@ -197,7 +197,7 @@ def register_experiment_tools(mcp, ctx: AnalysisContext) -> None:
 
         source = result_data if result_data is not None else config
 
-        output = {
+        output: dict[str, Any] = {
             "tool": "experiment_results",
             "experiment": name,
             "status": source.get("status", "unknown") if isinstance(source, dict) else "unknown",
@@ -209,6 +209,17 @@ def register_experiment_tools(mcp, ctx: AnalysisContext) -> None:
                 output["best_sharpe"] = source["best"]["sharpe"]
             if "results" in source:
                 output["n_combinations"] = len(source["results"])
+                # Compute stability: std of sharpes across all combos
+                import numpy as np
+
+                sharpes = [r["sharpe"] for r in source["results"]]
+                output["sharpe_mean"] = float(np.mean(sharpes))
+                output["sharpe_std"] = float(np.std(sharpes))
+                output["stability"] = (
+                    "stable" if np.std(sharpes) < 0.3
+                    else "moderate" if np.std(sharpes) < 0.8
+                    else "unstable"
+                )
             if "params_grid" in source:
                 output["params_grid"] = source["params_grid"]
 
@@ -233,7 +244,7 @@ def register_experiment_tools(mcp, ctx: AnalysisContext) -> None:
 
         comparisons = []
         for exp_name in names:
-            entry = {"experiment": exp_name}
+            entry: dict[str, Any] = {"experiment": exp_name}
             try:
                 result_data = ctx.get_model(f"experiment_{exp_name}_results")
                 if isinstance(result_data, dict):
