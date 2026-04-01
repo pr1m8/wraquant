@@ -206,6 +206,8 @@ _LAZY_SUBMODULES = {
     "execution",
     "causal",
     "dashboard",
+    "news",
+    "fundamental",
 }
 
 

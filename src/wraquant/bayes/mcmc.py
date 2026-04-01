@@ -133,7 +133,7 @@ def metropolis_hastings(
 
     return {
         "samples": kept_samples,
-        "acceptance_rate": n_accepted / total_samples,
+        "acceptance_rate": float(n_accepted / total_samples),
         "log_posteriors": kept_log_post,
     }
 

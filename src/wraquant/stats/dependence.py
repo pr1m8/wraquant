@@ -150,8 +150,8 @@ def tail_dependence_coefficient(
     lower_lambda = float(lower_joint / lower_marginal) if lower_marginal > 0 else 0.0
 
     return {
-        "upper_lambda": min(max(upper_lambda, 0.0), 1.0),
-        "lower_lambda": min(max(lower_lambda, 0.0), 1.0),
+        "upper_lambda": float(min(max(upper_lambda, 0.0), 1.0)),
+        "lower_lambda": float(min(max(lower_lambda, 0.0), 1.0)),
     }
 
 

@@ -604,7 +604,7 @@ def regime_statistics(
                 "VaR_95": var_95,
                 "CVaR_95": cvar_95,
                 "n_observations": n_obs,
-                "pct_time": n_obs / total if total > 0 else 0.0,
+                "pct_time": float(n_obs / total) if total > 0 else 0.0,
                 "avg_duration": avg_dur,
             }
         )
