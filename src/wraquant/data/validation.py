@@ -7,6 +7,8 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from wraquant.core._coerce import coerce_dataframe, coerce_series
+
 
 def validate_ohlcv(df: pd.DataFrame) -> dict[str, Any]:
     """Validate OHLCV data for common issues.
@@ -30,6 +32,7 @@ def validate_ohlcv(df: pd.DataFrame) -> dict[str, Any]:
     dict
         Dictionary keyed by check name with details of any issues found.
     """
+    df = coerce_dataframe(df, name="ohlcv")
     cols = {c.lower(): c for c in df.columns}
 
     high = df[cols["high"]]
@@ -52,7 +55,7 @@ def validate_ohlcv(df: pd.DataFrame) -> dict[str, Any]:
         "high_lt_low": df.index[high_lt_low_mask].tolist(),
         "close_outside_range": df.index[close_outside].tolist(),
         "negative_volume": df.index[neg_volume].tolist(),
-        "missing_values": df.isna().sum().to_dict(),
+        "missing_values": {k: int(v) for k, v in df.isna().sum().to_dict().items()},
         "gaps": missing_dates.tolist(),
     }
 
@@ -81,6 +84,8 @@ def validate_returns(
         * **min** -- minimum return value
         * **max** -- maximum return value
     """
+    if not isinstance(returns, (pd.Series, pd.DataFrame)):
+        returns = coerce_series(returns, name="returns")
     if isinstance(returns, pd.DataFrame):
         flat = returns.stack()
     else:
@@ -232,7 +237,7 @@ def data_quality_report(
     return {
         "completeness": completeness,
         "staleness": staleness,
-        "missing_values": data.isna().sum().to_dict(),
+        "missing_values": {k: int(v) for k, v in data.isna().sum().to_dict().items()},
         "duplicated_dates": duplicated_count,
         "date_range": (data.index.min(), data.index.max()),
         "shape": data.shape,

@@ -160,11 +160,11 @@ def total_cost(
     cost_bps = (cost / notional) * 10_000 if notional > 0 else 0.0
 
     return {
-        "total_slippage": total_slippage,
-        "total_commission": total_commission,
-        "total_cost": cost,
-        "cost_bps": cost_bps,
-        "n_trades": len(trades_df),
+        "total_slippage": float(total_slippage),
+        "total_commission": float(total_commission),
+        "total_cost": float(cost),
+        "cost_bps": float(cost_bps),
+        "n_trades": int(len(trades_df)),
     }
 
 
@@ -213,10 +213,10 @@ def market_impact_model(
 
     if model == "sqrt":
         # Square-root model: impact ~ sigma * sqrt(Q / ADV)
-        return volatility * np.sqrt(participation)
+        return float(volatility * np.sqrt(participation))
     elif model == "linear":
         # Linear model: impact ~ sigma * (Q / ADV)
-        return volatility * participation
+        return float(volatility * participation)
     else:
         raise ValueError(f"model must be 'sqrt' or 'linear', got {model!r}")
 

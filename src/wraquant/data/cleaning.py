@@ -7,6 +7,8 @@ from typing import Literal
 import numpy as np
 import pandas as pd
 
+from wraquant.core._coerce import coerce_series
+
 
 def remove_outliers(
     data: pd.DataFrame | pd.Series,
@@ -187,6 +189,7 @@ def handle_splits_dividends(
     pd.Series
         Adjusted price series.
     """
+    prices = coerce_series(prices, name="prices")
     adjusted = prices.copy().astype(float)
 
     if splits is not None:

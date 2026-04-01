@@ -480,12 +480,12 @@ def tracking_error(
     active_clean = active.dropna()
 
     te_daily = float(active_clean.std())
-    te_annual = te_daily * np.sqrt(252)
+    te_annual = float(te_daily * np.sqrt(252))
 
     active_mean_daily = float(active_clean.mean())
-    active_mean_annual = active_mean_daily * 252
+    active_mean_annual = float(active_mean_daily * 252)
 
-    ir = active_mean_annual / te_annual if te_annual > 0 else 0.0
+    ir = float(active_mean_annual / te_annual) if te_annual > 0 else 0.0
 
     # Max active drawdown via shared metrics
     cum_active = (1 + active_clean).cumprod()

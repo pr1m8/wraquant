@@ -391,9 +391,9 @@ def spot_stress_test(
     for shock in spot_shocks:
         shocked_price = last_price * (1 + shock)
         spot_results[str(shock)] = {
-            "shocked_price": shocked_price,
-            "price_change": shocked_price - last_price,
-            "pct_change": shock,
+            "shocked_price": float(shocked_price),
+            "price_change": float(shocked_price - last_price),
+            "pct_change": float(shock),
         }
 
     return {
@@ -593,7 +593,7 @@ def reverse_stress_test(
 
     return {
         "scenarios_found": n_found,
-        "probability": n_found / n_sims,
+        "probability": float(n_found / n_sims),
         "avg_loss": avg_loss,
         "worst_loss": worst_loss,
         "threshold_percentile": threshold_pct,
@@ -885,7 +885,7 @@ def correlation_stress(
         avg_corr = float(np.mean(stressed_corr[mask]))
 
         results[level] = {
-            "portfolio_vol": port_vol,
+            "portfolio_vol": float(port_vol),
             "avg_correlation": avg_corr,
             "stressed_corr": stressed_corr,
         }
@@ -895,7 +895,7 @@ def correlation_stress(
 
     return {
         "results": results,
-        "base_vol": base_vol,
+        "base_vol": float(base_vol) if base_vol is not None else 0.0,
     }
 
 
@@ -1129,7 +1129,7 @@ def scenario_library(
     n_assets = clean.shape[1]
     eq_weights = np.ones(n_assets) / n_assets
 
-    base_vol = _portfolio_volatility(eq_weights, clean.cov().values)
+    base_vol = float(_portfolio_volatility(eq_weights, clean.cov().values))
 
     results: dict[str, dict[str, Any]] = {}
 

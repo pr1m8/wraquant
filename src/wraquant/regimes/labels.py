@@ -30,6 +30,8 @@ def label_regimes(states: pd.Series, returns: pd.Series) -> pd.Series:
     Returns:
         Series of string regime labels.
     """
+    returns = coerce_series(returns, name="returns")
+    states = coerce_series(states, name="states")
     aligned_returns, aligned_states = returns.align(states, join="inner")
     unique_states = sorted(aligned_states.unique())
 
@@ -65,6 +67,8 @@ def regime_statistics(
         DataFrame indexed by regime state with columns for mean, std,
         skew, count, and fraction of total observations.
     """
+    returns = coerce_series(returns, name="returns")
+    states = coerce_series(states, name="states")
     aligned_returns, aligned_states = returns.align(states, join="inner")
     total = len(aligned_returns)
 

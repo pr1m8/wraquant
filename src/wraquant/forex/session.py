@@ -8,6 +8,8 @@ from __future__ import annotations
 from datetime import datetime, time, timezone
 from enum import StrEnum
 
+from wraquant.core._coerce import coerce_array  # noqa: F401
+
 
 class ForexSession(StrEnum):
     """Major forex trading sessions."""

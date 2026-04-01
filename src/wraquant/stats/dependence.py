@@ -261,10 +261,10 @@ def copula_selection(
             - (rho ** 2 * (z_u ** 2 + z_v ** 2) - 2 * rho * z_u * z_v)
             / (2 * (1 - rho ** 2))
         ))
-        aic = 2 * 1 - 2 * ll
+        aic = float(2 * 1 - 2 * ll)
         rows.append({
             "copula": "gaussian",
-            "parameter": rho,
+            "parameter": float(rho),
             "log_likelihood": ll,
             "aic": aic,
         })
@@ -305,10 +305,10 @@ def copula_selection(
                 -sp_stats.t.logpdf(t_v, df=df_est),
             ], axis=0)
         ))
-        aic_t = 2 * 2 - 2 * ll_t  # 2 parameters: rho and df
+        aic_t = float(2 * 2 - 2 * ll_t)  # 2 parameters: rho and df
         rows.append({
             "copula": "student_t",
-            "parameter": rho_t,
+            "parameter": float(rho_t),
             "log_likelihood": ll_t,
             "aic": aic_t,
         })
@@ -328,10 +328,10 @@ def copula_selection(
                     u ** (-theta_c) + v ** (-theta_c) - 1
                 )
             ))
-            aic_c = 2 * 1 - 2 * ll_c
+            aic_c = float(2 * 1 - 2 * ll_c)
             rows.append({
                 "copula": "clayton",
-                "parameter": theta_c,
+                "parameter": float(theta_c),
                 "log_likelihood": ll_c,
                 "aic": aic_c,
             })
@@ -357,10 +357,10 @@ def copula_selection(
                 )
                 - np.log(u) - np.log(v)
             ))
-            aic_g = 2 * 1 - 2 * ll_g
+            aic_g = float(2 * 1 - 2 * ll_g)
             rows.append({
                 "copula": "gumbel",
-                "parameter": theta_g,
+                "parameter": float(theta_g),
                 "log_likelihood": ll_g,
                 "aic": aic_g,
             })

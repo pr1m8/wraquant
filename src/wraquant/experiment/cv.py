@@ -28,6 +28,8 @@ from typing import Any
 
 import numpy as np
 
+from wraquant.core._coerce import coerce_array  # noqa: F401
+
 
 def walk_forward_splits(
     n_samples: int,

@@ -212,8 +212,8 @@ def fit_gaussian_hmm(
     # Number of free parameters for Gaussian HMM
     n_params = _count_hmm_params(n_states, covariance_type)
     log_likelihood = float(best_score)
-    aic = 2 * n_params - 2 * log_likelihood
-    bic = n_params * np.log(T) - 2 * log_likelihood
+    aic = float(2 * n_params - 2 * log_likelihood)
+    bic = float(n_params * np.log(T) - 2 * log_likelihood)
 
     # Steady-state (ergodic) distribution from transition matrix
     steady_state = _compute_steady_state(transmat)
@@ -571,7 +571,7 @@ def regime_statistics(
         if len(downside) > 1:
             downside_std = float(np.sqrt(np.mean(downside**2)))
             sortino = (
-                (mean_ret / downside_std * np.sqrt(252))
+                float(mean_ret / downside_std * np.sqrt(252))
                 if downside_std > 1e-12
                 else 0.0
             )
@@ -1474,8 +1474,8 @@ def fit_multivariate_hmm(
         + n_cov  # covariances
     )
     log_likelihood = float(best_score)
-    aic = 2 * n_params - 2 * log_likelihood
-    bic = n_params * np.log(T) - 2 * log_likelihood
+    aic = float(2 * n_params - 2 * log_likelihood)
+    bic = float(n_params * np.log(T) - 2 * log_likelihood)
 
     return {
         "states": states,
