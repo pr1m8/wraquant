@@ -1,7 +1,9 @@
 """Risk management MCP tools.
 
 Tools: var_analysis, stress_test, beta_analysis, factor_analysis,
-crisis_drawdowns, portfolio_risk, tail_risk, credit_analysis.
+crisis_drawdowns, portfolio_risk, tail_risk, credit_analysis,
+copula_fit, survival_analysis, monte_carlo_var, dcc_correlation,
+expected_shortfall_decomposition, cornish_fisher_var, rolling_beta.
 """
 
 from __future__ import annotations
@@ -367,3 +369,347 @@ def register_risk_tools(mcp, ctx: AnalysisContext) -> None:
             result["altman_z_score"] = _sanitize_for_json(z)
 
         return {"tool": "credit_analysis", **result}
+
+    @mcp.tool()
+    def copula_fit(
+        dataset: str,
+        family: str = "gaussian",
+    ) -> dict[str, Any]:
+        """Fit a copula model to multi-asset returns.
+
+        Models the dependence structure between assets independently
+        of their marginal distributions. Essential for tail-risk
+        analysis and portfolio simulation.
+
+        Parameters:
+            dataset: Dataset with multi-asset returns (one column per asset).
+            family: Copula family. Options: 'gaussian', 't', 'clayton',
+                'gumbel', 'frank'.
+        """
+        import numpy as np
+
+        from wraquant.risk.copulas import (
+            fit_clayton_copula,
+            fit_frank_copula,
+            fit_gaussian_copula,
+            fit_gumbel_copula,
+            fit_t_copula,
+        )
+
+        df = ctx.get_dataset(dataset)
+        returns = df.select_dtypes(include=[np.number]).dropna()
+
+        if family == "gaussian":
+            result = fit_gaussian_copula(returns.values)
+        elif family == "t":
+            result = fit_t_copula(returns.values)
+        elif family in ("clayton", "gumbel", "frank"):
+            if returns.shape[1] != 2:
+                return {
+                    "error": f"'{family}' copula requires exactly 2 columns, "
+                    f"got {returns.shape[1]}",
+                }
+            u, v = returns.iloc[:, 0].values, returns.iloc[:, 1].values
+            fitters = {
+                "clayton": fit_clayton_copula,
+                "gumbel": fit_gumbel_copula,
+                "frank": fit_frank_copula,
+            }
+            result = fitters[family](u, v)
+        else:
+            return {
+                "error": f"Unknown family '{family}'. "
+                "Options: gaussian, t, clayton, gumbel, frank",
+            }
+
+        model_name = f"copula_{dataset}_{family}"
+        stored = ctx.store_model(
+            model_name, result,
+            model_type=f"copula_{family}",
+            source_dataset=dataset,
+        )
+
+        return _sanitize_for_json({
+            "tool": "copula_fit",
+            "dataset": dataset,
+            "family": family,
+            "assets": list(returns.columns),
+            **stored,
+            "result": result,
+        })
+
+    @mcp.tool()
+    def survival_analysis(
+        dataset: str,
+        column: str,
+        method: str = "kaplan_meier",
+    ) -> dict[str, Any]:
+        """Time-to-event analysis for financial durations.
+
+        Useful for modeling drawdown durations, time between trades,
+        or time to recovery.
+
+        Parameters:
+            dataset: Dataset containing duration data.
+            column: Column with duration values.
+            method: Survival estimator ('kaplan_meier' or 'nelson_aalen').
+        """
+        import numpy as np
+
+        from wraquant.risk.survival import kaplan_meier, nelson_aalen
+
+        df = ctx.get_dataset(dataset)
+        durations = df[column].dropna().values
+
+        # Assume all events are observed (no censoring) unless
+        # an 'event' column is present
+        if "event" in df.columns:
+            events = df["event"].loc[df[column].notna()].values.astype(int)
+        else:
+            events = np.ones(len(durations), dtype=int)
+
+        if method == "nelson_aalen":
+            result = nelson_aalen(durations, events)
+        else:
+            result = kaplan_meier(durations, events)
+
+        import pandas as pd
+
+        surv_df = pd.DataFrame(_sanitize_for_json(result))
+        stored = ctx.store_dataset(
+            f"survival_{dataset}_{method}", surv_df,
+            source_op="survival_analysis", parent=dataset,
+        )
+
+        return _sanitize_for_json({
+            "tool": "survival_analysis",
+            "dataset": dataset,
+            "method": method,
+            "observations": len(durations),
+            "events_observed": int(events.sum()),
+            **stored,
+        })
+
+    @mcp.tool()
+    def monte_carlo_var(
+        dataset: str,
+        column: str = "returns",
+        n_sims: int = 10_000,
+        alpha: float = 0.05,
+    ) -> dict[str, Any]:
+        """Estimate Value-at-Risk via Monte Carlo simulation.
+
+        Draws from a fitted distribution to estimate tail risk.
+        More flexible than historical VaR for short return histories.
+
+        Parameters:
+            dataset: Dataset containing returns.
+            column: Returns column name.
+            n_sims: Number of Monte Carlo simulations.
+            alpha: Tail probability (0.05 = 5% VaR).
+        """
+        import numpy as np
+
+        df = ctx.get_dataset(dataset)
+        returns = df[column].dropna().values
+
+        mu = float(np.mean(returns))
+        sigma = float(np.std(returns, ddof=1))
+
+        rng = np.random.default_rng(42)
+        simulated = rng.normal(mu, sigma, size=n_sims)
+
+        var = float(np.percentile(simulated, alpha * 100))
+        cvar = float(simulated[simulated <= var].mean())
+
+        return _sanitize_for_json({
+            "tool": "monte_carlo_var",
+            "dataset": dataset,
+            "n_sims": n_sims,
+            "alpha": alpha,
+            "var": var,
+            "cvar": cvar,
+            "mu": mu,
+            "sigma": sigma,
+            "observations": len(returns),
+        })
+
+    @mcp.tool()
+    def dcc_correlation(
+        dataset: str,
+        columns_json: str = "[]",
+    ) -> dict[str, Any]:
+        """Fit a DCC-GARCH model for dynamic conditional correlations.
+
+        Captures time-varying correlations between assets -- critical
+        for understanding how diversification benefits change in crises.
+
+        Parameters:
+            dataset: Dataset with multi-asset returns.
+            columns_json: JSON list of column names to include.
+                If empty, uses all numeric columns.
+        """
+        import json
+
+        import numpy as np
+
+        from wraquant.risk.dcc import dcc_garch
+
+        df = ctx.get_dataset(dataset)
+
+        cols = json.loads(columns_json) if columns_json and columns_json != "[]" else []
+        if cols:
+            returns = df[cols].dropna()
+        else:
+            returns = df.select_dtypes(include=[np.number]).dropna()
+
+        result = dcc_garch(returns.values)
+
+        model_name = f"dcc_{dataset}"
+        stored = ctx.store_model(
+            model_name, result,
+            model_type="dcc_garch",
+            source_dataset=dataset,
+        )
+
+        return _sanitize_for_json({
+            "tool": "dcc_correlation",
+            "dataset": dataset,
+            "assets": list(returns.columns),
+            **stored,
+            "result": {
+                k: v for k, v in result.items()
+                if k not in ("correlations", "conditional_covariances")
+            } if isinstance(result, dict) else str(result),
+        })
+
+    @mcp.tool()
+    def expected_shortfall_decomposition(
+        dataset: str,
+        weights_json: str = "[]",
+        alpha: float = 0.05,
+    ) -> dict[str, Any]:
+        """Decompose Expected Shortfall into per-asset contributions.
+
+        Shows which assets drive tail losses. Contributions are
+        additive and sum to total portfolio ES.
+
+        Parameters:
+            dataset: Dataset with multi-asset returns (one column per asset).
+            weights_json: JSON list of portfolio weights.
+                Defaults to equal weight.
+            alpha: Tail probability (0.05 = worst 5%).
+        """
+        import json
+
+        import numpy as np
+
+        from wraquant.risk.tail import expected_shortfall_decomposition as _es_decomp
+
+        df = ctx.get_dataset(dataset)
+        returns = df.select_dtypes(include=[np.number]).dropna()
+
+        weights = json.loads(weights_json) if weights_json and weights_json != "[]" else []
+        if not weights:
+            n = returns.shape[1]
+            weights = [1.0 / n] * n
+
+        w = np.array(weights)
+        result = _es_decomp(w, returns, alpha=alpha)
+
+        contributions = dict(zip(returns.columns, result.values.tolist()))
+
+        return _sanitize_for_json({
+            "tool": "expected_shortfall_decomposition",
+            "dataset": dataset,
+            "alpha": alpha,
+            "weights": weights,
+            "assets": list(returns.columns),
+            "contributions": contributions,
+            "total_es": float(result.sum()),
+        })
+
+    @mcp.tool()
+    def cornish_fisher_var(
+        dataset: str,
+        column: str = "returns",
+        alpha: float = 0.05,
+    ) -> dict[str, Any]:
+        """Compute Cornish-Fisher VaR adjusted for skewness and kurtosis.
+
+        More accurate than Gaussian VaR for non-normal return
+        distributions (fat tails, skew).
+
+        Parameters:
+            dataset: Dataset containing returns.
+            column: Returns column.
+            alpha: Tail probability (0.05 = 5% VaR).
+        """
+        from wraquant.risk.tail import cornish_fisher_var as _cf_var
+
+        df = ctx.get_dataset(dataset)
+        returns = df[column].dropna()
+
+        result = _cf_var(returns, alpha=alpha)
+
+        return _sanitize_for_json({
+            "tool": "cornish_fisher_var",
+            "dataset": dataset,
+            "alpha": alpha,
+            "observations": len(returns),
+            **result if isinstance(result, dict) else {"var": float(result)},
+        })
+
+    @mcp.tool()
+    def rolling_beta(
+        dataset: str,
+        benchmark_dataset: str,
+        column: str = "returns",
+        benchmark_column: str = "returns",
+        window: int = 60,
+    ) -> dict[str, Any]:
+        """Compute time-varying rolling beta against a benchmark.
+
+        Tracks how systematic risk exposure evolves over time.
+        Useful for monitoring style drift and hedge ratio stability.
+
+        Parameters:
+            dataset: Dataset containing asset returns.
+            benchmark_dataset: Dataset containing benchmark returns.
+            column: Asset returns column.
+            benchmark_column: Benchmark returns column.
+            window: Rolling window in periods.
+        """
+        import pandas as pd
+
+        from wraquant.risk.beta import rolling_beta as _rolling_beta
+
+        df = ctx.get_dataset(dataset)
+        bdf = ctx.get_dataset(benchmark_dataset)
+        returns = df[column].dropna()
+        benchmark = bdf[benchmark_column].dropna()
+
+        n = min(len(returns), len(benchmark))
+        returns = returns.iloc[-n:]
+        benchmark = benchmark.iloc[-n:]
+
+        rb = _rolling_beta(returns, benchmark, window=window)
+
+        rb_df = pd.DataFrame({"rolling_beta": rb})
+        stored = ctx.store_dataset(
+            f"rolling_beta_{dataset}", rb_df,
+            source_op="rolling_beta", parent=dataset,
+        )
+
+        return _sanitize_for_json({
+            "tool": "rolling_beta",
+            "dataset": dataset,
+            "benchmark": benchmark_dataset,
+            "window": window,
+            "current_beta": float(rb.iloc[-1]) if len(rb) > 0 else None,
+            "mean_beta": float(rb.mean()),
+            "std_beta": float(rb.std()),
+            "min_beta": float(rb.min()),
+            "max_beta": float(rb.max()),
+            **stored,
+        })

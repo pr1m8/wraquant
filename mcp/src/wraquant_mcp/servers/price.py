@@ -1,7 +1,8 @@
 """Derivatives pricing and fixed income MCP tools.
 
 Tools: price_option, compute_greeks, simulate_process,
-yield_curve_analysis.
+yield_curve_analysis, implied_volatility, sabr_calibrate,
+simulate_heston, bond_duration, fbsde_price.
 """
 
 from __future__ import annotations

@@ -1,7 +1,8 @@
 """Time series analysis MCP tools.
 
 Tools: forecast, decompose, changepoint_detect, anomaly_detect,
-seasonality_analysis.
+seasonality_analysis, ssa_decompose, arima_diagnostics,
+rolling_forecast, ensemble_forecast, ornstein_uhlenbeck.
 """
 
 from __future__ import annotations
@@ -247,4 +248,232 @@ def register_ts_tools(mcp, ctx: AnalysisContext) -> None:
             "detected_period": period,
             "seasonal_strength": strength,
             "observations": len(data),
+        })
+
+    @mcp.tool()
+    def ssa_decompose(
+        dataset: str,
+        column: str = "close",
+        n_components: int = 3,
+    ) -> dict[str, Any]:
+        """Singular Spectrum Analysis decomposition.
+
+        Embeds a time series into a trajectory matrix, applies SVD,
+        and reconstructs interpretable components (trend, oscillations,
+        noise). Non-parametric alternative to STL.
+
+        Parameters:
+            dataset: Dataset containing the series.
+            column: Column to decompose.
+            n_components: Number of SSA components to extract.
+        """
+        import pandas as pd
+
+        from wraquant.ts.decomposition import ssa_decompose as _ssa
+
+        df = ctx.get_dataset(dataset)
+        data = df[column].dropna()
+
+        result = _ssa(data, n_components=n_components)
+
+        if isinstance(result, dict):
+            comp_df = pd.DataFrame({
+                k: v for k, v in result.items()
+                if hasattr(v, "__len__") and not isinstance(v, str)
+            })
+        else:
+            comp_df = pd.DataFrame({"result": [str(result)]})
+
+        stored = ctx.store_dataset(
+            f"ssa_{dataset}", comp_df,
+            source_op="ssa_decompose", parent=dataset,
+        )
+
+        return _sanitize_for_json({
+            "tool": "ssa_decompose",
+            "dataset": dataset,
+            "column": column,
+            "n_components": n_components,
+            "component_names": list(comp_df.columns),
+            **stored,
+        })
+
+    @mcp.tool()
+    def arima_diagnostics(
+        dataset: str,
+        column: str = "returns",
+    ) -> dict[str, Any]:
+        """Fit ARIMA and run residual diagnostic tests.
+
+        Fits an auto-ARIMA model and checks residuals with
+        Ljung-Box, normality, and heteroscedasticity tests.
+        Essential for validating model adequacy.
+
+        Parameters:
+            dataset: Dataset containing the series.
+            column: Column to analyze.
+        """
+        from wraquant.ts.forecasting import arima_diagnostics as _diag
+        from wraquant.ts.forecasting import auto_arima
+
+        df = ctx.get_dataset(dataset)
+        data = df[column].dropna()
+
+        model = auto_arima(data, h=1)
+        result = _diag(model)
+
+        return _sanitize_for_json({
+            "tool": "arima_diagnostics",
+            "dataset": dataset,
+            "column": column,
+            "observations": len(data),
+            "diagnostics": result,
+        })
+
+    @mcp.tool()
+    def rolling_forecast(
+        dataset: str,
+        column: str = "returns",
+        horizon: int = 5,
+        window: int = 200,
+    ) -> dict[str, Any]:
+        """Walk-forward out-of-sample forecasting.
+
+        Re-fits the model on an expanding window at each step
+        and forecasts ahead. The gold standard for evaluating
+        forecast accuracy.
+
+        Parameters:
+            dataset: Dataset containing the series.
+            column: Column to forecast.
+            horizon: Forecast horizon in periods.
+            window: Initial training window size.
+        """
+        import pandas as pd
+
+        from wraquant.ts.forecasting import auto_arima
+        from wraquant.ts.forecasting import rolling_forecast as _rf
+
+        df = ctx.get_dataset(dataset)
+        data = df[column].dropna()
+
+        def forecast_fn(train_data: pd.Series, h: int):
+            return auto_arima(train_data, h=h)
+
+        result = _rf(data, forecast_fn, h=horizon, initial_window=window)
+
+        if isinstance(result, dict):
+            result_df = pd.DataFrame({
+                k: v for k, v in result.items()
+                if hasattr(v, "__len__") and not isinstance(v, str)
+            })
+            if len(result_df) > 0:
+                stored = ctx.store_dataset(
+                    f"rolling_fc_{dataset}", result_df,
+                    source_op="rolling_forecast", parent=dataset,
+                )
+            else:
+                stored = {}
+        else:
+            stored = {}
+
+        return _sanitize_for_json({
+            "tool": "rolling_forecast",
+            "dataset": dataset,
+            "column": column,
+            "horizon": horizon,
+            "window": window,
+            **stored,
+            "result": {k: v for k, v in result.items()
+                       if not hasattr(v, "__len__") or isinstance(v, str)}
+            if isinstance(result, dict) else str(result),
+        })
+
+    @mcp.tool()
+    def ensemble_forecast(
+        dataset: str,
+        column: str = "returns",
+        horizon: int = 10,
+    ) -> dict[str, Any]:
+        """Combine multiple forecasting methods via inverse-RMSE weighting.
+
+        Diversifies model risk by blending ARIMA, ETS, Theta, and
+        other methods. Often outperforms any single model.
+
+        Parameters:
+            dataset: Dataset containing the series.
+            column: Column to forecast.
+            horizon: Forecast horizon in periods.
+        """
+        import pandas as pd
+
+        from wraquant.ts.forecasting import ensemble_forecast as _ef
+
+        df = ctx.get_dataset(dataset)
+        data = df[column].dropna()
+
+        result = _ef(data, h=horizon)
+
+        if isinstance(result, dict) and "forecast" in result:
+            fc_values = result["forecast"]
+        else:
+            fc_values = result
+
+        fc_df = pd.DataFrame({"ensemble_forecast": fc_values})
+        stored = ctx.store_dataset(
+            f"ensemble_fc_{dataset}", fc_df,
+            source_op="ensemble_forecast", parent=dataset,
+        )
+
+        return _sanitize_for_json({
+            "tool": "ensemble_forecast",
+            "dataset": dataset,
+            "column": column,
+            "horizon": horizon,
+            **stored,
+            "result": result if isinstance(result, dict) else {"forecast": result},
+        })
+
+    @mcp.tool()
+    def ornstein_uhlenbeck(
+        dataset: str,
+        column: str = "close",
+    ) -> dict[str, Any]:
+        """Estimate Ornstein-Uhlenbeck mean-reversion parameters.
+
+        Fits the OU model to estimate mean-reversion speed (kappa),
+        long-run mean (theta), and volatility (sigma). Essential
+        for pairs trading and spread analysis.
+
+        Parameters:
+            dataset: Dataset containing the series.
+            column: Column to analyze (e.g., spread or price).
+        """
+        from wraquant.ts.stochastic import ornstein_uhlenbeck_forecast
+
+        df = ctx.get_dataset(dataset)
+        data = df[column].dropna()
+
+        result = ornstein_uhlenbeck_forecast(data, h=10)
+
+        import pandas as pd
+
+        if isinstance(result, dict) and "forecast" in result:
+            ou_df = pd.DataFrame({"ou_forecast": result["forecast"]})
+            stored = ctx.store_dataset(
+                f"ou_{dataset}", ou_df,
+                source_op="ornstein_uhlenbeck", parent=dataset,
+            )
+        else:
+            stored = {}
+
+        return _sanitize_for_json({
+            "tool": "ornstein_uhlenbeck",
+            "dataset": dataset,
+            "column": column,
+            "observations": len(data),
+            **stored,
+            "result": {k: v for k, v in result.items()
+                       if not hasattr(v, "__len__") or isinstance(v, str)}
+            if isinstance(result, dict) else str(result),
         })

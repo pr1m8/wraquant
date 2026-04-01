@@ -1,7 +1,9 @@
 """Statistical analysis MCP tools.
 
 Tools: correlation_analysis, distribution_fit, regression,
-cointegration_test, stationarity_tests, robust_stats.
+cointegration_test, stationarity_tests, robust_stats,
+partial_correlation, distance_correlation, mutual_information,
+robust_statistics, kde_estimate, best_fit_distribution.
 """
 
 from __future__ import annotations
@@ -284,4 +286,215 @@ def register_stats_tools(mcp, ctx: AnalysisContext) -> None:
             "n_outliers": int(outliers["n_outliers"])
             if isinstance(outliers, dict) and "n_outliers" in outliers
             else None,
+        })
+
+    @mcp.tool()
+    def partial_correlation(
+        dataset: str,
+        columns_json: str = "[]",
+    ) -> dict[str, Any]:
+        """Compute partial correlation matrix, controlling for other variables.
+
+        Measures the direct linear relationship between each pair
+        of variables after removing the effect of all others.
+        Essential for distinguishing direct from mediated associations.
+
+        Parameters:
+            dataset: Dataset with multiple numeric columns.
+            columns_json: JSON list of column names to include.
+                If empty, uses all numeric columns.
+        """
+        import json
+
+        import numpy as np
+        import pandas as pd
+
+        from wraquant.stats.correlation import partial_correlation as _pcorr
+
+        df = ctx.get_dataset(dataset)
+
+        cols = json.loads(columns_json) if columns_json and columns_json != "[]" else []
+        if cols:
+            data = df[cols].dropna()
+        else:
+            data = df.select_dtypes(include=[np.number]).dropna()
+
+        result = _pcorr(data)
+
+        pcorr_df = pd.DataFrame(result, columns=data.columns, index=data.columns) \
+            if not isinstance(result, pd.DataFrame) else result
+        stored = ctx.store_dataset(
+            f"pcorr_{dataset}", pcorr_df,
+            source_op="partial_correlation", parent=dataset,
+        )
+
+        return _sanitize_for_json({
+            "tool": "partial_correlation",
+            "dataset": dataset,
+            "columns": list(data.columns),
+            "shape": list(pcorr_df.shape),
+            **stored,
+        })
+
+    @mcp.tool()
+    def distance_correlation(
+        dataset: str,
+        col_a: str,
+        col_b: str,
+    ) -> dict[str, Any]:
+        """Compute distance correlation between two variables.
+
+        Unlike Pearson, distance correlation captures nonlinear
+        dependence and equals zero if and only if the variables
+        are independent.
+
+        Parameters:
+            dataset: Dataset containing both variables.
+            col_a: First variable column.
+            col_b: Second variable column.
+        """
+        from wraquant.stats.correlation import distance_correlation as _dcorr
+
+        df = ctx.get_dataset(dataset)
+        a = df[col_a].dropna()
+        b = df[col_b].dropna()
+
+        n = min(len(a), len(b))
+        a = a.iloc[:n]
+        b = b.iloc[:n]
+
+        result = _dcorr(a, b)
+
+        return _sanitize_for_json({
+            "tool": "distance_correlation",
+            "dataset": dataset,
+            "columns": [col_a, col_b],
+            "distance_correlation": float(result),
+            "observations": n,
+        })
+
+    @mcp.tool()
+    def mutual_information(
+        dataset: str,
+        col_a: str,
+        col_b: str,
+    ) -> dict[str, Any]:
+        """Estimate mutual information between two continuous variables.
+
+        Captures any type of statistical dependence (linear, nonlinear,
+        multimodal). Useful for feature selection and detecting hidden
+        relationships.
+
+        Parameters:
+            dataset: Dataset containing both variables.
+            col_a: First variable column.
+            col_b: Second variable column.
+        """
+        from wraquant.stats.correlation import mutual_information as _mi
+
+        df = ctx.get_dataset(dataset)
+        a = df[col_a].dropna()
+        b = df[col_b].dropna()
+
+        n = min(len(a), len(b))
+        a = a.iloc[:n]
+        b = b.iloc[:n]
+
+        result = _mi(a, b)
+
+        return _sanitize_for_json({
+            "tool": "mutual_information",
+            "dataset": dataset,
+            "columns": [col_a, col_b],
+            "mutual_information": float(result),
+            "observations": n,
+        })
+
+    @mcp.tool()
+    def kde_estimate(
+        dataset: str,
+        column: str = "returns",
+    ) -> dict[str, Any]:
+        """Kernel density estimation for non-parametric distribution fitting.
+
+        Estimates the probability density function without assuming
+        a parametric form. Useful for visualizing return distributions
+        and computing non-parametric VaR.
+
+        Parameters:
+            dataset: Dataset containing the series.
+            column: Column to estimate density for.
+        """
+        import pandas as pd
+
+        from wraquant.stats.distributions import kernel_density_estimate
+
+        df = ctx.get_dataset(dataset)
+        data = df[column].dropna()
+
+        result = kernel_density_estimate(data)
+
+        if isinstance(result, dict) and "x" in result and "density" in result:
+            kde_df = pd.DataFrame({
+                "x": result["x"],
+                "density": result["density"],
+            })
+            stored = ctx.store_dataset(
+                f"kde_{dataset}_{column}", kde_df,
+                source_op="kde_estimate", parent=dataset,
+            )
+        else:
+            stored = {}
+
+        return _sanitize_for_json({
+            "tool": "kde_estimate",
+            "dataset": dataset,
+            "column": column,
+            "observations": len(data),
+            **stored,
+            "result": {k: v for k, v in result.items()
+                       if not hasattr(v, "__len__") or isinstance(v, str)}
+            if isinstance(result, dict) else str(result),
+        })
+
+    @mcp.tool()
+    def best_fit_distribution(
+        dataset: str,
+        column: str = "returns",
+    ) -> dict[str, Any]:
+        """Fit multiple distributions and rank by goodness-of-fit.
+
+        Tests normal, t, skewed-t, stable, and other distributions
+        against the data using AIC and KS statistics.
+
+        Parameters:
+            dataset: Dataset containing the series.
+            column: Column to fit distributions to.
+        """
+        import pandas as pd
+
+        from wraquant.stats.distributions import best_fit_distribution as _bfd
+
+        df = ctx.get_dataset(dataset)
+        data = df[column].dropna()
+
+        result = _bfd(data)
+
+        if isinstance(result, pd.DataFrame):
+            stored = ctx.store_dataset(
+                f"bestfit_{dataset}_{column}", result,
+                source_op="best_fit_distribution", parent=dataset,
+            )
+            ranking = result.to_dict(orient="records")
+        else:
+            stored = {}
+            ranking = result
+
+        return _sanitize_for_json({
+            "tool": "best_fit_distribution",
+            "dataset": dataset,
+            "column": column,
+            "observations": len(data),
+            **stored,
+            "ranking": ranking,
         })
