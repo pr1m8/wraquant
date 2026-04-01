@@ -67,6 +67,63 @@
 
 ---
 
+## Module Analysis Matrix
+
+| Module | Funcs | Complexity | Domain | Process Stage | MCP Tools | Prompts Using |
+|--------|-------|-----------|--------|---------------|-----------|---------------|
+| **data/** | 41 | Low | Infrastructure | 1. Ingest | 5 | All (data entry) |
+| **io/** | 21 | Low | Infrastructure | 1. Ingest | 3 | reporting |
+| **frame/** | 10 | Medium | Infrastructure | 1. Ingest | 0 (internal) | N/A |
+| **core/** | 11 | Low | Infrastructure | All | 0 (internal) | N/A |
+| **ta/** | 265 | Low-Med | Signals | 2. Analyze | 1 (dispatcher) | momentum, mean_rev, trend |
+| **stats/** | 79 | Medium | Analysis | 2. Analyze | 8 | equity, pairs, macro |
+| **ts/** | 52 | Medium | Analysis | 2. Analyze | 6 | forecast, decompose |
+| **econometrics/** | 34 | High | Analysis | 2. Analyze | 5 | event_study, policy, granger |
+| **vol/** | 28 | High | Modeling | 3. Model | 6 | vol_deep_dive, risk_report |
+| **risk/** | 95 | High | Risk | 3. Model | 10 | risk_report, stress, tail |
+| **regimes/** | 38 | High | Modeling | 3. Model | 5 | regime_*, market_monitor |
+| **ml/** | 44 | High | Modeling | 3. Model | 6 | ml_alpha, feature_eng |
+| **bayes/** | 29 | High | Modeling | 3. Model | 4 | bayesian_* |
+| **opt/** | 26 | Medium | Decision | 4. Decide | 5 | portfolio_*, asset_alloc |
+| **price/** | 50 | High | Pricing | 3. Model | 5 | option_*, yield_curve |
+| **backtest/** | 38 | Medium | Validation | 5. Validate | 5 | all strategy prompts |
+| **experiment/** | 13 | Medium | Validation | 5. Validate | 3 | hp_sweep, model_compare |
+| **microstructure/** | 33 | High | Market | 2. Analyze | 4 | liquidity, execution |
+| **execution/** | 21 | Medium | Execution | 6. Execute | 4 | execution_opt, rebalance |
+| **causal/** | 19 | High | Analysis | 2. Analyze | 4 | event_study, policy |
+| **forex/** | 23 | Medium | Domain | 2. Analyze | 3 | macro, carry_trade |
+| **math/** | 55 | High | Foundation | Support | 2 | exotic_pricing, network |
+| **viz/** | 47 | Medium | Output | 7. Report | 5 | all (chart output) |
+| **dashboard/** | 15 | Medium | Output | 7. Report | 0 (UI) | N/A |
+| **flow/** | 8 | Low | Infra | Support | 2 | pipeline orchestration |
+| **scale/** | 10 | Medium | Infra | Support | 2 | parallel_backtest |
+| **compose/** | 14 | Medium | Orchestration | All | 1 | run_workflow |
+
+### Process Stages (how modules link in a workflow):
+
+```
+1. INGEST    →  data/, io/, frame/
+                 ↓
+2. ANALYZE   →  stats/, ts/, ta/, econometrics/, microstructure/, causal/, forex/
+                 ↓
+3. MODEL     →  vol/, risk/, regimes/, ml/, bayes/, price/
+                 ↓
+4. DECIDE    →  opt/ (portfolio weights, allocation)
+                 ↓
+5. VALIDATE  →  backtest/, experiment/ (test the decision)
+                 ↓
+6. EXECUTE   →  execution/ (trade scheduling, cost)
+                 ↓
+7. REPORT    →  viz/, dashboard/ (communicate results)
+```
+
+### Complexity Guide:
+- **Low**: Pure computation, simple I/O, no optimization
+- **Medium**: Statistical estimation, moderate math, some iteration
+- **High**: Optimization loops, MCMC, matrix decomposition, MLE fitting
+
+---
+
 ## Phase 1: Polish wraquant Core (1-2 sessions)
 
 ### 1A. Fix remaining integration gaps
@@ -133,11 +190,72 @@
 - [ ] `servers/data.py` — workspace management, dataset operations
 
 ### 2C. Prompt templates (session 2-3)
-- [ ] `prompts/equity_analysis.py` — multi-step equity deep-dive
-- [ ] `prompts/pairs_trading.py` — cointegration → spread → backtest
-- [ ] `prompts/portfolio_construction.py` — data → optimize → risk decompose
-- [ ] `prompts/risk_report.py` — VaR → stress → crisis → factor
-- [ ] `prompts/volatility_deepdive.py` — GARCH → compare → forecast → NIC
+
+#### Analysis & Research
+- [ ] `equity_deep_dive` — full single-stock analysis: stats → distribution → vol → regimes → TA signals → risk → report
+- [ ] `sector_comparison` — compare multiple stocks/ETFs: relative performance → correlation → regime co-movement → factor exposure
+- [ ] `macro_analysis` — macro regime: yield curve → rate sensitivity → cross-asset correlations → recession indicators
+- [ ] `earnings_impact` — event study around earnings: pre/post returns → abnormal returns → vol spike → recovery
+- [ ] `ipo_analysis` — post-IPO behavior: return distribution → vol decay → regime settling → institutional flow
+
+#### Volatility & Risk
+- [ ] `volatility_deep_dive` — GARCH → model selection → forecast → NIC → term structure → realized vs implied
+- [ ] `risk_report` — full portfolio risk: VaR → CVaR → component VaR → stress test → crisis scenarios → factor decomposition
+- [ ] `tail_risk_assessment` — EVT → tail index → CDaR → Cornish-Fisher → copula tail dependence → contagion
+- [ ] `stress_test_battery` — run all 7 built-in scenarios + custom → compare → rank by severity → hedging suggestions
+- [ ] `correlation_breakdown` — DCC → rolling correlation → regime-conditional → contagion analysis → diversification score
+- [ ] `vol_surface_analysis` — implied vol → SABR calibration → skew → term structure → smile dynamics
+
+#### Regime & Market State
+- [ ] `regime_detection` — HMM → GMM → Markov-switching → compare methods → current state → transition probabilities
+- [ ] `market_regime_monitor` — current regime → historical comparison → expected duration → allocation implications
+- [ ] `regime_backtest` — detect regimes → regime-conditional strategy → compare to unconditional → regime-aware sizing
+- [ ] `changepoint_analysis` — PELT → binary segmentation → CUSUM → identify structural breaks → pre/post comparison
+
+#### Portfolio & Optimization
+- [ ] `portfolio_construction` — data → covariance → optimize (MVO/RP/BL/HRP) → risk decompose → regime adjust → report
+- [ ] `portfolio_rebalance` — current weights → drift analysis → rebalance cost → optimal trade schedule → execution plan
+- [ ] `factor_attribution` — factor exposure → Fama-French → risk contribution → alpha decomposition → tracking error
+- [ ] `portfolio_stress_test` — existing portfolio → crisis scenarios → correlation stress → liquidity stress → margin analysis
+- [ ] `asset_allocation` — multi-asset → efficient frontier → regime-aware → BL with views → risk parity comparison
+
+#### Trading & Strategy
+- [ ] `pairs_trading` — cointegration test → spread analysis → half-life → entry/exit signals → backtest → risk
+- [ ] `momentum_strategy` — RSI/MACD/ROC signals → combine → regime filter → backtest → walk-forward → metrics
+- [ ] `mean_reversion` — stationarity test → OU fit → half-life → Bollinger entry/exit → backtest → regime breakdown
+- [ ] `trend_following` — MA crossover → ADX filter → PSAR stops → position sizing → backtest → drawdown analysis
+- [ ] `statistical_arbitrage` — PCA factors → residual alpha → z-score signals → backtest → transaction costs → capacity
+
+#### Machine Learning
+- [ ] `ml_alpha_research` — features → labels → purged CV → walk-forward → feature importance → SHAP → financial metrics
+- [ ] `feature_engineering` — price → returns → TA features → vol features → regime features → correlation → interaction terms
+- [ ] `model_comparison` — RF vs GBM vs LSTM → walk-forward each → compare Sharpe/hit rate → ensemble → best model
+- [ ] `hyperparameter_sweep` — experiment lab → grid search → stability analysis → parameter sensitivity → best config
+
+#### Pricing & Fixed Income
+- [ ] `option_pricing` — BS → Greeks → vol smile → Heston calibration → FBSDE → comparison
+- [ ] `yield_curve_analysis` — bootstrap → interpolation → forward rates → duration/convexity → rate scenario
+- [ ] `exotic_pricing` — characteristic function → FFT/COS → Lévy process comparison → American via FBSDE
+
+#### Microstructure & Execution
+- [ ] `liquidity_analysis` — spread → depth → Amihud → Kyle lambda → VPIN → toxicity score → execution cost
+- [ ] `execution_optimization` — TWAP vs VWAP vs IS → Almgren-Chriss → impact model → cost analysis
+- [ ] `market_quality` — variance ratio → efficiency → information share → intraday pattern
+
+#### Causal & Econometric
+- [ ] `event_study` — define event → estimation window → CAR → cross-sectional test → significance
+- [ ] `policy_impact` — DID → parallel trends → synthetic control → placebo tests → effect size
+- [ ] `granger_analysis` — pairwise Granger → network → lead-lag → causality graph
+
+#### Bayesian
+- [ ] `bayesian_portfolio` — posterior returns → BL with uncertainty → credible intervals on weights → model comparison
+- [ ] `bayesian_regime` — Bayesian HMM → posterior regime probs → uncertainty on transition matrix
+
+#### Reporting & Monitoring
+- [ ] `daily_risk_monitor` — current VaR → regime check → correlation change → stress breach → alert summary
+- [ ] `weekly_portfolio_review` — performance → attribution → rebalance signal → risk budget → regime outlook
+- [ ] `strategy_tearsheet` — full tearsheet → monthly returns → drawdown table → regime breakdown → comparison
+- [ ] `research_summary` — summarize workspace: datasets, models, experiments, key findings
 
 ### 2D. Testing (session 3)
 - [ ] Test with MCP Inspector (npx @modelcontextprotocol/inspector)
