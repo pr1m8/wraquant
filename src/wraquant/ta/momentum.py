@@ -68,14 +68,38 @@ def _ema(data: pd.Series, period: int) -> pd.Series:
 def rsi(data: pd.Series, period: int = 14) -> pd.Series:
     """Relative Strength Index (RSI).
 
-    Uses the Wilder smoothing method (equivalent to ``ewm(alpha=1/period)``).
+    Measures the speed and magnitude of recent price changes to evaluate
+    overbought or oversold conditions. Uses the Wilder smoothing method
+    (equivalent to ``ewm(alpha=1/period)``).
+
+    RSI = 100 - (100 / (1 + RS))
+    where RS = avg_gain / avg_loss over ``period`` bars.
+
+    Interpretation:
+        - **> 70**: Overbought -- price may be due for a pullback.
+          In strong uptrends, RSI can stay above 70 for extended periods.
+        - **30-70**: Neutral zone.
+        - **< 30**: Oversold -- price may be due for a bounce.
+          In strong downtrends, RSI can stay below 30 for extended periods.
+        - **Divergence**: If price makes a new high but RSI does not,
+          bearish divergence signals weakening momentum. Conversely,
+          bullish divergence when price makes a new low but RSI does not.
+        - **Centerline crossover**: RSI crossing above 50 = bullish shift,
+          below 50 = bearish shift.
+
+    Trading rules:
+        - Buy when RSI crosses above 30 (oversold bounce).
+        - Sell when RSI crosses below 70 (overbought reversal).
+        - Use divergences for higher-probability signals.
+        - Adjust thresholds in trending markets (80/20 instead of 70/30).
 
     Parameters
     ----------
     data : pd.Series
         Price series (typically close).
     period : int, default 14
-        Look-back period.
+        Look-back period. 14 is standard. Shorter = more sensitive,
+        longer = smoother. Use 9 for short-term, 25 for long-term.
 
     Returns
     -------
@@ -111,6 +135,24 @@ def stochastic(
     d_period: int = 3,
 ) -> dict[str, pd.Series]:
     """Stochastic Oscillator (%K / %D).
+
+    Measures where the close sits within the recent high-low range.
+    When %K is near 100, price closed near the top of the range (bullish);
+    near 0, it closed near the bottom (bearish).
+
+    Interpretation:
+        - **> 80**: Overbought zone. In strong uptrends, the indicator
+          can stay above 80 for extended periods without signaling a top.
+        - **< 20**: Oversold zone. In strong downtrends, can persist.
+        - **%K crosses above %D below 20**: Bullish crossover buy signal.
+        - **%K crosses below %D above 80**: Bearish crossover sell signal.
+        - **Divergence**: Price makes new high but %K does not = bearish.
+
+    Trading rules:
+        - Buy when %K crosses above %D in the oversold zone (< 20).
+        - Sell when %K crosses below %D in the overbought zone (> 80).
+        - Avoid trading crossovers in the neutral zone (20-80) unless
+          confirmed by other indicators.
 
     Parameters
     ----------
@@ -159,7 +201,22 @@ def stochastic_rsi(
 ) -> dict[str, pd.Series]:
     """Stochastic RSI.
 
-    Applies the Stochastic formula to the RSI output.
+    Applies the Stochastic formula to the RSI output, producing an
+    even more sensitive oscillator. Useful for detecting short-term
+    overbought/oversold conditions within the RSI itself.
+
+    Interpretation:
+        - **> 80**: RSI is near its recent high -- overbought.
+        - **< 20**: RSI is near its recent low -- oversold.
+        - **%K/%D crossovers**: Same logic as standard Stochastic.
+        - More volatile than standard Stochastic; best combined with
+          a trend filter to avoid false signals in ranging markets.
+
+    Trading rules:
+        - Buy when StochRSI crosses above 20 (oversold bounce).
+        - Sell when StochRSI crosses below 80 (overbought reversal).
+        - Combine with a trend indicator (e.g. 200 EMA) to filter
+          signals in the direction of the prevailing trend.
 
     Parameters
     ----------
@@ -207,6 +264,30 @@ def macd(
 ) -> dict[str, pd.Series]:
     """Moving Average Convergence Divergence (MACD).
 
+    Tracks the relationship between two EMAs. When the fast EMA pulls
+    away from the slow EMA, momentum is strong. The signal line acts
+    as a trigger for entries and exits.
+
+    Interpretation:
+        - **MACD above zero**: Fast EMA > slow EMA = bullish momentum.
+        - **MACD below zero**: Fast EMA < slow EMA = bearish momentum.
+        - **Signal line crossover**: MACD crossing above its signal line
+          is a bullish signal; crossing below is bearish.
+        - **Histogram**: Represents the distance between MACD and signal.
+          Growing bars = strengthening momentum. Shrinking bars = momentum
+          fading (potential reversal ahead).
+        - **Divergence**: Price makes a new high but MACD does not =
+          bearish divergence. Price makes a new low but MACD does not =
+          bullish divergence.
+        - **Zero-line crossover**: MACD crossing above zero confirms
+          an uptrend; crossing below confirms a downtrend.
+
+    Trading rules:
+        - Buy when MACD crosses above signal line (bullish crossover).
+        - Sell when MACD crosses below signal line (bearish crossover).
+        - Histogram peak/trough reversals can provide early warnings.
+        - Combine with price action for confirmation.
+
     Parameters
     ----------
     data : pd.Series
@@ -251,6 +332,22 @@ def williams_r(
 ) -> pd.Series:
     """Williams %R.
 
+    Measures where the close is relative to the high-low range over
+    the look-back period. Mathematically the inverse of the Stochastic
+    %K, but on a [-100, 0] scale.
+
+    Interpretation:
+        - **-20 to 0**: Overbought -- close is near the period high.
+        - **-80 to -100**: Oversold -- close is near the period low.
+        - **-50 crossover**: Crossing above -50 = bullish, below = bearish.
+        - Note: Overbought does not mean sell immediately; in strong
+          uptrends, Williams %R stays near 0 for extended periods.
+
+    Trading rules:
+        - Buy when %R crosses above -80 (leaving oversold zone).
+        - Sell when %R crosses below -20 (leaving overbought zone).
+        - Use divergence between price and %R for reversal signals.
+
     Parameters
     ----------
     high : pd.Series
@@ -293,7 +390,26 @@ def cci(
 ) -> pd.Series:
     """Commodity Channel Index (CCI).
 
-    Uses Lambert's constant of 0.015.
+    Measures the deviation of the typical price from its moving
+    average, normalized by mean deviation. Uses Lambert's constant
+    of 0.015 so that roughly 75% of values fall within [-100, +100].
+
+    Interpretation:
+        - **> +100**: Price is unusually high relative to average --
+          strong uptrend or overbought condition.
+        - **< -100**: Price is unusually low -- strong downtrend or
+          oversold condition.
+        - **Zero-line crossover**: CCI crossing above 0 indicates price
+          is above its average (bullish); below 0 is bearish.
+        - **Divergence**: Price makes new high but CCI does not =
+          weakening momentum.
+
+    Trading rules:
+        - Buy when CCI crosses above +100 (trend entry) or above 0
+          (conservative entry).
+        - Sell when CCI crosses below -100 (trend entry) or below 0.
+        - Exit longs when CCI crosses back below +100 from above.
+        - Use +200/-200 for extreme overbought/oversold levels.
 
     Parameters
     ----------
@@ -309,7 +425,7 @@ def cci(
     Returns
     -------
     pd.Series
-        CCI values (unbounded).
+        CCI values (unbounded, typically between -300 and +300).
     """
     high = _validate_series(high, "high")
     low = _validate_series(low, "low")
@@ -332,7 +448,23 @@ def cci(
 
 
 def roc(data: pd.Series, period: int = 10) -> pd.Series:
-    """Rate of Change (ROC) — percentage change over *period* bars.
+    """Rate of Change (ROC) -- percentage change over *period* bars.
+
+    Measures the percentage difference between the current price and
+    the price *period* bars ago. A pure momentum measure.
+
+    Interpretation:
+        - **Positive**: Price is higher than it was *period* bars ago.
+        - **Negative**: Price is lower.
+        - **Zero-line crossover**: Crossing above zero = bullish
+          momentum shift; crossing below = bearish.
+        - **Extreme readings**: Unusually high ROC may indicate an
+          overextended move ripe for mean reversion.
+
+    Trading rules:
+        - Buy when ROC crosses above zero from below.
+        - Sell when ROC crosses below zero from above.
+        - Use divergence with price for reversal signals.
 
     Parameters
     ----------
@@ -362,6 +494,16 @@ def roc(data: pd.Series, period: int = 10) -> pd.Series:
 def momentum(data: pd.Series, period: int = 10) -> pd.Series:
     """Price Momentum (difference over *period* bars).
 
+    The simplest momentum indicator: the absolute price change over
+    the look-back window. Unlike ROC, this is not percentage-based,
+    so it is scale-dependent.
+
+    Interpretation:
+        - **Positive**: Price is rising relative to *period* bars ago.
+        - **Negative**: Price is falling.
+        - **Zero-line crossover**: Same as ROC -- bullish above, bearish below.
+        - **Magnitude**: Larger values = stronger momentum.
+
     Parameters
     ----------
     data : pd.Series
@@ -372,7 +514,7 @@ def momentum(data: pd.Series, period: int = 10) -> pd.Series:
     Returns
     -------
     pd.Series
-        Momentum values.
+        Momentum values (price difference, not percentage).
     """
     data = _validate_series(data)
     _validate_period(period)
@@ -394,6 +536,26 @@ def tsi(
     signal: int = 13,
 ) -> dict[str, pd.Series]:
     """True Strength Index (TSI).
+
+    A double-smoothed momentum oscillator that measures the ratio of
+    smoothed price change to smoothed absolute price change. Oscillates
+    between -100 and +100.
+
+    Interpretation:
+        - **Above zero**: Bullish momentum (price changes are
+          predominantly positive).
+        - **Below zero**: Bearish momentum.
+        - **Signal line crossover**: TSI crossing above its signal
+          line = bullish; crossing below = bearish.
+        - **Zero-line crossover**: Confirms trend direction change.
+        - **Divergence**: Price makes new high but TSI does not =
+          bearish divergence (and vice versa).
+
+    Trading rules:
+        - Buy when TSI crosses above zero or above its signal line.
+        - Sell when TSI crosses below zero or below its signal line.
+        - Use both zero-line and signal-line crossovers together for
+          higher-confidence signals.
 
     Parameters
     ----------
@@ -440,6 +602,23 @@ def awesome_oscillator(
 
     ``AO = SMA(median_price, fast) - SMA(median_price, slow)``
 
+    Developed by Bill Williams. Measures market momentum using the
+    difference between a 5-period and 34-period SMA of the midpoint
+    price.
+
+    Interpretation:
+        - **Above zero**: Bullish momentum (short-term average >
+          long-term average).
+        - **Below zero**: Bearish momentum.
+        - **Zero-line crossover**: AO crossing above zero = buy signal;
+          crossing below = sell signal.
+        - **Twin peaks (bullish)**: Two lows below zero where the
+          second is higher than the first, followed by a green bar.
+        - **Twin peaks (bearish)**: Two highs above zero where the
+          second is lower than the first, followed by a red bar.
+        - **Saucer**: Three consecutive bars above zero where the
+          middle bar is lowest = continuation buy signal.
+
     Parameters
     ----------
     high : pd.Series
@@ -454,7 +633,7 @@ def awesome_oscillator(
     Returns
     -------
     pd.Series
-        AO values.
+        AO values (unbounded, oscillates around zero).
     """
     high = _validate_series(high, "high")
     low = _validate_series(low, "low")
@@ -481,7 +660,24 @@ def ppo(
 ) -> dict[str, pd.Series]:
     """Percentage Price Oscillator (PPO).
 
-    Like MACD but expressed as a percentage of the slow EMA.
+    Like MACD but expressed as a percentage of the slow EMA, making
+    it comparable across different price levels and assets.
+
+    Interpretation:
+        - Same signals as MACD: signal-line crossovers, zero-line
+          crossovers, histogram analysis, and divergences.
+        - **Advantage over MACD**: Because it is percentage-based, you
+          can compare PPO values across stocks of different prices.
+        - **> 0**: Fast EMA is above slow EMA = bullish.
+        - **< 0**: Fast EMA is below slow EMA = bearish.
+        - **Histogram**: Grows when momentum accelerates, shrinks
+          when momentum decelerates.
+
+    Trading rules:
+        - Same as MACD: buy on bullish signal crossover, sell on
+          bearish signal crossover.
+        - Use PPO instead of MACD when comparing momentum across
+          multiple securities.
 
     Parameters
     ----------
@@ -528,6 +724,25 @@ def ultimate_oscillator(
     period3: int = 28,
 ) -> pd.Series:
     """Ultimate Oscillator.
+
+    Combines buying pressure across three timeframes (7, 14, 28 by
+    default) into a single oscillator. Reduces false signals by
+    incorporating multiple periods.
+
+    Interpretation:
+        - **> 70**: Overbought.
+        - **< 30**: Oversold.
+        - **Divergence**: The primary signal. A bullish divergence
+          occurs when price makes a new low but the UO does not, AND
+          the UO is below 30. A bearish divergence occurs when price
+          makes a new high but UO does not, AND UO is above 70.
+
+    Trading rules (Larry Williams' method):
+        - Buy on bullish divergence: price makes lower low, UO makes
+          higher low, UO dips below 30, then UO breaks above the
+          divergence high.
+        - Sell when UO rises above 70, or when UO crosses below 50
+          after a buy signal.
 
     Parameters
     ----------
@@ -586,6 +801,22 @@ def ultimate_oscillator(
 def cmo(data: pd.Series, period: int = 14) -> pd.Series:
     """Chande Momentum Oscillator (CMO).
 
+    Similar to RSI but uses the difference between gains and losses
+    divided by their sum, producing an oscillator in [-100, +100]
+    instead of [0, 100].
+
+    Interpretation:
+        - **> +50**: Strong bullish momentum, potentially overbought.
+        - **< -50**: Strong bearish momentum, potentially oversold.
+        - **Zero crossover**: CMO crossing above 0 = bullish; below = bearish.
+        - Unlike RSI, CMO is symmetric around zero, making it easier
+          to read directional bias.
+
+    Trading rules:
+        - Buy when CMO crosses above -50 (leaving oversold).
+        - Sell when CMO crosses below +50 (leaving overbought).
+        - Use zero-line crossover as a trend filter.
+
     Parameters
     ----------
     data : pd.Series
@@ -623,17 +854,31 @@ def dpo(data: pd.Series, period: int = 20) -> pd.Series:
 
     ``DPO = close - SMA(close, period).shift(period // 2 + 1)``
 
+    Removes the trend component from price to isolate cycles.
+    Unlike most oscillators, DPO is not a momentum indicator --
+    it helps identify cycle highs and lows.
+
+    Interpretation:
+        - **Positive**: Price is above the displaced moving average
+          (cycle high territory).
+        - **Negative**: Price is below the displaced moving average
+          (cycle low territory).
+        - **Peaks and troughs**: Mark cycle turning points. Measure
+          the time between peaks to estimate the dominant cycle length.
+        - Not useful for trend trading; best for timing entries
+          within a known cycle.
+
     Parameters
     ----------
     data : pd.Series
         Price series.
     period : int, default 20
-        SMA period.
+        SMA period. Should approximate the expected cycle length.
 
     Returns
     -------
     pd.Series
-        DPO values (unbounded).
+        DPO values (unbounded, oscillates around zero).
     """
     data = _validate_series(data)
     _validate_period(period)
@@ -665,6 +910,21 @@ def kst(
     """Know Sure Thing (KST) oscillator.
 
     Weighted sum of four smoothed rate-of-change values with weights 1, 2, 3, 4.
+    A comprehensive momentum indicator that combines multiple timeframes.
+
+    Interpretation:
+        - **KST above zero**: Overall momentum is bullish across timeframes.
+        - **KST below zero**: Overall momentum is bearish.
+        - **Signal line crossover**: KST crossing above signal = buy;
+          crossing below = sell.
+        - **Zero-line crossover**: Confirms broader trend shifts.
+        - **Divergence**: Price makes new high but KST does not =
+          bearish divergence.
+
+    Trading rules:
+        - Buy when KST crosses above its signal line, preferably
+          when both are below zero (early trend entry).
+        - Sell when KST crosses below its signal line.
 
     Parameters
     ----------
@@ -733,10 +993,28 @@ def connors_rsi(
     streak_period: int = 2,
     rank_period: int = 100,
 ) -> pd.Series:
-    """Connors RSI — composite of RSI, up/down streak RSI, and percentile rank.
+    """Connors RSI -- composite of RSI, up/down streak RSI, and percentile rank.
 
     ``ConnorsRSI = (RSI(close, rsi_period) + RSI(streak, streak_period)
     + PercentRank(pct_change, rank_period)) / 3``
+
+    Designed specifically for mean-reversion trading. Combines three
+    components to identify short-term overbought/oversold extremes.
+
+    Interpretation:
+        - **> 90**: Extremely overbought -- high probability of
+          short-term pullback.
+        - **< 10**: Extremely oversold -- high probability of
+          short-term bounce.
+        - **70-90**: Moderately overbought.
+        - **10-30**: Moderately oversold.
+        - Best on liquid, large-cap stocks and ETFs; not reliable
+          on low-volume or highly trending instruments.
+
+    Trading rules:
+        - Buy when ConnorsRSI drops below 10 (mean reversion entry).
+        - Sell when ConnorsRSI rises above 70 (exit for profit).
+        - Use with a trend filter (e.g., above 200 SMA = only buy).
 
     Parameters
     ----------
@@ -800,11 +1078,26 @@ def fisher_transform(
     low: pd.Series,
     period: int = 9,
 ) -> dict[str, pd.Series]:
-    """Fisher Transform — normalizes prices to a Gaussian distribution.
+    """Fisher Transform -- normalizes prices to a Gaussian distribution.
 
     Uses the midpoint ``(high + low) / 2``, normalizes to [-1, 1] over the
     look-back window, then applies the inverse hyperbolic tangent (Fisher
-    Transform).
+    Transform). Produces sharp, clear turning points.
+
+    Interpretation:
+        - **> +1.5**: Extreme bullish -- price may be overextended.
+        - **< -1.5**: Extreme bearish -- price may be oversold.
+        - **Signal line crossover**: Fisher crossing above signal =
+          bullish; crossing below = bearish.
+        - Fisher Transform values have no upper/lower bound, but
+          values beyond +/-2.5 are rare and signal extremes.
+
+    Trading rules:
+        - Buy when Fisher crosses above its signal line in negative
+          territory (reversal from oversold).
+        - Sell when Fisher crosses below its signal line in positive
+          territory (reversal from overbought).
+        - The indicator is leading -- it often turns before price.
 
     Parameters
     ----------
@@ -870,10 +1163,30 @@ def elder_ray(
     close: pd.Series,
     period: int = 13,
 ) -> dict[str, pd.Series]:
-    """Elder Ray Index — bull power and bear power.
+    """Elder Ray Index -- bull power and bear power.
 
     ``bull_power = high - EMA(close, period)``
     ``bear_power = low - EMA(close, period)``
+
+    Measures the distance between the high/low and the EMA, showing
+    how much power buyers (bulls) and sellers (bears) have.
+
+    Interpretation:
+        - **Bull power > 0**: Bulls pushed price above EMA = buyers
+          are in control.
+        - **Bear power < 0**: Bears pushed price below EMA = sellers
+          are in control (this is the normal state).
+        - **Bear power > 0**: Extremely bullish -- even the lows are
+          above the EMA.
+        - **Bull power < 0**: Extremely bearish -- even the highs
+          cannot reach the EMA.
+        - **Divergence**: New price high with lower bull power = weakening.
+
+    Trading rules (Elder's Triple Screen):
+        - Buy when EMA is rising (trend filter) AND bear power is
+          negative but rising (dip-buying).
+        - Sell when EMA is falling AND bull power is positive but
+          falling.
 
     Parameters
     ----------
@@ -921,11 +1234,28 @@ def aroon_oscillator(
     low: pd.Series,
     period: int = 25,
 ) -> pd.Series:
-    """Aroon Oscillator — difference between Aroon Up and Aroon Down.
+    """Aroon Oscillator -- difference between Aroon Up and Aroon Down.
 
     ``Aroon Up = 100 * (period - bars_since_high) / period``
     ``Aroon Down = 100 * (period - bars_since_low) / period``
     ``Aroon Oscillator = Aroon Up - Aroon Down``
+
+    Measures the strength and direction of a trend by comparing how
+    recently the highest high and lowest low occurred.
+
+    Interpretation:
+        - **Near +100**: Strong uptrend (new highs are recent, new
+          lows are distant).
+        - **Near -100**: Strong downtrend (new lows are recent, new
+          highs are distant).
+        - **Near 0**: No clear trend (consolidation / range-bound).
+        - **Zero-line crossover**: Oscillator crossing above 0 =
+          new uptrend starting; crossing below = new downtrend.
+
+    Trading rules:
+        - Buy when oscillator crosses above 0.
+        - Sell when oscillator crosses below 0.
+        - Strong signals when oscillator exceeds +50 or drops below -50.
 
     Parameters
     ----------
@@ -977,6 +1307,16 @@ def chande_forecast_oscillator(
 
     ``CFO = ((close - linreg_forecast) / close) * 100``
 
+    Interpretation:
+        - **Positive**: Price is above the regression forecast --
+          bullish deviation from trend.
+        - **Negative**: Price is below the regression forecast --
+          bearish deviation.
+        - **Zero-line crossover**: Shift from bearish to bullish
+          (or vice versa) relative to the regression trend.
+        - Persistent positive values indicate an uptrend; persistent
+          negative values indicate a downtrend.
+
     Parameters
     ----------
     data : pd.Series
@@ -1026,6 +1366,24 @@ def balance_of_power(
     """Balance of Power (BOP).
 
     ``BOP = SMA((close - open) / (high - low), period)``
+
+    Measures the strength of buyers vs sellers by comparing the
+    close-open range to the high-low range.
+
+    Interpretation:
+        - **Positive**: Buyers dominated (close > open relative to range).
+        - **Negative**: Sellers dominated (close < open relative to range).
+        - **Near +1**: Extreme buying pressure.
+        - **Near -1**: Extreme selling pressure.
+        - **Zero-line crossover**: Shift in control from buyers to
+          sellers or vice versa.
+        - **Divergence**: Price makes new high but BOP is declining =
+          distribution (smart money selling).
+
+    Trading rules:
+        - Buy when BOP crosses above zero.
+        - Sell when BOP crosses below zero.
+        - Divergence with price is a strong reversal signal.
 
     Parameters
     ----------
