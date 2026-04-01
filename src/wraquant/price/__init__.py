@@ -1,30 +1,56 @@
 """Options pricing, fixed income, stochastic models, and FBSDE solvers.
 
-Submodules
-----------
-options
-    Black-Scholes, binomial tree, and Monte Carlo option pricing.
-greeks
-    Analytical Black-Scholes Greeks (delta, gamma, theta, vega, rho).
-volatility
-    Implied volatility solvers and volatility surface construction.
-fixed_income
-    Bond pricing, yield-to-maturity, duration, and convexity.
-curves
-    Yield curve bootstrapping, interpolation, and forward rates.
-levy_pricing
-    FFT and COS-method pricing for VG, NIG, and generic characteristic
-    function models.
-characteristic
-    Characteristic function constructors for Heston, VG, NIG, CGMY models
-    and a unified pricing interface.
-fbsde
-    Forward-Backward SDE solvers for European and American derivatives.
-stochastic
-    Stochastic process simulators including GBM, Heston, jump-diffusion,
-    SABR, rough Bergomi, 3/2, CIR, and Vasicek models.
-integrations
-    Wrappers for QuantLib, FinancePy, rateslib, and py-vollib.
+Provides a unified pricing library spanning equity derivatives, fixed
+income instruments, and exotic stochastic models.  Includes both closed-
+form solutions (Black-Scholes, bond pricing) and numerical methods
+(binomial trees, Monte Carlo, FFT, COS method, deep BSDE solvers),
+along with stochastic process simulators for scenario generation and
+model calibration.
+
+Key sub-modules:
+
+- **Options** (``options``) -- ``black_scholes`` (closed-form European),
+  ``binomial_tree`` (American/European via CRR lattice), and
+  ``monte_carlo_option`` (path-dependent and exotic payoffs).
+- **Greeks** (``greeks``) -- Analytical sensitivities: ``delta``,
+  ``gamma``, ``theta``, ``vega``, ``rho``, and ``all_greeks`` (compute
+  all at once).
+- **Volatility** (``volatility``) -- ``implied_volatility`` (Newton/
+  bisection solver), ``vol_smile`` (strike-space IV), and ``vol_surface``
+  (strike x maturity IV grid).
+- **Fixed income** (``fixed_income``) -- ``bond_price``, ``bond_yield``
+  (YTM solver), ``duration``, ``modified_duration``, ``convexity``, and
+  ``zero_rate``.
+- **Curves** (``curves``) -- ``bootstrap_zero_curve``,
+  ``interpolate_curve`` (linear, cubic, Nelson-Siegel), ``forward_rate``,
+  and ``discount_factor``.
+- **Levy pricing** (``levy_pricing``) -- ``fft_option_price`` (Carr-Madan
+  FFT), ``cos_method`` (Fang-Oosterlee COS), ``vg_european_fft``, and
+  ``nig_european_fft`` for pricing under fat-tailed Levy dynamics.
+- **Characteristic functions** (``characteristic``) --
+  ``heston_characteristic``, ``vg_characteristic``,
+  ``nig_characteristic``, ``cgmy_characteristic``, and
+  ``characteristic_function_price`` (unified pricing from any CF).
+- **FBSDE solvers** (``fbsde``) -- ``fbsde_european`` (classical FBSDE),
+  ``deep_bsde`` (neural-network BSDE solver for high-dimensional PDEs),
+  and ``reflected_bsde`` (American-style early exercise).
+- **Stochastic processes** (``stochastic``) -- Path simulators:
+  ``geometric_brownian_motion``, ``heston``, ``jump_diffusion``,
+  ``ornstein_uhlenbeck``, ``simulate_sabr``, ``simulate_rough_bergomi``,
+  ``simulate_3_2_model``, ``simulate_cir``, and ``simulate_vasicek``.
+- **Integrations** (``integrations``) -- Wrappers for QuantLib
+  (``quantlib_option``, ``quantlib_bond``, ``quantlib_yield_curve``),
+  FinancePy, rateslib, and py_vollib.
+
+Example:
+    >>> from wraquant.price import black_scholes, implied_volatility
+    >>> price = black_scholes(S=100, K=105, T=0.25, r=0.05, sigma=0.2)
+    >>> iv = implied_volatility(market_price=3.50, S=100, K=105, T=0.25, r=0.05)
+
+Use ``wraquant.price`` for derivative pricing, fixed income analytics,
+and stochastic simulation.  For realized and conditional volatility
+modeling (GARCH, realized estimators), see ``wraquant.vol``.  For
+implied vol surface fitting (SVI), see ``wraquant.vol.vol_surface_svi``.
 """
 
 from __future__ import annotations

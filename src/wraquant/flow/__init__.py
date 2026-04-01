@@ -1,7 +1,47 @@
 """Workflow orchestration for wraquant.
 
-Provides wrappers for common workflow patterns using Prefect, Dagster,
-and APScheduler for scheduling recurring quantitative finance tasks.
+Provides composable workflow primitives and integrations with
+orchestration frameworks (Prefect, Dagster, APScheduler) for building
+reproducible, observable, and fault-tolerant quantitative finance
+pipelines.  Includes zero-dependency Pipeline and DAG abstractions for
+simple workflows, plus decorators for retry logic, disk caching, and
+step-level logging.
+
+Key components:
+
+- **Pipeline** -- Sequential function pipeline: chain functions with
+  ``pipeline(step1, step2, step3)`` and execute with ``.run(data)``.
+  Supports ``>>`` operator for composition.
+- **DAG** -- Directed acyclic graph of steps with dependencies: define
+  steps and their dependency relationships, execute in topological order.
+- **parallel_pipeline** -- Run multiple independent Pipeline objects in
+  parallel using threading.
+- **retry** -- Decorator with exponential backoff for unreliable
+  operations (API calls, database connections).
+- **cache_result** -- Decorator that caches function results to disk
+  with TTL expiry.
+- **log_step** -- Decorator that logs function entry, exit, duration,
+  and exceptions.
+- **prefect_backtest_flow** -- Run backtests as Prefect flows with
+  automatic retries and distributed execution.
+- **dagster_pipeline** -- Define Dagster jobs from wraquant operations.
+- **schedule_data_refresh** -- Schedule recurring data fetches using
+  APScheduler.
+
+Example:
+    >>> from wraquant.flow import pipeline, retry, cache_result
+    >>> @cache_result(ttl_hours=4)
+    ... @retry(max_retries=3)
+    ... def fetch_and_clean(symbol):
+    ...     from wraquant.data import fetch_prices
+    ...     return fetch_prices(symbol, start="2020-01-01")
+    >>> pipe = pipeline(fetch_and_clean, compute_signals, generate_report)
+    >>> result = pipe.run("AAPL")
+
+Use ``wraquant.flow`` for building production workflows.  For parallel
+execution across assets or parameter grids, see ``wraquant.scale``.
+For experiment tracking and parameter optimization, see
+``wraquant.experiment``.
 """
 
 from __future__ import annotations

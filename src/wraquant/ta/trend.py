@@ -75,6 +75,26 @@ def adx(
 ) -> dict[str, pd.Series]:
     """Average Directional Index (ADX) with +DI and -DI.
 
+    Measures the strength of a trend regardless of its direction.
+    +DI and -DI show the direction.
+
+    Interpretation:
+        - **ADX > 25**: Trend is strong enough to trade.
+        - **ADX > 50**: Very strong trend.
+        - **ADX < 20**: No trend (range-bound / choppy).
+        - **ADX rising**: Trend is strengthening.
+        - **ADX falling**: Trend is weakening (not necessarily reversing).
+        - **+DI > -DI**: Uptrend (buyers dominate).
+        - **-DI > +DI**: Downtrend (sellers dominate).
+        - **+DI/-DI crossover**: Trend direction change.
+
+    Trading rules:
+        - Buy when +DI crosses above -DI AND ADX > 25 (trending up).
+        - Sell when -DI crosses above +DI AND ADX > 25 (trending down).
+        - Avoid trading when ADX < 20 (no trend).
+        - Use ADX as a filter: only apply trend-following strategies
+          when ADX > 25; use mean-reversion when ADX < 20.
+
     Parameters
     ----------
     high : pd.Series
@@ -146,6 +166,25 @@ def aroon(
 ) -> dict[str, pd.Series]:
     """Aroon Indicator.
 
+    Measures the time since the last high/low to identify trend
+    direction and strength.
+
+    Interpretation:
+        - **Aroon Up > 70**: Strong uptrend (recent new highs).
+        - **Aroon Down > 70**: Strong downtrend (recent new lows).
+        - **Aroon Up < 30**: Weak uptrend (no recent new highs).
+        - **Aroon Down < 30**: Weak downtrend (no recent new lows).
+        - **Aroon Up crosses above Aroon Down**: New uptrend starting.
+        - **Aroon Down crosses above Aroon Up**: New downtrend starting.
+        - **Both below 50**: Consolidation / no trend.
+        - **Oscillator**: Positive = uptrend, negative = downtrend.
+
+    Trading rules:
+        - Buy when Aroon Up crosses above Aroon Down.
+        - Sell when Aroon Down crosses above Aroon Up.
+        - Strongest signal when one Aroon is above 70 and the other
+          is below 30.
+
     Parameters
     ----------
     high : pd.Series
@@ -203,6 +242,26 @@ def psar(
     af_max: float = 0.2,
 ) -> pd.Series:
     """Parabolic SAR (Stop and Reverse).
+
+    A trend-following indicator that provides entry/exit points and
+    trailing stop levels.
+
+    Interpretation:
+        - **SAR dots below price**: Uptrend. The SAR value is a
+          trailing stop / support level.
+        - **SAR dots above price**: Downtrend. The SAR value is a
+          trailing stop / resistance level.
+        - **SAR flip (below to above)**: Sell signal -- trend has
+          reversed from bullish to bearish.
+        - **SAR flip (above to below)**: Buy signal -- trend has
+          reversed from bearish to bullish.
+
+    Trading rules:
+        - Buy when SAR flips below price (dots move under candles).
+        - Sell when SAR flips above price (dots move above candles).
+        - Use SAR values as trailing stop-loss levels.
+        - Works best in trending markets; generates many false signals
+          in ranging markets. Combine with ADX to filter.
 
     Parameters
     ----------
@@ -297,6 +356,21 @@ def vortex(
 ) -> dict[str, pd.Series]:
     """Vortex Indicator.
 
+    Captures positive and negative trend movement by comparing the
+    distance between current high/low and previous low/high.
+
+    Interpretation:
+        - **+VI > -VI**: Uptrend -- positive vortex movement dominates.
+        - **-VI > +VI**: Downtrend -- negative vortex movement dominates.
+        - **+VI crosses above -VI**: Bullish trend change signal.
+        - **-VI crosses above +VI**: Bearish trend change signal.
+        - **Both near 1.0**: Trend is neutral or transitioning.
+
+    Trading rules:
+        - Buy when +VI crosses above -VI.
+        - Sell when -VI crosses above +VI.
+        - Use a threshold (e.g. 1.1) to filter weak crossovers.
+
     Parameters
     ----------
     high : pd.Series
@@ -343,9 +417,27 @@ def vortex(
 
 
 def trix(data: pd.Series, period: int = 15) -> pd.Series:
-    """TRIX — Triple-smoothed EMA rate of change.
+    """TRIX -- Triple-smoothed EMA rate of change.
 
     ``TRIX = 100 * ROC(EMA(EMA(EMA(data))))``
+
+    Filters out insignificant price movements by triple-smoothing
+    before computing the rate of change.
+
+    Interpretation:
+        - **Above zero**: Bullish momentum (triple-smoothed trend up).
+        - **Below zero**: Bearish momentum.
+        - **Zero-line crossover**: Buy signal when crossing above zero;
+          sell when crossing below.
+        - **Signal line**: Often paired with a signal EMA for crossover
+          signals.
+        - Extremely smooth; good for identifying major trend changes
+          but lags significantly.
+
+    Trading rules:
+        - Buy when TRIX crosses above zero.
+        - Sell when TRIX crosses below zero.
+        - Use for long-term trend identification, not short-term timing.
 
     Parameters
     ----------
@@ -382,6 +474,19 @@ def linear_regression(
     """Rolling Linear Regression.
 
     Fits an OLS regression line to the last *period* values at each bar.
+
+    Interpretation:
+        - **Positive slope**: Price trend is up over the window.
+        - **Negative slope**: Price trend is down.
+        - **R-squared near 1**: Price is moving in a clean line
+          (strong trend with low noise).
+        - **R-squared near 0**: No linear trend (choppy/range-bound).
+        - **Value**: The regression endpoint acts as a smoothed trend
+          line with less lag than a moving average.
+
+    Trading rules:
+        - Trade in the direction of the slope when R-squared > 0.5.
+        - Avoid trend-following trades when R-squared < 0.2.
 
     Parameters
     ----------
@@ -442,6 +547,12 @@ def linear_regression_slope(data: pd.Series, period: int = 14) -> pd.Series:
     A convenience wrapper around :func:`linear_regression` that returns
     only the slope component.
 
+    Interpretation:
+        - **Positive**: Uptrend over the look-back period.
+        - **Negative**: Downtrend.
+        - **Magnitude**: Steeper slope = stronger trend.
+        - **Zero crossover**: Trend direction change.
+
     Parameters
     ----------
     data : pd.Series
@@ -466,10 +577,19 @@ def zigzag(
     close: pd.Series,
     pct_change: float = 5.0,
 ) -> pd.Series:
-    """ZigZag indicator — connects swing highs and lows.
+    """ZigZag indicator -- connects swing highs and lows.
 
     Identifies pivots where price reverses by at least *pct_change* percent,
     then linearly interpolates between them.
+
+    Interpretation:
+        - Filters out noise to reveal the true swing structure of price.
+        - **Not a trading signal**: The last segment repaints as new
+          data arrives. Use only for historical analysis.
+        - **Swing counting**: Measure the distance between pivots for
+          wave analysis (Elliott Wave, harmonic patterns).
+        - **Support/resistance**: Pivot levels often act as future S/R.
+        - Useful for backtesting swing-trading strategies.
 
     Parameters
     ----------
@@ -576,6 +696,26 @@ def heikin_ashi(
 ) -> dict[str, pd.Series]:
     """Heikin-Ashi modified OHLC candles.
 
+    Modified candlesticks that smooth price action and make trends
+    easier to identify.
+
+    Interpretation:
+        - **Green HA candles with no lower shadow**: Strong uptrend.
+        - **Red HA candles with no upper shadow**: Strong downtrend.
+        - **Small body with long shadows**: Indecision / potential
+          reversal.
+        - **Color change**: Possible trend reversal (green to red or
+          vice versa).
+        - HA candles smooth noise, making it easier to stay in trends
+          and avoid premature exits.
+
+    Trading rules:
+        - Stay long as long as HA candles remain green.
+        - Stay short as long as HA candles remain red.
+        - Watch for doji-like HA candles as reversal warnings.
+        - Note: HA prices are synthetic -- do not use them for actual
+          order placement. Use regular prices for entries/exits.
+
     Parameters
     ----------
     open_ : pd.Series
@@ -640,10 +780,18 @@ def mcginley_dynamic(
     data: pd.Series,
     period: int = 14,
 ) -> pd.Series:
-    """McGinley Dynamic — adaptive moving average.
+    """McGinley Dynamic -- adaptive moving average.
 
     Adjusts its speed based on market velocity, reducing whipsaws compared
     to a standard EMA.
+
+    Interpretation:
+        - **Price above McGinley**: Bullish trend.
+        - **Price below McGinley**: Bearish trend.
+        - Automatically speeds up in fast markets and slows down in
+          slow markets, reducing false crossovers.
+        - Acts as a more reliable dynamic support/resistance than
+          traditional moving averages.
 
     ``MD_t = MD_{t-1} + (price - MD_{t-1}) / (N * (price / MD_{t-1})^4)``
 
@@ -705,10 +853,19 @@ def schaff_trend_cycle(
     fast: int = 23,
     slow: int = 50,
 ) -> pd.Series:
-    """Schaff Trend Cycle — MACD passed through a double stochastic.
+    """Schaff Trend Cycle -- MACD passed through a double stochastic.
 
     Combines the MACD histogram with stochastic smoothing for a faster,
     smoother oscillator bounded between 0 and 100.
+
+    Interpretation:
+        - **> 75**: Bullish trend established.
+        - **< 25**: Bearish trend established.
+        - **Crosses above 25**: Buy signal (bearish-to-bullish shift).
+        - **Crosses below 75**: Sell signal (bullish-to-bearish shift).
+        - Faster than MACD because of the double stochastic processing.
+        - Spends most of its time at extremes (near 0 or 100), with
+          quick transitions between them.
 
     Parameters
     ----------
@@ -772,6 +929,19 @@ def guppy_mma(
 ) -> dict[str, pd.Series]:
     """Guppy Multiple Moving Average (GMMA).
 
+    Developed by Daryl Guppy. Uses two groups of EMAs to visualize
+    the behavior of both traders (short-term) and investors (long-term).
+
+    Interpretation:
+        - **Short-term group fanning out above long-term group**:
+          Strong uptrend with trader and investor agreement.
+        - **Short-term group fanning out below long-term group**:
+          Strong downtrend.
+        - **Groups compressing**: Trend weakening, consolidation.
+        - **Short-term crossing long-term**: Trend change signal.
+        - **Wide separation between groups**: Strong conviction.
+        - **Groups intertwined/overlapping**: Indecision, no trend.
+
     Returns two groups of EMAs:
 
     - **Short-term group**: 3, 5, 8, 10, 12, 15
@@ -818,10 +988,18 @@ def rainbow_ma(
     period: int = 10,
     levels: int = 10,
 ) -> dict[str, pd.Series]:
-    """Rainbow Moving Average — recursive SMAs.
+    """Rainbow Moving Average -- recursive SMAs.
 
     Each level is an SMA of the previous level.  Level 1 is SMA of *data*,
     level 2 is SMA of level 1, and so on.
+
+    Interpretation:
+        - **Price above all bands**: Strong uptrend.
+        - **Price below all bands**: Strong downtrend.
+        - **Bands fanning out**: Trend strengthening.
+        - **Bands compressing**: Trend weakening or consolidation.
+        - **Price touching inner bands then bouncing**: Pullback
+          buy/sell opportunity in the direction of the trend.
 
     Parameters
     ----------
@@ -868,6 +1046,14 @@ def hull_ma(data: pd.Series, period: int = 16) -> pd.Series:
 
     Provides a fast, smooth moving average with reduced lag.
 
+    Interpretation:
+        - **Price above HMA**: Bullish.
+        - **Price below HMA**: Bearish.
+        - **HMA slope change**: Early trend change signal.
+          HMA turning up = bullish; turning down = bearish.
+        - Extremely responsive due to the sqrt(n) final smoothing;
+          excellent for short-term trend following.
+
     Parameters
     ----------
     data : pd.Series
@@ -911,6 +1097,13 @@ def zero_lag_ema(data: pd.Series, period: int = 21) -> pd.Series:
     de-lagged series: ``zlema_input = data + (data - data.shift(lag))``
     where ``lag = (period - 1) / 2``.
 
+    Interpretation:
+        - Same signals as EMA but with near-zero lag.
+        - More responsive to recent price changes, giving earlier
+          crossover signals.
+        - Can overshoot in choppy markets due to the de-lagging
+          adjustment.
+
     Parameters
     ----------
     data : pd.Series
@@ -952,6 +1145,13 @@ def vidya(
 
     Uses the Chande Momentum Oscillator (CMO) as a volatility index to
     dynamically adjust the smoothing constant of an EMA.
+
+    Interpretation:
+        - Behaves like a fast EMA in trending markets (high CMO) and
+          a slow EMA in ranging markets (low CMO).
+        - **Price above VIDYA**: Bullish trend.
+        - **Price below VIDYA**: Bearish trend.
+        - Less prone to whipsaws than standard EMA in choppy markets.
 
     ``VIDYA_t = alpha * |CMO_t| * price_t + (1 - alpha * |CMO_t|) * VIDYA_{t-1}``
 
@@ -1022,10 +1222,18 @@ def tilson_t3(
     period: int = 5,
     volume_factor: float = 0.7,
 ) -> pd.Series:
-    """Tilson T3 — triple-smoothed exponential moving average.
+    """Tilson T3 -- triple-smoothed exponential moving average.
 
     Applies six sequential EMAs with Tilson coefficients derived from the
     *volume_factor* to produce an ultra-smooth, low-lag average.
+
+    Interpretation:
+        - Extremely smooth trend line with less lag than TEMA.
+        - **Price above T3**: Bullish.
+        - **Price below T3**: Bearish.
+        - **T3 slope change**: Very reliable trend change signal
+          due to the heavy smoothing.
+        - Best for medium to long-term trend identification.
 
     Parameters
     ----------
@@ -1081,6 +1289,14 @@ def fractal_adaptive_ma(
     Uses the fractal dimension of the price series to dynamically adjust
     the EMA smoothing factor.  More responsive in trending markets and
     slower during consolidation.
+
+    Interpretation:
+        - **Price above FRAMA**: Bullish trend.
+        - **Price below FRAMA**: Bearish trend.
+        - Adapts automatically: becomes responsive (like short EMA) in
+          trending markets and sluggish (like long EMA) during
+          consolidation.
+        - Excellent for trend following with automatic noise filtering.
 
     Parameters
     ----------

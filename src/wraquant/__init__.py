@@ -1,14 +1,59 @@
-"""wraquant — The ultimate quant finance toolkit for Python.
+"""wraquant -- The ultimate quant finance toolkit for Python.
 
-Provides a composable, backend-agnostic framework for quantitative finance:
-data fetching, time series analysis, risk management, portfolio optimization,
-backtesting, options pricing, forex analysis, and more.
+A composable, backend-agnostic framework for quantitative finance covering
+the full research-to-production pipeline: data fetching, time series
+analysis, statistical modeling, volatility modeling, risk management,
+portfolio optimization, backtesting, options pricing, regime detection,
+machine learning, causal inference, forex analysis, and interactive
+visualization.
+
+Key modules:
+
+- **data** -- Fetch prices, macro data, and alternative data from Yahoo
+  Finance, FRED, NASDAQ Data Link, and CSV/Parquet files.  Clean,
+  validate, and transform financial time series.
+- **ta** -- 263 technical analysis indicators across 19 sub-modules
+  (overlap, momentum, volume, trend, volatility, patterns, signals,
+  cycles, fibonacci, smoothing, exotic, support/resistance, and more).
+- **stats** -- Descriptive statistics, hypothesis tests, correlation,
+  cointegration, regression, factor models, and robust estimators.
+- **ts** -- Time series decomposition, seasonality detection, change-point
+  detection, stationarity transforms, and forecasting (ARIMA, ETS, theta,
+  ensemble, stochastic processes).
+- **vol** -- Realized volatility estimators (Yang-Zhang, Garman-Klass),
+  GARCH family (EGARCH, GJR, FIGARCH, HARCH), DCC, stochastic vol,
+  Hawkes processes, and implied vol surfaces.
+- **risk** -- Performance metrics, VaR/CVaR, portfolio risk decomposition,
+  beta estimation, factor models, tail risk, copulas, stress testing,
+  credit risk, survival analysis, and Monte Carlo simulation.
+- **regimes** -- Hidden Markov Models, Markov-switching regression,
+  Kalman filter/smoother, change-point detection, and regime-aware
+  portfolio construction.
+- **opt** -- Portfolio optimization (MVO, risk parity, Black-Litterman,
+  HRP), convex/linear/nonlinear solvers, and multi-objective optimization.
+- **ml** -- Feature engineering (triple barrier, fractional
+  differentiation), purged cross-validation, walk-forward training,
+  LSTM/Transformer forecasting, and online learning.
+- **price** -- Options pricing (Black-Scholes, binomial, Monte Carlo),
+  Greeks, fixed income, yield curves, Levy process pricing, FBSDE
+  solvers, and stochastic process simulators.
+- **backtest** -- Vectorized and event-driven backtesting engines,
+  strategy abstractions, position sizing, tearsheet generation, and
+  30+ performance metrics.
+- **viz** -- Interactive Plotly dashboards (portfolio, regime, risk,
+  technical), candlestick charts, vol surfaces, and correlation networks.
 
 Example:
     >>> import wraquant as wq
-    >>> cfg = wq.get_config()
-    >>> cfg.backend
-    <Backend.PANDAS: 'pandas'>
+    >>> prices = wq.data.fetch_prices("AAPL", start="2020-01-01")
+    >>> rets = wq.returns(prices["close"])
+    >>> stats = wq.stats.summary_stats(rets)
+    >>> regimes = wq.detect_regimes(rets, n_regimes=2)
+
+Use ``wraquant.data`` for ingestion, ``wraquant.stats`` or ``wraquant.ta``
+for analysis, ``wraquant.risk`` for risk measurement, ``wraquant.opt`` for
+allocation, and ``wraquant.backtest`` for strategy evaluation.  For
+higher-level workflows, see ``wraquant.compose`` and ``wraquant.recipes``.
 """
 
 from __future__ import annotations

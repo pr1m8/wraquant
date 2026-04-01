@@ -42,6 +42,25 @@ def fibonacci_retracements(
     Given a swing high and swing low, computes the standard Fibonacci
     retracement levels at 23.6%, 38.2%, 50%, 61.8%, and 78.6%.
 
+    Interpretation:
+        - **23.6%**: Shallow retracement -- strong trend continuation
+          likely. Common in fast-moving markets.
+        - **38.2%**: Moderate retracement -- healthy pullback in a
+          strong trend.
+        - **50%**: Not a Fibonacci ratio but widely watched. A 50%
+          retracement is considered normal.
+        - **61.8%**: The "golden ratio" -- the most important level.
+          If price holds here, the trend is likely to resume.
+        - **78.6%**: Deep retracement -- the trend is under pressure.
+          If this level breaks, the trend may be over.
+
+    Trading rules:
+        - Look for buy signals (candlestick patterns, divergence) at
+          38.2%-61.8% retracement levels in an uptrend.
+        - Place stops below the 78.6% level.
+        - The stronger the trend, the shallower the retracement
+          (23.6%-38.2%).
+
     Parameters
     ----------
     swing_high : float
@@ -97,6 +116,17 @@ def fibonacci_extensions(
 
     Uses a swing low, swing high, and pullback low to project
     extension levels at 100%, 127.2%, 161.8%, 200%, and 261.8%.
+
+    Interpretation:
+        - Extension levels project where price might go AFTER a
+          retracement completes.
+        - **100%**: The most common initial target (move equals the
+          first swing).
+        - **127.2%**: Common target for corrective waves.
+        - **161.8%**: The golden extension -- a key profit target.
+        - **200% and 261.8%**: Extended targets for strong trends.
+        - Use for setting profit targets and identifying potential
+          resistance levels in a trend.
 
     Parameters
     ----------

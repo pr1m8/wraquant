@@ -42,11 +42,18 @@ def relative_performance(
     asset: pd.Series,
     benchmark: pd.Series,
 ) -> pd.Series:
-    """Relative Performance — ratio of asset to benchmark, normalized to 100.
+    """Relative Performance -- ratio of asset to benchmark, normalized to 100.
 
     ``RP = (asset / benchmark) / (asset.iloc[0] / benchmark.iloc[0]) * 100``
 
-    A rising line means the asset is outperforming the benchmark.
+    Interpretation:
+        - **Rising line**: Asset is outperforming the benchmark.
+          Buy the asset, sell the benchmark (or use as a selection filter).
+        - **Falling line**: Asset is underperforming the benchmark.
+        - **Above 100**: Asset has outperformed since the start of the
+          measurement period.
+        - **Below 100**: Asset has underperformed.
+        - Use to identify sector rotation and relative strength leaders.
 
     Parameters
     ----------

@@ -63,6 +63,23 @@ def obv(close: pd.Series, volume: pd.Series) -> pd.Series:
     OBV is a cumulative running total of volume. Volume is added on up-close
     days and subtracted on down-close days.
 
+    Interpretation:
+        - **Rising OBV**: Volume is flowing in (accumulation) -- bullish.
+        - **Falling OBV**: Volume is flowing out (distribution) -- bearish.
+        - **Divergence**: The most important signal. Price makes a new
+          high but OBV does not = smart money is not confirming the
+          move (bearish divergence). Price makes a new low but OBV
+          does not = accumulation is occurring (bullish divergence).
+        - **Breakout confirmation**: OBV breaking to a new high
+          alongside price confirms the breakout is genuine.
+
+    Trading rules:
+        - Buy when OBV diverges bullishly from price (price falls,
+          OBV holds or rises).
+        - Sell when OBV diverges bearishly from price (price rises,
+          OBV flattens or falls).
+        - Use OBV trend (rising/falling) to confirm price trends.
+
     Parameters
     ----------
     close : pd.Series
@@ -100,6 +117,16 @@ def ad_line(
     """Accumulation/Distribution Line (AD Line).
 
     Uses the Close Location Value (CLV) money flow multiplier.
+
+    Interpretation:
+        - **Rising AD line**: Accumulation -- buying pressure dominates.
+          Volume is flowing into the asset.
+        - **Falling AD line**: Distribution -- selling pressure dominates.
+        - **Divergence**: Price makes new high but AD does not =
+          distribution despite rising prices (bearish). Price makes
+          new low but AD does not = accumulation (bullish).
+        - Unlike OBV, the AD line considers where the close is within
+          the high-low range, not just the direction of the close.
 
     Parameters
     ----------
@@ -146,6 +173,26 @@ def cmf(
     period: int = 20,
 ) -> pd.Series:
     """Chaikin Money Flow (CMF).
+
+    Measures money flow volume over a rolling period, showing whether
+    buying or selling pressure is dominant.
+
+    Interpretation:
+        - **Positive (> 0)**: Buying pressure (accumulation). The
+          higher the value, the stronger the buying.
+        - **Negative (< 0)**: Selling pressure (distribution).
+        - **> +0.25**: Strong buying pressure.
+        - **< -0.25**: Strong selling pressure.
+        - **Zero-line crossover**: Shift from accumulation to
+          distribution or vice versa.
+        - **Divergence**: Price makes new high but CMF is falling =
+          distribution.
+
+    Trading rules:
+        - Buy when CMF crosses above zero (accumulation starting).
+        - Sell when CMF crosses below zero (distribution starting).
+        - Confirm breakouts: price breaking resistance with positive
+          CMF is more reliable.
 
     Parameters
     ----------
@@ -199,7 +246,22 @@ def mfi(
 ) -> pd.Series:
     """Money Flow Index (MFI).
 
-    Often called the volume-weighted RSI.
+    Often called the volume-weighted RSI. Incorporates both price and
+    volume to identify overbought/oversold conditions.
+
+    Interpretation:
+        - **> 80**: Overbought -- high buying pressure, potential
+          reversal.
+        - **< 20**: Oversold -- high selling pressure, potential bounce.
+        - **Divergence**: Price makes new high but MFI does not =
+          weakening volume-confirmed momentum (bearish).
+        - More reliable than RSI alone because it includes volume:
+          a price move on heavy volume is more meaningful.
+
+    Trading rules:
+        - Buy when MFI crosses above 20 (leaving oversold).
+        - Sell when MFI crosses below 80 (leaving overbought).
+        - MFI divergence with price is a strong reversal signal.
 
     Parameters
     ----------
@@ -254,6 +316,18 @@ def eom(
 ) -> pd.Series:
     """Ease of Movement (EMV / EOM).
 
+    Relates price change to volume, showing how easily price is moving.
+
+    Interpretation:
+        - **Positive**: Price is advancing on relatively low volume
+          (easy movement up) = bullish.
+        - **Negative**: Price is declining on relatively low volume
+          (easy movement down) = bearish.
+        - **Near zero**: Price movement requires substantial volume
+          = indecision or strong resistance/support.
+        - **Zero-line crossover**: Shift from easy upward to easy
+          downward movement or vice versa.
+
     Parameters
     ----------
     high : pd.Series
@@ -297,6 +371,24 @@ def force_index(
 
     ``Force = close.diff() * volume``, then smoothed with EMA.
 
+    Combines price change and volume to measure the strength behind
+    a move.
+
+    Interpretation:
+        - **Positive**: Buying force -- price is rising with volume.
+        - **Negative**: Selling force -- price is falling with volume.
+        - **Magnitude**: Larger values = stronger force behind the move.
+        - **Zero-line crossover**: Shift from buying to selling force.
+        - **Divergence**: Price makes new high but Force Index is
+          declining = momentum weakening.
+
+    Trading rules:
+        - Buy when Force Index crosses above zero in an uptrend
+          (pullback entry).
+        - Sell when Force Index crosses below zero in a downtrend.
+        - Use short period (2) for entries, longer period (13) for
+          trend confirmation.
+
     Parameters
     ----------
     close : pd.Series
@@ -331,6 +423,14 @@ def nvi(close: pd.Series, volume: pd.Series) -> pd.Series:
 
     NVI focuses on days when volume decreases; the assumption is that
     smart money is active on low-volume days.
+
+    Interpretation:
+        - **Rising NVI**: Smart money is buying on quiet days.
+        - **Falling NVI**: Smart money is selling on quiet days.
+        - **NVI above its 255-day MA**: Bull market (historically
+          correct ~96% of the time according to Norman Fosback).
+        - **NVI below its 255-day MA**: Bear market.
+        - Compare with PVI to distinguish smart vs. crowd behavior.
 
     Parameters
     ----------
@@ -377,6 +477,14 @@ def pvi(close: pd.Series, volume: pd.Series) -> pd.Series:
     PVI focuses on days when volume increases; the assumption is that
     the crowd follows price on high-volume days.
 
+    Interpretation:
+        - **Rising PVI**: The crowd is buying on high-volume days.
+        - **Falling PVI**: The crowd is selling on high-volume days.
+        - **PVI below its 255-day MA**: Bearish sign (the crowd is
+          pushing prices down on active days).
+        - PVI tends to track what the public/retail traders are doing;
+          NVI tracks institutional/smart money behavior.
+
     Parameters
     ----------
     close : pd.Series
@@ -421,6 +529,11 @@ def vpt(close: pd.Series, volume: pd.Series) -> pd.Series:
 
     ``VPT = cumsum(volume * pct_change(close))``
 
+    Interpretation:
+        - **Rising VPT**: Volume is confirming the price trend (bullish).
+        - **Falling VPT**: Volume is working against the price trend.
+        - **Divergence**: Price rises but VPT falls = distribution.
+
     Parameters
     ----------
     close : pd.Series
@@ -458,6 +571,16 @@ def adosc(
     """Accumulation/Distribution Oscillator (Chaikin Oscillator).
 
     ``ADOSC = EMA(AD, fast) - EMA(AD, slow)``
+
+    Interpretation:
+        - **Positive**: Short-term accumulation exceeds long-term
+          = money is flowing in.
+        - **Negative**: Short-term distribution exceeds long-term
+          = money is flowing out.
+        - **Zero-line crossover**: Buy when crossing above zero,
+          sell when crossing below.
+        - **Divergence**: Price makes new high but oscillator falls =
+          distribution.
 
     Parameters
     ----------
@@ -501,6 +624,14 @@ def vwma(
     reduces to the standard SMA.
 
     ``VWMA = SUM(close * volume, period) / SUM(volume, period)``
+
+    Interpretation:
+        - **Price above VWMA**: Bullish -- volume-confirmed uptrend.
+        - **Price below VWMA**: Bearish -- volume-confirmed downtrend.
+        - **VWMA vs SMA**: When VWMA > SMA, heavy volume is occurring
+          at higher prices (accumulation). When VWMA < SMA, heavy
+          volume is at lower prices (distribution).
+        - More responsive to volume spikes than a standard SMA.
 
     Parameters
     ----------
@@ -646,6 +777,19 @@ def klinger(
     Uses the relationship between price trend direction and volume to
     predict price reversals.
 
+    Interpretation:
+        - **KVO above zero**: Net volume flow is bullish (accumulation).
+        - **KVO below zero**: Net volume flow is bearish (distribution).
+        - **Signal line crossover**: KVO crossing above signal = buy;
+          crossing below = sell.
+        - **Divergence**: Price at new high but KVO declining = money
+          flowing out despite rising prices (distribution).
+
+    Trading rules:
+        - Buy when KVO crosses above its signal line.
+        - Sell when KVO crosses below its signal line.
+        - Best for confirming price breakouts with volume support.
+
     ``trend = sign(hlc3 - hlc3.shift(1))``
     ``dm = high - low``
     ``cm = cumulative dm when trend unchanged, else dm``
@@ -790,6 +934,14 @@ def elder_force(
     This is Elder's original formulation using a short EMA (default 2).
     For a longer-term variant, increase *period*.
 
+    Interpretation:
+        - **Positive**: Buying force (price rising with volume).
+        - **Negative**: Selling force (price falling with volume).
+        - **2-period**: Use for short-term entry timing within a trend.
+          Buy dips to zero or slightly negative in an uptrend.
+        - **13-period**: Use for trend direction confirmation.
+        - **Divergence**: Price new high but Force declining = weakening.
+
     ``raw = close.diff() * volume``
     ``elder_force = EMA(raw, period)``
 
@@ -839,6 +991,17 @@ def volume_profile(
     Distributes volume into *bins* equally-spaced price buckets.  This is
     useful for identifying high-volume nodes (support/resistance) and
     low-volume nodes (price gaps).
+
+    Interpretation:
+        - **High-volume nodes (HVN)**: Price levels where significant
+          trading occurred = strong support/resistance. Price tends to
+          consolidate at these levels.
+        - **Low-volume nodes (LVN)**: Price levels with little trading
+          = price tends to move quickly through these zones.
+        - **Point of control (POC)**: The price level with the highest
+          volume = strongest S/R level.
+        - **Value area**: The range containing ~70% of volume =
+          fair value zone.
 
     Parameters
     ----------
@@ -963,6 +1126,14 @@ def volume_roc(
     """Volume Rate of Change (Volume ROC).
 
     Measures the percentage change in volume over a given period.
+
+    Interpretation:
+        - **Large positive**: Volume is surging compared to *period*
+          bars ago = heightened interest, possible breakout.
+        - **Large negative**: Volume is drying up = decreasing interest.
+        - **Volume spike with price breakout**: Confirms the breakout.
+        - **Volume spike without price movement**: Potential
+          distribution or accumulation before a move.
 
     ``volume_roc = (volume - volume.shift(period)) / volume.shift(period) * 100``
 

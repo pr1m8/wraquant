@@ -1,8 +1,59 @@
 """Statistical analysis for financial data.
 
-Covers descriptive statistics, hypothesis tests, correlation/covariance
-estimation, distribution fitting, cointegration, regression, factor models,
-and advanced dependence measures.
+Provides a comprehensive suite of statistical tools designed for the
+specific challenges of financial data: fat tails, non-stationarity,
+time-varying correlations, and spurious regression.  Covers everything
+from basic summary statistics through cointegration testing and
+multi-factor attribution.
+
+Key sub-modules:
+
+- **Descriptive** (``descriptive``) -- ``summary_stats`` (one-call
+  overview), ``annualized_return``, ``annualized_volatility``,
+  ``max_drawdown``, ``calmar_ratio``, ``omega_ratio``,
+  ``rolling_sharpe``, and ``risk_contribution``.
+- **Tests** (``tests``) -- Hypothesis tests tailored for finance:
+  ``test_normality`` (Jarque-Bera), ``test_stationarity`` (ADF/KPSS),
+  ``test_autocorrelation`` (Ljung-Box), ``durbin_watson``,
+  ``breusch_pagan``, ``white_test``, ``chow_test``, and
+  ``variance_inflation_factor``.
+- **Correlation** (``correlation``) -- ``correlation_matrix``,
+  ``shrunk_covariance`` (Ledoit-Wolf), ``rolling_correlation``,
+  ``partial_correlation``, ``distance_correlation``, ``kendall_tau``,
+  ``mutual_information``, and ``minimum_spanning_tree_correlation``.
+- **Dependence** (``dependence``) -- ``tail_dependence_coefficient``,
+  ``copula_selection``, ``rank_correlation_matrix``, and
+  ``concordance_index``.
+- **Distributions** (``distributions``) -- ``fit_distribution``,
+  ``fit_stable_distribution``, ``tail_ratio``, ``tail_index``,
+  ``hurst_exponent``, ``kernel_density_estimate``, and goodness-of-fit
+  tests (Jarque-Bera, KS, Anderson-Darling).
+- **Robust** (``robust``) -- Outlier-resistant estimators: ``mad``,
+  ``winsorize``, ``trimmed_mean``, ``robust_zscore``,
+  ``robust_covariance``, ``huber_mean``, and ``outlier_detection``.
+- **Cointegration** (``cointegration``) -- ``engle_granger``,
+  ``johansen``, ``half_life``, ``hedge_ratio``, ``spread``,
+  ``zscore_signal``, ``pairs_backtest_signals``, and
+  ``find_cointegrated_pairs`` for pairs trading research.
+- **Regression** (``regression``) -- ``ols``, ``rolling_ols``, ``wls``,
+  ``fama_macbeth`` (cross-sectional), and ``newey_west_ols``
+  (HAC-robust standard errors).
+- **Factor analysis** (``factor``, ``factor_analysis``) --
+  ``fama_french_regression``, ``pca_factors``, ``factor_loadings``,
+  ``factor_mimicking_portfolios``, ``risk_factor_decomposition``, and
+  ``information_coefficient``.
+
+Example:
+    >>> from wraquant.stats import summary_stats, test_stationarity
+    >>> from wraquant.stats import engle_granger, rolling_correlation
+    >>> stats = summary_stats(returns)
+    >>> adf = test_stationarity(returns, method="adf")
+    >>> coint = engle_granger(price_a, price_b)
+
+Use ``wraquant.stats`` for statistical analysis and hypothesis testing.
+For technical indicator overlays, use ``wraquant.ta``.  For risk-adjusted
+performance metrics (Sharpe, Sortino), see ``wraquant.risk.metrics``.
+For time series decomposition and forecasting, see ``wraquant.ts``.
 """
 
 from wraquant.stats.cointegration import (

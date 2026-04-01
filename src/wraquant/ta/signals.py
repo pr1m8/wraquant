@@ -47,6 +47,14 @@ def _to_series(data: pd.Series | float | int, ref: pd.Series) -> pd.Series:
 def crossover(series1: pd.Series, series2: pd.Series | float | int) -> pd.Series:
     """Detect when *series1* crosses above *series2*.
 
+    Interpretation:
+        - Returns True on the exact bar where series1 moves from
+          below-or-equal to above series2.
+        - Common uses: MA crossovers, RSI crossing above 30,
+          MACD crossing above signal line.
+        - Only fires on the transition bar, not on subsequent bars
+          where series1 remains above series2.
+
     Parameters
     ----------
     series1 : pd.Series
@@ -70,6 +78,12 @@ def crossover(series1: pd.Series, series2: pd.Series | float | int) -> pd.Series
 
 def crossunder(series1: pd.Series, series2: pd.Series | float | int) -> pd.Series:
     """Detect when *series1* crosses below *series2*.
+
+    Interpretation:
+        - Returns True on the exact bar where series1 moves from
+          above-or-equal to below series2.
+        - Common uses: MA death crosses, RSI crossing below 70,
+          MACD crossing below signal line.
 
     Parameters
     ----------

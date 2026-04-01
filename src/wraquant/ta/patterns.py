@@ -99,6 +99,16 @@ def doji(
 
     A Doji occurs when the body is very small relative to the total range.
 
+    Interpretation:
+        - **Indecision**: Open and close are nearly equal -- buyers
+          and sellers are in balance.
+        - **At resistance**: Bearish signal (potential reversal down).
+        - **At support**: Bullish signal (potential reversal up).
+        - **In a trend**: Warning that momentum may be fading.
+        - Requires confirmation from the next candle -- a doji alone
+          is not a signal.
+        - Reliability: Moderate. More significant after a strong trend.
+
     Parameters
     ----------
     open_ : pd.Series
@@ -156,6 +166,17 @@ def hammer(
     proxy: prior close < close), -1 for hanging man (after an uptrend
     proxy: prior close > close), 0 otherwise.
 
+    Interpretation:
+        - **Hammer (1)**: Bullish reversal after a downtrend. Sellers
+          pushed price down during the session but buyers fought back,
+          closing near the open. The long lower shadow shows rejected
+          selling pressure.
+        - **Hanging Man (-1)**: Bearish warning after an uptrend. Same
+          shape, but context differs -- suggests sellers are emerging.
+        - Confirmation needed: Wait for the next candle to close in
+          the reversal direction.
+        - Reliability: High for hammers at major support levels.
+
     Parameters
     ----------
     open_ : pd.Series
@@ -210,6 +231,17 @@ def engulfing(
     close: pd.Series,
 ) -> pd.Series:
     """Bullish/Bearish Engulfing pattern.
+
+    Interpretation:
+        - **Bullish engulfing (1)**: A small bearish candle completely
+          engulfed by a larger bullish candle. Strong reversal signal
+          at the bottom of a downtrend.
+        - **Bearish engulfing (-1)**: A small bullish candle completely
+          engulfed by a larger bearish candle. Strong reversal signal
+          at the top of an uptrend.
+        - Volume confirmation strengthens the signal.
+        - Reliability: High -- one of the most reliable reversal
+          patterns, especially at key support/resistance levels.
 
     Parameters
     ----------
@@ -266,6 +298,16 @@ def morning_star(
 ) -> pd.Series:
     """Morning Star (3-candle bullish reversal).
 
+    Interpretation:
+        - A strong bullish reversal signal at the bottom of a downtrend.
+        - Day 1 (large bearish): Bears are in control.
+        - Day 2 (small body / doji): Indecision -- selling pressure
+          is exhausting.
+        - Day 3 (large bullish): Bulls take over, closing above the
+          midpoint of Day 1's body.
+        - Reliability: High -- three-candle confirmation reduces
+          false signals. Best at established support levels.
+
     Parameters
     ----------
     open_ : pd.Series
@@ -317,6 +359,14 @@ def evening_star(
     close: pd.Series,
 ) -> pd.Series:
     """Evening Star (3-candle bearish reversal).
+
+    Interpretation:
+        - The bearish counterpart of the Morning Star.
+        - Day 1 (large bullish): Bulls are in control.
+        - Day 2 (small body / doji): Indecision at the top.
+        - Day 3 (large bearish): Bears take over.
+        - Reliability: High -- the mirror of Morning Star. Best at
+          established resistance levels.
 
     Parameters
     ----------
@@ -374,6 +424,14 @@ def three_white_soldiers(
     Three consecutive bullish candles, each opening within the prior body
     and closing at a new high.
 
+    Interpretation:
+        - Strong bullish signal indicating sustained buying pressure.
+        - Each candle should have a full body (not spinning tops).
+        - Best after a downtrend or consolidation as a reversal signal.
+        - Reliability: Very high -- three consecutive strong closes
+          show committed buying. Weakened if upper shadows are long
+          (advance block pattern).
+
     Parameters
     ----------
     open_ : pd.Series
@@ -430,6 +488,12 @@ def three_black_crows(
 
     Three consecutive bearish candles, each opening within the prior body
     and closing at a new low.
+
+    Interpretation:
+        - Strong bearish signal indicating sustained selling pressure.
+        - The bearish counterpart of Three White Soldiers.
+        - Reliability: Very high -- three consecutive strong closes
+          downward show committed selling.
 
     Parameters
     ----------
@@ -489,6 +553,16 @@ def harami(
     The second candle's body is entirely contained within the first
     candle's body.
 
+    Interpretation:
+        - **Bullish harami (1)**: A large bearish candle followed by a
+          small bullish candle within its body. Suggests selling pressure
+          is weakening. Reversal may follow.
+        - **Bearish harami (-1)**: A large bullish candle followed by a
+          small bearish candle within its body. Suggests buying pressure
+          is weakening.
+        - Reliability: Moderate -- requires confirmation from the
+          following candle. Less reliable than engulfing patterns.
+
     Parameters
     ----------
     open_ : pd.Series
@@ -545,6 +619,14 @@ def spinning_top(
     A candle with a small body relative to its range and roughly equal
     upper and lower shadows.
 
+    Interpretation:
+        - **Indecision**: Neither buyers nor sellers gained control.
+        - **In an uptrend**: Warns that bulls are losing momentum.
+        - **In a downtrend**: Warns that bears are losing momentum.
+        - Not a reversal signal on its own -- needs confirmation.
+        - Reliability: Low as a standalone signal; moderate when
+          appearing at key levels after a sustained trend.
+
     Parameters
     ----------
     open_ : pd.Series
@@ -599,6 +681,16 @@ def marubozu(
     threshold: float = 0.01,
 ) -> pd.Series:
     """Marubozu (full-body candle with no/tiny wicks).
+
+    Interpretation:
+        - **Bullish marubozu (1)**: Opens at the low and closes at the
+          high -- buyers dominated the entire session with no pushback.
+          Very strong bullish conviction.
+        - **Bearish marubozu (-1)**: Opens at the high and closes at
+          the low -- sellers dominated completely.
+        - Reliability: High -- the absence of shadows shows one side
+          had complete control. Often marks the beginning of a new
+          trend leg.
 
     Parameters
     ----------
@@ -658,6 +750,13 @@ def piercing_pattern(
 
     A two-candle pattern: Day 1 is bearish, Day 2 opens below Day 1's
     low and closes above the midpoint of Day 1's body.
+
+    Interpretation:
+        - Bullish reversal signal at the bottom of a downtrend.
+        - The gap down open followed by a strong close above the
+          midpoint shows buyers stepping in aggressively.
+        - Reliability: Moderate-high. Stronger when the close is
+          deeper into Day 1's body (closer to engulfing).
 
     Parameters
     ----------
@@ -719,6 +818,12 @@ def dark_cloud_cover(
     The bearish counterpart of the Piercing Pattern. Day 1 is bullish,
     Day 2 opens above Day 1's high and closes below the midpoint of
     Day 1's body.
+
+    Interpretation:
+        - Bearish reversal signal at the top of an uptrend.
+        - The gap up open followed by selling down into Day 1's body
+          shows sellers overpowering buyers.
+        - Reliability: Moderate-high. More significant with high volume.
 
     Parameters
     ----------
@@ -782,6 +887,13 @@ def hanging_man(
     Same hammer shape (small body near top, long lower shadow) but appears
     after an uptrend, signalling potential reversal.
 
+    Interpretation:
+        - Bearish warning signal after an uptrend. The long lower
+          shadow shows sellers tested lower prices during the session.
+        - Needs confirmation: a bearish close the next day confirms
+          the reversal.
+        - Reliability: Moderate -- requires confirmation and context.
+
     Parameters
     ----------
     open_ : pd.Series
@@ -841,6 +953,14 @@ def inverted_hammer(
     A candle with a long upper shadow (at least 2x the body) and a
     small lower shadow, appearing after a downtrend.
 
+    Interpretation:
+        - Bullish reversal signal at the bottom of a downtrend.
+        - The long upper shadow shows buyers tested higher prices
+          but could not hold them yet. If confirmed by next bar,
+          buyers are gaining strength.
+        - Reliability: Moderate -- requires a bullish confirmation
+          candle the next day.
+
     Parameters
     ----------
     open_ : pd.Series
@@ -898,6 +1018,14 @@ def shooting_star(
 
     Same shape as inverted hammer (long upper shadow, small lower shadow)
     but appears after an uptrend.
+
+    Interpretation:
+        - Bearish reversal signal at the top of an uptrend. Buyers
+          pushed price higher but sellers overwhelmed them, closing
+          near the open.
+        - The long upper shadow represents rejected higher prices.
+        - Reliability: Moderate-high -- stronger when it appears at
+          resistance with high volume.
 
     Parameters
     ----------
@@ -958,6 +1086,11 @@ def tweezer_top(
     Two consecutive candles with nearly the same highs. The first candle
     is bullish and the second is bearish.
 
+    Interpretation:
+        - Bearish reversal at a resistance level. Both candles tested
+          the same high and were rejected, showing strong resistance.
+        - Reliability: Moderate -- stronger at established resistance.
+
     Parameters
     ----------
     open_ : pd.Series
@@ -1014,6 +1147,11 @@ def tweezer_bottom(
     Two consecutive candles with nearly the same lows. The first candle
     is bearish and the second is bullish.
 
+    Interpretation:
+        - Bullish reversal at a support level. Both candles tested
+          the same low and were rejected, showing strong support.
+        - Reliability: Moderate -- stronger at established support.
+
     Parameters
     ----------
     open_ : pd.Series
@@ -1067,6 +1205,12 @@ def three_inside_up(
 
     A three-candle pattern: bullish harami (Days 1-2) confirmed by a
     third bullish candle closing above Day 1's open.
+
+    Interpretation:
+        - A confirmed bullish harami. The third candle provides the
+          confirmation that a simple harami lacks.
+        - Reliability: High -- three-candle confirmation is stronger
+          than the two-candle harami alone.
 
     Parameters
     ----------
@@ -1126,6 +1270,11 @@ def three_inside_down(
     A three-candle pattern: bearish harami (Days 1-2) confirmed by a
     third bearish candle closing below Day 1's open.
 
+    Interpretation:
+        - A confirmed bearish harami. The bearish counterpart of
+          Three Inside Up.
+        - Reliability: High -- three-candle confirmation pattern.
+
     Parameters
     ----------
     open_ : pd.Series
@@ -1184,6 +1333,14 @@ def abandoned_baby(
 
     A rare three-candle pattern with gaps. A Doji star gaps away from the
     first candle and the third candle gaps in the opposite direction.
+
+    Interpretation:
+        - **Bullish abandoned baby (1)**: Bearish candle, gap-down doji,
+          gap-up bullish candle. Very strong reversal signal.
+        - **Bearish abandoned baby (-1)**: Bullish candle, gap-up doji,
+          gap-down bearish candle. Very strong reversal signal.
+        - Reliability: Very high -- but extremely rare. The gap
+          isolation of the doji shows a dramatic sentiment shift.
 
     Parameters
     ----------
@@ -1256,6 +1413,15 @@ def kicking(
 
     Two consecutive marubozu candles in opposite directions with a gap
     between them. One of the strongest reversal signals.
+
+    Interpretation:
+        - **Bullish kicking (1)**: Bearish marubozu followed by a
+          gap-up bullish marubozu. Extremely strong reversal.
+        - **Bearish kicking (-1)**: Bullish marubozu followed by a
+          gap-down bearish marubozu.
+        - Reliability: Very high -- one of the most powerful candlestick
+          patterns. The opposing full-body candles with a gap show
+          a complete and sudden sentiment reversal.
 
     Parameters
     ----------
@@ -1351,6 +1517,12 @@ def belt_hold(
     prior trend. A bullish belt hold gaps down and opens at the low; a
     bearish belt hold gaps up and opens at the high.
 
+    Interpretation:
+        - **Bullish belt hold (1)**: Gaps down then rallies all day
+          closing near the high -- strong rejection of lower prices.
+        - **Bearish belt hold (-1)**: Gaps up then sells off all day.
+        - Reliability: Moderate -- the gap adds significance.
+
     Parameters
     ----------
     open_ : pd.Series
@@ -1422,6 +1594,13 @@ def rising_three_methods(
     A five-candle pattern: a long bullish candle, followed by three small
     bearish candles that stay within the first candle's range, then a
     final long bullish candle that closes above the first candle's close.
+
+    Interpretation:
+        - Bullish continuation pattern -- the three small bearish
+          candles are a rest/consolidation within the uptrend.
+        - The final bullish candle confirms the trend resumes.
+        - Reliability: High -- five-candle confirmation shows clear
+          trend continuation with a healthy pullback.
 
     Parameters:
         open_: Open prices.
@@ -1498,6 +1677,11 @@ def falling_three_methods(
     The bearish counterpart of Rising Three Methods.  A long bearish candle,
     three small bullish candles inside its range, then a final long bearish
     candle that closes below the first candle's close.
+
+    Interpretation:
+        - Bearish continuation pattern -- the small bullish candles
+          are a brief consolidation within the downtrend.
+        - Reliability: High -- mirror of Rising Three Methods.
 
     Parameters:
         open_: Open prices.
@@ -1897,7 +2081,13 @@ def rickshaw_man(
     body_threshold: float = 0.05,
     shadow_threshold: float = 0.3,
 ) -> pd.Series:
-    """Rickshaw Man — a Doji with very long shadows and tiny body near center.
+    """Rickshaw Man -- a Doji with very long shadows and tiny body near center.
+
+    Interpretation:
+        - Extreme indecision: price moved significantly in both
+          directions but closed near the open at the midpoint.
+        - Suggests the market is at a critical juncture.
+        - Reliability: Moderate -- needs context and confirmation.
 
     Parameters:
         open_: Open prices.
@@ -1958,7 +2148,13 @@ def long_legged_doji(
     body_threshold: float = 0.05,
     shadow_threshold: float = 0.3,
 ) -> pd.Series:
-    """Long Legged Doji — Doji with unusually long upper and lower shadows.
+    """Long Legged Doji -- Doji with unusually long upper and lower shadows.
+
+    Interpretation:
+        - Strong indecision with high volatility. Both buyers and
+          sellers were active but neither won.
+        - More significant than a standard doji due to the wide range.
+        - Reliability: Moderate -- similar to Rickshaw Man.
 
     Parameters:
         open_: Open prices.
@@ -2011,7 +2207,13 @@ def dragonfly_doji(
     upper_threshold: float = 0.05,
     lower_min: float = 0.3,
 ) -> pd.Series:
-    """Dragonfly Doji — Doji with a long lower shadow and no upper shadow.
+    """Dragonfly Doji -- Doji with a long lower shadow and no upper shadow.
+
+    Interpretation:
+        - Bullish signal, especially after a downtrend. Sellers pushed
+          price down but buyers brought it all the way back to the open.
+        - The long lower shadow shows strong rejection of lower prices.
+        - Reliability: Moderate-high at support levels.
 
     Parameters:
         open_: Open prices.
@@ -2065,7 +2267,13 @@ def gravestone_doji(
     lower_threshold: float = 0.05,
     upper_min: float = 0.3,
 ) -> pd.Series:
-    """Gravestone Doji — Doji with a long upper shadow and no lower shadow.
+    """Gravestone Doji -- Doji with a long upper shadow and no lower shadow.
+
+    Interpretation:
+        - Bearish signal, especially after an uptrend. Buyers pushed
+          price up but sellers brought it all the way back to the open.
+        - The long upper shadow shows strong rejection of higher prices.
+        - Reliability: Moderate-high at resistance levels.
 
     Parameters:
         open_: Open prices.
@@ -2117,7 +2325,14 @@ def tri_star(
     close: pd.Series,
     doji_threshold: float = 0.05,
 ) -> pd.Series:
-    """Tri-Star pattern — three consecutive dojis with gaps.
+    """Tri-Star pattern -- three consecutive dojis with gaps.
+
+    Interpretation:
+        - **Bullish tri-star (1)**: Three dojis where the middle gaps
+          below. Very rare, strong reversal at bottoms.
+        - **Bearish tri-star (-1)**: Three dojis where the middle gaps
+          above. Very rare, strong reversal at tops.
+        - Reliability: Very high when it occurs, but extremely rare.
 
     **Bullish** (1): three dojis where the middle gaps below the other two.
     **Bearish** (-1): three dojis where the middle gaps above the other two.

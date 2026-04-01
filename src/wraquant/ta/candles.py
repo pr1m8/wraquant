@@ -66,6 +66,11 @@ def candle_body_size(
 
     Computed as ``abs(close - open)``.
 
+    Interpretation:
+        - **Large body**: Strong conviction -- one side dominated.
+        - **Small body**: Indecision or low activity.
+        - Compare to average body size to identify unusual bars.
+
     Parameters:
         open_: Open prices.
         close: Close prices.
@@ -393,6 +398,16 @@ def inside_bar(
     the previous low (the bar is fully contained within the prior bar's
     range).
 
+    Interpretation:
+        - Consolidation / contraction -- the market is building energy.
+        - Breakout of the inside bar's range often leads to a
+          significant directional move.
+        - Multiple consecutive inside bars = stronger breakout.
+
+    Trading rules:
+        - Place a buy stop above the inside bar's high and a sell
+          stop below its low. Trade whichever triggers first.
+
     Parameters:
         high: High prices.
         low: Low prices.
@@ -424,6 +439,12 @@ def outside_bar(
     An outside bar has a high above the previous high **and** a low below
     the previous low (the bar's range completely engulfs the prior bar's
     range).
+
+    Interpretation:
+        - High volatility bar showing a battle between buyers and sellers.
+        - The close direction determines who won: close near the high
+          = bullish; close near the low = bearish.
+        - Often marks a reversal or a volatility breakout.
 
     Parameters:
         high: High prices.
@@ -459,6 +480,15 @@ def pin_bar(
     A pin bar has a long shadow that is at least *shadow_ratio* times the
     body size.  A bullish pin bar (1) has a long lower shadow; a bearish
     pin bar (-1) has a long upper shadow.
+
+    Interpretation:
+        - **Bullish pin bar (1)**: Long lower shadow shows strong
+          rejection of lower prices. Buy signal at support.
+        - **Bearish pin bar (-1)**: Long upper shadow shows strong
+          rejection of higher prices. Sell signal at resistance.
+        - One of the most widely used price action signals.
+        - Most reliable at key support/resistance levels or after
+          a sustained trend.
 
     Parameters:
         open_: Open prices.

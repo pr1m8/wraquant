@@ -70,6 +70,20 @@ def squeeze_momentum(
     Detects when Bollinger Bands are inside Keltner Channels (the
     "squeeze") and measures momentum via a linear regression of price.
 
+    Interpretation:
+        - **squeeze_on = 1**: Bollinger Bands are inside Keltner
+          Channels. Volatility is compressed. A breakout is imminent.
+        - **squeeze_on = 0**: No squeeze. Normal volatility.
+        - **Momentum positive**: Bullish momentum -- breakout likely up.
+        - **Momentum negative**: Bearish momentum -- breakout likely down.
+        - **Momentum growing**: Accelerating.
+        - **Momentum shrinking**: Decelerating.
+
+    Trading rules:
+        - When squeeze fires (transitions from on to off), enter
+          in the direction of momentum.
+        - Exit when momentum starts to decelerate (histogram shrinks).
+
     Parameters
     ----------
     high : pd.Series

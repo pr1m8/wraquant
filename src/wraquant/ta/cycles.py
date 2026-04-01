@@ -83,6 +83,16 @@ def hilbert_transform_dominant_period(
     Uses Ehlers' Hilbert Transform Discriminator to estimate the
     dominant cycle period of the price series.
 
+    Interpretation:
+        - Output is the estimated cycle length in bars (e.g. 20 means
+          the dominant cycle repeats every 20 bars).
+        - Use this to adaptively set indicator periods: instead of
+          a fixed 14-period RSI, use the dominant period.
+        - **Short period (< 10)**: Fast cycling market.
+        - **Long period (> 30)**: Slow cycling or trending market.
+        - Stable readings = well-defined cycle. Erratic readings =
+          no clear cycle (trending or random).
+
     Parameters
     ----------
     data : pd.Series
@@ -293,6 +303,13 @@ def sine_wave(data: pd.Series) -> dict[str, pd.Series]:
     Uses the dominant cycle period to compute the sine and lead-sine
     values, generating buy/sell signals on crossovers.
 
+    Interpretation:
+        - **Sine crosses above lead_sine**: Buy signal (cycle turning up).
+        - **Sine crosses below lead_sine**: Sell signal (cycle turning down).
+        - When both values are near +/-1, the market is in cycle mode.
+        - When values are erratic or near zero, the market may be
+          trending rather than cycling.
+
     Parameters
     ----------
     data : pd.Series
@@ -345,6 +362,14 @@ def even_better_sinewave(
 
     Combines a high-pass filter, super-smoother, and autocorrelation
     to produce an oscillator that identifies the dominant cycle.
+
+    Interpretation:
+        - **Near +1**: Cycle is at or near a peak.
+        - **Near -1**: Cycle is at or near a trough.
+        - **Zero crossover up**: Cycle turning bullish.
+        - **Zero crossover down**: Cycle turning bearish.
+        - More reliable than the original Sine Wave indicator because
+          it better separates cycle from trend components.
 
     Parameters
     ----------
@@ -412,6 +437,14 @@ def roofing_filter(
     Applies a high-pass filter followed by a super-smoother low-pass
     filter to isolate the dominant cycle from both trend and noise.
 
+    Interpretation:
+        - Output oscillates around zero, showing the pure cycle
+          component of price.
+        - **Positive**: Cycle is in the up phase.
+        - **Negative**: Cycle is in the down phase.
+        - Use to identify cycle turning points without trend or
+          noise contamination.
+
     Parameters
     ----------
     data : pd.Series
@@ -452,6 +485,13 @@ def decycler(data: pd.Series, hp_period: int = 125) -> pd.Series:
 
     Removes the cycle component from the price series, keeping only
     the trend. Computed as ``price - highpass(price)``.
+
+    Interpretation:
+        - Shows the pure trend component of price with cycles removed.
+        - **Price above decycler**: Bullish trend.
+        - **Price below decycler**: Bearish trend.
+        - Extremely smooth with virtually no lag -- one of the best
+          trend-following overlays available.
 
     Parameters
     ----------
@@ -496,6 +536,14 @@ def bandpass_filter(
 
     Isolates the cycle component at the specified period. Returns both
     the bandpass filter output and a trigger signal (one-bar lag).
+
+    Interpretation:
+        - **BP crosses above trigger**: Buy signal (cycle turning up).
+        - **BP crosses below trigger**: Sell signal (cycle turning down).
+        - **BP at peak**: Cycle high -- potential sell zone.
+        - **BP at trough**: Cycle low -- potential buy zone.
+        - Only isolates the cycle at the specified period; other
+          frequencies are filtered out.
 
     Parameters
     ----------

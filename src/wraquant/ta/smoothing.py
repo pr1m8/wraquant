@@ -51,6 +51,15 @@ def alma(
     position of the bell curve along the window via *offset* and the width
     via *sigma*.
 
+    Interpretation:
+        - **Price above ALMA**: Bullish.
+        - **Price below ALMA**: Bearish.
+        - Combines the responsiveness of EMA with the smoothness of
+          Gaussian weighting. The offset parameter lets you place
+          more weight on recent prices (offset near 1) or older
+          prices (offset near 0).
+        - Excellent alternative to EMA for crossover systems.
+
     Parameters
     ----------
     data : pd.Series

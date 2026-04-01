@@ -1430,10 +1430,19 @@ def qstick(
     close: pd.Series,
     period: int = 14,
 ) -> pd.Series:
-    """QStick indicator — moving average of ``(close - open)``.
+    """QStick indicator -- moving average of ``(close - open)``.
 
-    A positive QStick indicates more bullish bars; a negative value indicates
-    more bearish bars.
+    Quantifies the dominance of bullish vs bearish candlesticks
+    over the look-back period.
+
+    Interpretation:
+        - **Positive**: On average, candles are closing above their open
+          (more bullish bars) = buying pressure.
+        - **Negative**: On average, candles are closing below their open
+          (more bearish bars) = selling pressure.
+        - **Zero-line crossover**: Shift from bearish to bullish bars
+          or vice versa.
+        - **Magnitude**: Larger values = stronger candlestick conviction.
 
     Parameters
     ----------
@@ -1474,9 +1483,26 @@ def coppock_curve(
     long_roc: int = 14,
     short_roc: int = 11,
 ) -> pd.Series:
-    """Coppock Curve — weighted moving average of the sum of two ROCs.
+    """Coppock Curve -- weighted moving average of the sum of two ROCs.
 
     ``Coppock = WMA(ROC(long_roc) + ROC(short_roc), wma_period)``
+
+    Originally designed for monthly charts to identify long-term
+    buying opportunities in the S&P 500. One of the few indicators
+    specifically designed to detect major market bottoms.
+
+    Interpretation:
+        - **Zero-line crossover from below**: The primary buy signal.
+          Indicates the market is turning up from a major bottom.
+        - **Above zero and rising**: Bullish momentum confirmed.
+        - **Below zero**: Market is in or recovering from a downturn.
+        - Traditionally, only buy signals are used (zero crossover
+          from below). Sell signals are less reliable.
+
+    Trading rules:
+        - Buy when the Coppock Curve crosses above zero.
+        - This is a long-term indicator; best on monthly data for
+          identifying multi-year buying opportunities.
 
     Parameters
     ----------
@@ -1533,6 +1559,24 @@ def relative_vigor_index(
     Measures the conviction of a recent price move by comparing the close-open
     range to the high-low range, smoothed with a symmetric-weighted moving
     average and then a simple moving average.
+
+    The idea is that in bull markets, prices tend to close near their
+    highs (high vigor), and in bear markets near their lows.
+
+    Interpretation:
+        - **Above zero**: Closing prices tend to be above opening
+          prices = bullish energy.
+        - **Below zero**: Closing prices tend to be below opening
+          prices = bearish energy.
+        - **Signal line crossover**: RVI crossing above signal = buy;
+          crossing below = sell.
+        - **Divergence**: Price makes new high but RVI does not =
+          conviction is weakening.
+
+    Trading rules:
+        - Buy when RVI crosses above its signal line.
+        - Sell when RVI crosses below its signal line.
+        - Best combined with a trend indicator for confirmation.
 
     Parameters
     ----------
@@ -1603,6 +1647,15 @@ def schaff_momentum(
 
     Applies two rounds of Stochastic smoothing to the difference between
     fast and slow EMAs, producing a bounded oscillator in [0, 100].
+
+    Interpretation:
+        - **> 75**: Bullish -- trend cycle is in the upper zone.
+        - **< 25**: Bearish -- trend cycle is in the lower zone.
+        - **25-75**: Transition zone.
+        - **Crosses above 25**: Buy signal (turning bullish).
+        - **Crosses below 75**: Sell signal (turning bearish).
+        - Faster than MACD because of the double stochastic smoothing;
+          provides earlier signals but may also have more false signals.
 
     Parameters
     ----------
@@ -1677,12 +1730,28 @@ def price_momentum_oscillator(
     long: int = 20,
     signal: int = 10,
 ) -> dict[str, pd.Series]:
-    """Price Momentum Oscillator (PMO) — double-smoothed ROC.
+    """Price Momentum Oscillator (PMO) -- double-smoothed ROC.
 
     ``PMO = EMA(EMA(ROC(1), short), long)``
 
     Developed by Carl Swenlin, the PMO is a double-smoothed one-bar
     rate-of-change, scaled by a factor of 10 for visibility.
+
+    Interpretation:
+        - **Above zero**: Bullish momentum (price trend is up).
+        - **Below zero**: Bearish momentum.
+        - **Signal line crossover**: PMO crossing above signal = buy;
+          crossing below = sell.
+        - **Zero-line crossover**: Confirms a trend change.
+        - **Extreme readings**: PMO values at historical extremes
+          (relative to asset) indicate overextended moves.
+        - **Divergence**: Price makes new high but PMO does not =
+          bearish divergence.
+
+    Trading rules:
+        - Buy on bullish signal-line crossover, especially near zero
+          or in negative territory.
+        - Sell on bearish signal-line crossover.
 
     Parameters
     ----------
@@ -1735,10 +1804,19 @@ def klinger_oscillator(
     slow: int = 55,
     signal: int = 13,
 ) -> dict[str, pd.Series]:
-    """Klinger Volume Oscillator — momentum-oriented view.
+    """Klinger Volume Oscillator -- momentum-oriented view.
 
     Uses the relationship between price trend direction and volume to
-    predict price reversals.
+    predict price reversals. Combines volume with trend to identify
+    accumulation and distribution.
+
+    Interpretation:
+        - **KVO above zero**: Volume flow is bullish (accumulation).
+        - **KVO below zero**: Volume flow is bearish (distribution).
+        - **Signal line crossover**: KVO crossing above signal = buy;
+          crossing below = sell.
+        - **Divergence**: Price makes new high but KVO does not =
+          distribution occurring despite rising prices.
 
     Parameters
     ----------
@@ -1823,6 +1901,15 @@ def stochastic_momentum_index(
     distance of the close relative to the midpoint of the high-low range,
     double-smoothed with EMAs.
 
+    Interpretation:
+        - **> +40**: Overbought zone.
+        - **< -40**: Oversold zone.
+        - **Zero-line crossover**: SMI above 0 = bullish; below = bearish.
+        - **Signal line crossover**: SMI crossing above signal = buy;
+          crossing below = sell.
+        - More refined than Stochastic because it measures distance
+          from the midpoint rather than from the low, reducing noise.
+
     Parameters
     ----------
     high : pd.Series
@@ -1885,10 +1972,17 @@ def inertia(
     rvi_period: int = 10,
     linreg_period: int = 20,
 ) -> pd.Series:
-    """Ehlers Inertia Indicator — RVI smoothed by linear regression.
+    """Ehlers Inertia Indicator -- RVI smoothed by linear regression.
 
     Applies a linear regression (moving regression value) to the Relative
     Volatility Index (RVI) to produce a momentum-like indicator.
+
+    Interpretation:
+        - **Above 50**: Bullish -- volatility conditions favor upside.
+        - **Below 50**: Bearish -- volatility conditions favor downside.
+        - **50 crossover**: Trend direction change signal.
+        - Smoother than raw RVI due to the regression smoothing,
+          so it gives clearer trend signals with fewer whipsaws.
 
     Parameters
     ----------
@@ -1959,11 +2053,29 @@ def squeeze_histogram(
     period: int = 20,
     linreg_period: int = 20,
 ) -> pd.Series:
-    """Squeeze Histogram — momentum component of the TTM Squeeze.
+    """Squeeze Histogram -- momentum component of the TTM Squeeze.
 
     Computes the linear regression value of ``close - midline`` where
     midline is the average of the highest high and lowest low over the
     period, combined with the SMA.
+
+    Interpretation:
+        - **Positive and growing**: Bullish momentum accelerating.
+        - **Positive and shrinking**: Bullish momentum decelerating
+          (potential top forming).
+        - **Negative and growing (more negative)**: Bearish momentum
+          accelerating.
+        - **Negative and shrinking**: Bearish momentum decelerating
+          (potential bottom forming).
+        - **Color changes** (when plotted): Dark green = accelerating
+          bullish, light green = decelerating bullish, dark red =
+          accelerating bearish, light red = decelerating bearish.
+
+    Trading rules:
+        - Use with squeeze detection (BB inside KC). When squeeze
+          fires (BB exits KC), trade in the direction of the histogram.
+        - Buy when histogram turns positive after a squeeze release.
+        - Sell when histogram turns negative after a squeeze release.
 
     Parameters
     ----------
@@ -2026,6 +2138,15 @@ def center_of_gravity(
 
     A weighted sum of recent prices where more recent bars receive higher
     weight, normalized by a simple sum. This produces a leading oscillator.
+
+    Interpretation:
+        - **Oscillates around a negative value**: The center of gravity
+          shifts based on where price weight is concentrated.
+        - **Peaks and troughs**: Mark potential turning points with
+          virtually zero lag.
+        - **Leading indicator**: Turns before price does, making it
+          useful for timing entries.
+        - Best used for cycle-based trading on short timeframes.
 
     ``CoG = -sum(price[i] * (i+1), i=0..period-1) / sum(price[i], i=0..period-1)``
 

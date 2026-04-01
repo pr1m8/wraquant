@@ -1,15 +1,55 @@
 """Financial visualizations for wraquant.
 
-Provides publication-quality plots for returns analysis, portfolio
-diagnostics, time series exploration, and risk reporting.  All
-functions require the ``viz`` optional dependency group::
+Provides publication-quality charts and interactive dashboards for every
+stage of the quant research workflow: returns analysis, portfolio
+diagnostics, regime overlays, risk reporting, technical analysis, vol
+surfaces, correlation networks, and full strategy tearsheets.  Offers
+both static matplotlib plots and interactive dark-themed Plotly figures.
+
+Requires the ``viz`` optional dependency group::
 
     pdm install -G viz
 
-Interactive Plotly-based visualizations are available alongside the
-original matplotlib charts.  Rich multi-panel dashboards and standalone
-chart functions offer comprehensive analysis views with dark-themed
-Plotly figures.
+Key sub-modules:
+
+- **Returns** (``returns``) -- ``plot_cumulative_returns``,
+  ``plot_drawdowns``, ``plot_return_distribution``,
+  ``plot_rolling_returns``, ``plot_monthly_heatmap``.
+- **Portfolio** (``portfolio``) -- ``plot_weights``,
+  ``plot_efficient_frontier``, ``plot_risk_contribution``,
+  ``plot_correlation_matrix``.
+- **Time series** (``timeseries``) -- ``plot_series``,
+  ``plot_regime_overlay``, ``plot_decomposition``.
+- **Risk** (``risk``) -- ``plot_var_backtest``,
+  ``plot_rolling_volatility``, ``plot_tail_distribution``.
+- **Interactive Plotly** (``interactive``, ``advanced``) --
+  ``plotly_returns``, ``plotly_drawdown``, ``plotly_rolling_stats``,
+  ``plotly_correlation_heatmap``, ``plotly_efficient_frontier``,
+  ``plotly_vol_surface``, ``plotly_network_graph``,
+  ``plotly_regime_overlay``, ``plotly_treemap``, ``plotly_radar``.
+- **Candlestick** (``candlestick``) -- ``plotly_candlestick``,
+  ``plotly_heikin_ashi``, ``plotly_renko``, ``plotly_market_profile``.
+- **Dashboards** (``dashboard``) -- Multi-panel Plotly dashboards:
+  ``portfolio_dashboard``, ``regime_dashboard``, ``risk_dashboard``,
+  ``technical_dashboard``.
+- **Rich charts** (``charts``) -- Standalone analysis charts:
+  ``plot_backtest_tearsheet``, ``plot_distribution_analysis``,
+  ``plot_correlation_network``, ``plot_vol_surface``.
+- **auto_plot** -- Auto-detects data type and chooses the appropriate
+  visualization.
+- **Themes** (``themes``) -- ``set_wraquant_style``, ``apply_theme``,
+  ``COLORS`` palette.
+
+Example:
+    >>> from wraquant.viz import plotly_returns, portfolio_dashboard
+    >>> fig = plotly_returns(returns, title="Strategy Returns")
+    >>> dash = portfolio_dashboard(weights, returns, benchmark)
+
+Use ``wraquant.viz`` for all visualization needs.  It integrates with
+``wraquant.risk`` (risk dashboards), ``wraquant.regimes`` (regime
+overlays), ``wraquant.backtest`` (tearsheets), and ``wraquant.opt``
+(efficient frontiers).  For a full interactive Streamlit application,
+see ``wraquant.dashboard``.
 """
 
 from wraquant.viz.advanced import (

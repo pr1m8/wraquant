@@ -47,6 +47,21 @@ def find_support_resistance(
     levels within *tolerance* (as a fraction of price) to produce
     consolidated S/R levels.
 
+    Interpretation:
+        - **Support levels**: Prices where buying pressure historically
+          prevented further decline. Price tends to bounce at these levels.
+        - **Resistance levels**: Prices where selling pressure
+          historically prevented further advance.
+        - **Multiple touches**: A level tested many times is stronger.
+        - **Breakout through resistance**: Resistance becomes support
+          (role reversal) and vice versa.
+
+    Trading rules:
+        - Buy at support levels with confirmation (candlestick pattern,
+          volume spike).
+        - Sell at resistance levels with confirmation.
+        - Place stops on the other side of the S/R level.
+
     Parameters
     ----------
     high : pd.Series

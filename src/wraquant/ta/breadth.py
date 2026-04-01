@@ -49,10 +49,19 @@ def advance_decline_line(
     advancing: pd.Series,
     declining: pd.Series,
 ) -> pd.Series:
-    """Advance/Decline Line — cumulative sum of (advancing - declining).
+    """Advance/Decline Line -- cumulative sum of (advancing - declining).
 
     The A/D line is a breadth indicator that tracks the running total of
     the difference between the number of advancing and declining issues.
+
+    Interpretation:
+        - **Rising A/D line with rising market**: Healthy uptrend --
+          broad participation confirms the rally.
+        - **Falling A/D line with rising market**: Bearish divergence --
+          fewer stocks participating in the rally. Distribution.
+        - **Rising A/D line with falling market**: Bullish divergence --
+          accumulation occurring beneath the surface.
+        - The A/D line often leads the market at major turning points.
 
     Parameters
     ----------

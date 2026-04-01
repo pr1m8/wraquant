@@ -43,6 +43,27 @@ from wraquant.ta._validators import validate_series as _validate_series
 def sma(data: pd.Series, period: int = 20) -> pd.Series:
     """Simple Moving Average.
 
+    The most fundamental overlay indicator. Smooths price by averaging
+    the last *period* values equally.
+
+    Interpretation:
+        - **Price above SMA**: Bullish -- price is above its average.
+        - **Price below SMA**: Bearish -- price is below its average.
+        - **Golden cross**: Short-term SMA (e.g. 50) crosses above
+          long-term SMA (e.g. 200) = bullish trend signal.
+        - **Death cross**: Short-term SMA crosses below long-term
+          SMA = bearish trend signal.
+        - **Slope**: Rising SMA confirms uptrend; falling confirms
+          downtrend.
+        - Common periods: 20 (short-term), 50 (medium-term),
+          200 (long-term institutional benchmark).
+
+    Trading rules:
+        - Buy when price crosses above SMA (or when shorter SMA
+          crosses above longer SMA).
+        - Sell when price crosses below SMA.
+        - Use 200 SMA as a trend filter: only take longs above it.
+
     Parameters
     ----------
     data : pd.Series
@@ -65,6 +86,21 @@ def ema(data: pd.Series, period: int = 20) -> pd.Series:
     """Exponential Moving Average.
 
     Uses the standard *span*-based smoothing factor ``2 / (period + 1)``.
+    More responsive to recent price changes than SMA because it weights
+    recent data more heavily.
+
+    Interpretation:
+        - Same as SMA: price above = bullish, price below = bearish.
+        - **More responsive** than SMA: catches trend changes faster
+          but may produce more whipsaws.
+        - EMA crossovers (e.g. 12/26 EMA) form the basis of MACD.
+        - Common periods: 9 (very short-term), 21 (swing trading),
+          50 and 200 (institutional benchmarks).
+
+    Trading rules:
+        - Same crossover rules as SMA but with faster signals.
+        - In fast markets, prefer EMA over SMA for tighter stops
+          and quicker entries.
 
     Parameters
     ----------
@@ -87,7 +123,14 @@ def wma(data: pd.Series, period: int = 20) -> pd.Series:
     """Weighted Moving Average.
 
     Weights increase linearly so that the most recent observation receives
-    the highest weight.
+    the highest weight. A compromise between SMA and EMA.
+
+    Interpretation:
+        - Same directional signals as SMA/EMA: price above = bullish,
+          below = bearish, crossovers for entry/exit.
+        - More responsive than SMA but less than EMA.
+        - Useful when you want more weight on recent data but a
+          smoother result than EMA.
 
     Parameters
     ----------
@@ -116,6 +159,14 @@ def dema(data: pd.Series, period: int = 20) -> pd.Series:
 
     ``DEMA = 2 * EMA(data) - EMA(EMA(data))``
 
+    Reduces the lag inherent in a standard EMA by subtracting a
+    double-smoothed version. More responsive to recent price changes.
+
+    Interpretation:
+        - Same as EMA/SMA but with reduced lag. Use for faster
+          crossover signals and tighter trailing stops.
+        - Price above DEMA = bullish; below = bearish.
+
     Parameters
     ----------
     data : pd.Series
@@ -139,6 +190,14 @@ def tema(data: pd.Series, period: int = 20) -> pd.Series:
     """Triple Exponential Moving Average.
 
     ``TEMA = 3 * EMA - 3 * EMA(EMA) + EMA(EMA(EMA))``
+
+    Even less lag than DEMA. Hugs price very tightly and reacts
+    quickly to changes. Can overshoot in choppy markets.
+
+    Interpretation:
+        - Same as EMA but with minimal lag. Excellent for short-term
+          trend following but may whipsaw in consolidation.
+        - Price above TEMA = bullish; below = bearish.
 
     Parameters
     ----------
@@ -169,7 +228,21 @@ def kama(
     """Kaufman Adaptive Moving Average (KAMA).
 
     KAMA adapts its smoothing constant based on the efficiency ratio of the
-    price movement.
+    price movement. In trending markets it acts like a fast EMA; in
+    choppy markets it slows down to avoid whipsaws.
+
+    Interpretation:
+        - **Price above KAMA**: Bullish.
+        - **Price below KAMA**: Bearish.
+        - **Flat KAMA**: Market is choppy/range-bound (KAMA stops
+          following noise). This is the key advantage over SMA/EMA.
+        - **KAMA direction change**: Potential trend reversal signal.
+
+    Trading rules:
+        - Buy when price crosses above KAMA.
+        - Sell when price crosses below KAMA.
+        - KAMA's adaptive nature makes it better for trend following
+          than fixed-period moving averages in volatile markets.
 
     Parameters
     ----------
@@ -233,6 +306,21 @@ def vwap(
     cumulative volume. This is the *intraday running* VWAP; for session-reset
     VWAP, pre-group your data by session.
 
+    Interpretation:
+        - **Price above VWAP**: Buyers are in control; longs entered
+          at good prices relative to the average fill.
+        - **Price below VWAP**: Sellers are in control.
+        - **VWAP as support/resistance**: Institutional traders use
+          VWAP as a benchmark. Price tends to gravitate toward VWAP.
+        - **Mean reversion**: Extreme deviations from VWAP tend to
+          revert, especially intraday.
+
+    Trading rules:
+        - Buy pullbacks to VWAP in an uptrend (institutional support).
+        - Sell rallies to VWAP in a downtrend (institutional resistance).
+        - Institutions aim to buy below VWAP and sell above it; track
+          whether your fills are better than VWAP.
+
     Parameters
     ----------
     high : pd.Series
@@ -275,6 +363,23 @@ def supertrend(
     multiplier: float = 3.0,
 ) -> dict[str, pd.Series]:
     """Supertrend indicator.
+
+    A trend-following overlay that flips between support and resistance
+    levels based on ATR bands. One of the cleanest trend indicators.
+
+    Interpretation:
+        - **Direction = 1 (uptrend)**: Supertrend line acts as
+          dynamic support below price. Trend is bullish.
+        - **Direction = -1 (downtrend)**: Supertrend line acts as
+          dynamic resistance above price. Trend is bearish.
+        - **Flip from -1 to 1**: Buy signal (trend turns bullish).
+        - **Flip from 1 to -1**: Sell signal (trend turns bearish).
+
+    Trading rules:
+        - Buy when direction flips to 1 (close above supertrend).
+        - Sell when direction flips to -1 (close below supertrend).
+        - Use the supertrend line as a trailing stop.
+        - Higher multiplier = fewer flips but wider stops.
 
     Parameters
     ----------
@@ -386,6 +491,29 @@ def ichimoku(
 ) -> dict[str, pd.Series]:
     """Ichimoku Kinko Hyo (Ichimoku Cloud).
 
+    A comprehensive trend system that provides support/resistance,
+    trend direction, and momentum in a single view.
+
+    Interpretation:
+        - **Price above cloud**: Bullish trend. The cloud acts as
+          support.
+        - **Price below cloud**: Bearish trend. The cloud acts as
+          resistance.
+        - **Price inside cloud**: Trend is transitioning/uncertain.
+        - **Tenkan-Kijun cross**: Tenkan crossing above Kijun =
+          bullish signal (TK cross). Below = bearish.
+        - **Senkou Span A above B**: Cloud is green = bullish bias.
+        - **Senkou Span A below B**: Cloud is red = bearish bias.
+        - **Chikou Span above price**: Confirms bullish momentum.
+        - **Cloud thickness**: Thicker cloud = stronger support/
+          resistance.
+
+    Trading rules:
+        - Buy when price breaks above cloud AND Tenkan > Kijun AND
+          Chikou is above price from 26 periods ago.
+        - Sell when price breaks below cloud AND Tenkan < Kijun.
+        - Use cloud edges (Senkou A/B) as stop-loss levels.
+
     Parameters
     ----------
     high : pd.Series
@@ -463,6 +591,31 @@ def bollinger_bands(
 ) -> dict[str, pd.Series]:
     """Bollinger Bands.
 
+    A volatility-based envelope around a moving average. The bands
+    widen during high volatility and contract during low volatility.
+
+    Interpretation:
+        - **Price touching upper band**: Price is at the high end of
+          its recent range. Not necessarily a sell signal in strong
+          uptrends (walking the band).
+        - **Price touching lower band**: Price is at the low end.
+          Not necessarily a buy signal in downtrends.
+        - **Squeeze (narrow bandwidth)**: Low volatility -- a
+          breakout in either direction is imminent.
+        - **Expansion (wide bandwidth)**: High volatility -- move
+          may be overextended and due for consolidation.
+        - **%B > 1**: Price is above the upper band.
+        - **%B < 0**: Price is below the lower band.
+        - **%B near 0.5**: Price is at the middle band (SMA).
+
+    Trading rules:
+        - Mean reversion: Buy at lower band, sell at upper band
+          (works best in ranging markets).
+        - Breakout: Buy on a close above upper band with expanding
+          bandwidth (works in trending markets).
+        - Squeeze play: Wait for narrow bands, then trade the
+          breakout direction.
+
     Parameters
     ----------
     data : pd.Series
@@ -512,6 +665,20 @@ def keltner_channel(
 
     The middle line is an EMA of the close; upper and lower bands are
     offset by a multiple of the Average True Range.
+
+    Interpretation:
+        - **Price above upper band**: Strong uptrend or overbought.
+        - **Price below lower band**: Strong downtrend or oversold.
+        - **Price bouncing off middle line**: EMA acting as support
+          (uptrend) or resistance (downtrend).
+        - **Keltner + Bollinger**: When BB is inside KC, a "squeeze"
+          is active. See :func:`~wraquant.ta.custom.squeeze_momentum`.
+
+    Trading rules:
+        - Buy pullbacks to the middle line (EMA) in an uptrend.
+        - Sell rallies to the middle line in a downtrend.
+        - Breakout above upper band = trend continuation (go long).
+        - Breakout below lower band = trend continuation (go short).
 
     Parameters
     ----------
@@ -566,6 +733,23 @@ def donchian_channel(
     period: int = 20,
 ) -> dict[str, pd.Series]:
     """Donchian Channel.
+
+    The simplest channel indicator: the highest high and lowest low
+    over the look-back period. The basis of the Turtle Trading system.
+
+    Interpretation:
+        - **Price at upper band**: Price is at the highest point in
+          *period* bars = potential breakout to the upside.
+        - **Price at lower band**: Price is at the lowest point =
+          potential breakout to the downside.
+        - **Channel width**: Wider channel = more volatile market.
+        - **Middle line**: Average of upper and lower = equilibrium.
+
+    Trading rules:
+        - Buy when price breaks above the upper band (20-day high).
+        - Sell when price breaks below the lower band (20-day low).
+        - Use 10-day Donchian for exits, 20-day for entries (Turtle
+          Trading system).
 
     Parameters
     ----------

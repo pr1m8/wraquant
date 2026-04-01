@@ -78,9 +78,21 @@ def choppiness_index(
 ) -> pd.Series:
     """Choppiness Index.
 
-    Measures whether the market is trending or range-bound. Values near
-    100 indicate a choppy, consolidating market; values near 0 indicate
-    a strong trend.
+    Measures whether the market is trending or range-bound.
+
+    Interpretation:
+        - **> 61.8**: Choppy / range-bound market. Avoid trend-following
+          strategies; use mean-reversion instead.
+        - **< 38.2**: Strong trending market. Use trend-following
+          strategies; avoid mean-reversion.
+        - **38.2-61.8**: Transitional zone.
+        - Does NOT indicate trend direction, only whether a trend exists.
+        - Low choppiness often precedes a breakout.
+
+    Trading rules:
+        - Apply trend strategies when CI < 38.2.
+        - Apply range strategies when CI > 61.8.
+        - Wait for CI to drop before entering breakout trades.
 
     ``CI = 100 * log10(sum(ATR(1), n) / (highest_high - lowest_low)) / log10(n)``
 
@@ -137,6 +149,16 @@ def random_walk_index(
 
     Compares the range of directional price moves to the expected range
     of a random walk. Values above 1.0 suggest trending behavior.
+
+    Interpretation:
+        - **RWI High > 1**: Upward price movement exceeds what a
+          random walk would produce = genuine uptrend.
+        - **RWI Low > 1**: Downward price movement exceeds random
+          walk = genuine downtrend.
+        - **Both < 1**: Price movement is consistent with random
+          noise = no trend.
+        - **RWI High > RWI Low**: Bullish bias.
+        - **RWI Low > RWI High**: Bearish bias.
 
     Parameters
     ----------

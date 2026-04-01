@@ -1,29 +1,50 @@
-"""Distributed computing for wraquant.
+"""Distributed and parallel computing for wraquant.
 
-Provides wrappers for parallelizing quantitative finance workloads
-using joblib, Dask, and Ray.  Every public function defaults to the
-``joblib`` backend so it works out of the box; pass ``backend="dask"``
-or ``backend="ray"`` (and install the corresponding extra group) for
-heavier workloads.
+Provides high-level functions for parallelizing common quantitative
+finance workloads -- backtesting, optimization, walk-forward validation,
+regime detection, Monte Carlo simulation, and feature computation --
+across multiple CPU cores or distributed clusters.  Every public function
+defaults to the ``joblib`` backend (no extra dependencies), with optional
+``dask`` and ``ray`` backends for heavier workloads or multi-machine
+clusters.
 
-Parallelism trade-offs
-----------------------
-Parallelization adds per-task overhead (serialization, IPC, worker
-start-up).  Rule of thumb:
+Parallelism trade-offs:
 
-* **< 100 ms per task** -- stay sequential.
+* **< 100 ms per task** -- stay sequential; overhead dominates.
 * **100 ms -- 1 s per task** -- ``joblib`` with threading or loky.
 * **> 1 s per task** -- ``dask`` / ``ray`` for true distribution.
 
-Functions
----------
-Low-level primitives:
-    dask_map, ray_map
+Key functions:
 
-Quant workflow helpers:
-    parallel_backtest, parallel_optimize, parallel_walk_forward,
-    parallel_regime_detection, parallel_monte_carlo,
-    parallel_feature_compute, distributed_backtest, chunk_apply
+- **parallel_backtest** -- Run a strategy across a parameter grid in
+  parallel; each parameter set is evaluated independently.
+- **distributed_backtest** -- Enhanced version with auto-backend
+  selection, structured DataFrame output, and failure handling.
+- **parallel_optimize** -- Sweep portfolio constraints (max weight,
+  sector bounds, turnover) in parallel for sensitivity analysis.
+- **parallel_walk_forward** -- Parallelize walk-forward CV windows;
+  each window fits independently.
+- **parallel_regime_detection** -- Fit HMM / GMM regime models for
+  many assets simultaneously.
+- **parallel_monte_carlo** -- Split Monte Carlo simulations across
+  workers and concatenate paths.
+- **parallel_feature_compute** -- Compute feature matrices for
+  multiple assets in parallel.
+- **chunk_apply** -- Apply a function to chunks of a large DataFrame
+  in parallel (row-based or group-based splitting).
+- **dask_map / ray_map** -- Low-level primitives for custom parallel
+  workloads.
+
+Example:
+    >>> from wraquant.scale import parallel_backtest, parallel_monte_carlo
+    >>> grid = [{"window": w} for w in [10, 20, 50, 100]]
+    >>> results = parallel_backtest(strategy_fn, grid, prices)
+    >>> mc_paths = parallel_monte_carlo(gbm_simulate, n_simulations=100_000)
+
+Use ``wraquant.scale`` when you need to speed up embarrassingly parallel
+workloads.  For sequential workflow orchestration (Pipeline, DAG, retry),
+see ``wraquant.flow``.  For experiment tracking across parameter sweeps,
+see ``wraquant.experiment``.
 """
 
 from __future__ import annotations

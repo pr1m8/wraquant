@@ -50,6 +50,15 @@ def higher_highs_lows(
     (uptrend = 1), lower highs & lower lows (downtrend = -1), or neither
     (0).
 
+    Interpretation:
+        - **1 (HH+HL)**: Classic uptrend structure. Price is making
+          higher highs and higher lows -- the textbook definition of
+          an uptrend.
+        - **-1 (LH+LL)**: Classic downtrend structure.
+        - **0**: No clear trend -- consolidation, range, or transition.
+        - When the sequence breaks (e.g. first lower low in an uptrend),
+          it is an early warning of potential trend reversal.
+
     Parameters:
         high: High prices.
         low: Low prices.

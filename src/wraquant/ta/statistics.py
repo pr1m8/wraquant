@@ -45,6 +45,16 @@ def zscore(data: pd.Series, period: int = 20) -> pd.Series:
     Measures how many standard deviations the current value is from the
     rolling mean.
 
+    Interpretation:
+        - **> +2**: Price is 2+ standard deviations above mean --
+          statistically unusual (overbought).
+        - **< -2**: Price is 2+ standard deviations below mean --
+          statistically unusual (oversold).
+        - **Near 0**: Price is near its rolling average (fair value).
+        - Mean-reversion traders buy at z < -2 and sell at z > +2.
+        - In trending markets, z-score can stay extreme for extended
+          periods -- use with a trend filter.
+
     Parameters
     ----------
     data : pd.Series
@@ -197,6 +207,15 @@ def skewness(data: pd.Series, period: int = 20) -> pd.Series:
     Measures the asymmetry of the distribution of values within the
     rolling window. Uses Fisher's definition (bias-corrected).
 
+    Interpretation:
+        - **Positive skew**: Distribution has a long right tail --
+          occasional large positive moves (typical of call option payoffs).
+        - **Negative skew**: Distribution has a long left tail --
+          occasional large negative moves (crash risk).
+        - **Near 0**: Symmetric distribution (normal-like).
+        - Negative skew in returns is common for equities -- tail
+          risk is to the downside.
+
     Parameters
     ----------
     data : pd.Series
@@ -233,6 +252,16 @@ def kurtosis(data: pd.Series, period: int = 20) -> pd.Series:
 
     Measures the tailedness of the distribution of values within the
     rolling window. Normal distribution has excess kurtosis of 0.
+
+    Interpretation:
+        - **> 0 (leptokurtic)**: Fatter tails than normal -- more
+          extreme moves than a Gaussian would predict. Common in
+          financial returns.
+        - **< 0 (platykurtic)**: Thinner tails than normal -- fewer
+          extreme moves.
+        - **Near 0 (mesokurtic)**: Normal-like tail behavior.
+        - High kurtosis warns of tail risk -- standard VaR and
+          Gaussian-based risk models will underestimate risk.
 
     Parameters
     ----------
@@ -454,6 +483,17 @@ def beta(
     period: int = 60,
 ) -> pd.Series:
     """Rolling beta (OLS slope of data returns vs benchmark returns).
+
+    Interpretation:
+        - **Beta = 1**: Asset moves in line with the benchmark.
+        - **Beta > 1**: Asset is more volatile than the benchmark
+          (amplifies market moves). E.g. beta = 1.5 means the stock
+          moves 1.5% for every 1% benchmark move.
+        - **Beta < 1**: Asset is less volatile than the benchmark.
+        - **Beta < 0**: Asset moves inversely to the benchmark (rare).
+        - **Rising beta**: Asset becoming more correlated/volatile
+          relative to benchmark.
+        - Beta is the cornerstone of CAPM and factor models.
 
     Parameters
     ----------

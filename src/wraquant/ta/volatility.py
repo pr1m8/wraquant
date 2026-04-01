@@ -60,6 +60,14 @@ def true_range(
 
     ``TR = max(H - L, |H - C_prev|, |L - C_prev|)``
 
+    The single-bar volatility measure that accounts for gaps.
+
+    Interpretation:
+        - **High TR**: Large price movement -- high volatility bar.
+        - **Low TR**: Small price movement -- low volatility bar.
+        - Spikes in TR often occur at trend changes or breakouts.
+        - TR forms the basis of ATR and many other volatility indicators.
+
     Parameters
     ----------
     high : pd.Series
@@ -96,6 +104,27 @@ def atr(
     """Average True Range (ATR).
 
     Uses the Wilder smoothing method (``ewm(alpha=1/period)``).
+    The standard measure of market volatility.
+
+    Interpretation:
+        - **Higher ATR**: More volatile market -- wider price swings.
+        - **Lower ATR**: Less volatile -- tight price action.
+        - **Rising ATR**: Volatility is increasing (often at trend
+          beginnings or during strong moves).
+        - **Falling ATR**: Volatility is decreasing (often during
+          consolidation, before a breakout).
+        - ATR does not indicate direction, only the magnitude of
+          price movement.
+
+    Trading rules:
+        - **Stop placement**: Set stop-loss at 2x or 3x ATR from
+          entry to account for normal market noise.
+        - **Position sizing**: Risk a fixed dollar amount per trade;
+          divide by ATR to determine share count.
+        - **Breakout confirmation**: A breakout with rising ATR is
+          more likely to sustain than one with falling ATR.
+        - **Trailing stop**: Trail by 2-3x ATR below the highest
+          high (for longs).
 
     Parameters
     ----------
@@ -130,6 +159,14 @@ def natr(
     """Normalized Average True Range (NATR).
 
     ``NATR = (ATR / close) * 100``
+
+    Interpretation:
+        - Same as ATR but expressed as a percentage of price, making
+          it comparable across different assets and price levels.
+        - **Higher NATR**: More volatile (in percentage terms).
+        - **Lower NATR**: Less volatile.
+        - Useful for ranking assets by volatility or for building
+          volatility-weighted portfolios.
 
     Parameters
     ----------
@@ -167,6 +204,22 @@ def bbwidth(
     """Bollinger Band Width.
 
     ``BBWidth = (upper - lower) / middle``
+
+    Interpretation:
+        - **Low BBWidth (squeeze)**: Bollinger Bands are narrow --
+          volatility is low. A breakout is imminent. This is the
+          key signal: low volatility precedes high volatility.
+        - **High BBWidth**: Bollinger Bands are wide -- volatility
+          is high. The move may be overextended.
+        - **BBWidth at 6-month low**: Strong squeeze -- prepare
+          for a significant breakout.
+        - **BBWidth expanding**: Breakout in progress.
+
+    Trading rules:
+        - Look for BBWidth at historical lows (squeeze).
+        - When the squeeze releases (BBWidth starts expanding),
+          trade the breakout direction.
+        - Combine with momentum indicators to determine direction.
 
     Parameters
     ----------
@@ -209,6 +262,14 @@ def kc_width(
     """Keltner Channel Width.
 
     ``KC_Width = (upper - lower) / middle``
+
+    Interpretation:
+        - Same concept as BBWidth but based on ATR instead of
+          standard deviation.
+        - **Narrow KC Width**: Low ATR volatility, potential squeeze.
+        - **Wide KC Width**: High ATR volatility, extended move.
+        - Used with BBWidth for the TTM Squeeze: when BB is inside
+          KC, a squeeze is active.
 
     Parameters
     ----------
@@ -257,6 +318,13 @@ def chaikin_volatility(
 
     Measures the rate of change of the EMA of the high-low spread.
 
+    Interpretation:
+        - **Rising**: Volatility is increasing (range is expanding).
+        - **Falling**: Volatility is decreasing (range is contracting).
+        - **Spike up**: Can indicate a market top (panic/climax).
+        - **Spike down**: Can indicate a market bottom (capitulation
+          followed by quiet).
+
     Parameters
     ----------
     high : pd.Series
@@ -302,6 +370,19 @@ def historical_volatility(
     Computes the rolling standard deviation of log returns. When
     *annualize* is ``True`` the result is scaled by ``sqrt(252)``.
 
+    Interpretation:
+        - **High HV** (e.g. > 30% annualized for equities): Asset is
+          highly volatile. Wider stops and smaller positions needed.
+        - **Low HV** (e.g. < 15% annualized): Asset is calm. Tighter
+          stops and larger positions possible.
+        - **HV vs Implied Volatility**: If HV < IV, options are
+          relatively expensive (sell premium). If HV > IV, options
+          are cheap (buy premium).
+        - **Rising HV**: Uncertainty increasing. Often accompanies
+          selloffs.
+        - **Falling HV**: Market calming down. Often accompanies
+          gradual rallies.
+
     Parameters
     ----------
     data : pd.Series
@@ -343,6 +424,21 @@ def mass_index(
     The Mass Index uses the high-low range to identify trend reversals
     based on range expansions. It accumulates the ratio of two EMAs of
     the range over the *trigger* period.
+
+    Interpretation:
+        - **Reversal bulge**: The key signal. When Mass Index rises
+          above 27 and then falls back below 26.5, a trend reversal
+          is likely (regardless of direction).
+        - The indicator does not tell you the direction of the
+          reversal, only that one is coming.
+        - Combine with a trend indicator to determine which direction
+          the reversal will take.
+
+    Trading rules:
+        - When Mass Index crosses above 27 then back below 26.5
+          (reversal bulge), prepare for a trend change.
+        - Use a 9-period EMA crossover or similar to determine the
+          new trend direction.
 
     Parameters
     ----------
@@ -393,6 +489,15 @@ def garman_klass(
     An efficient OHLC volatility estimator that uses open, high, low, and
     close prices. More efficient than close-to-close because it uses
     intraday range information.
+
+    Interpretation:
+        - Values are directly comparable to historical volatility.
+        - **Higher efficiency**: Uses the same data as close-to-close
+          but extracts more information, producing tighter estimates.
+        - Compare with Parkinson and Yang-Zhang to assess which
+          estimator best suits your data.
+        - Does not handle overnight gaps well; use Yang-Zhang for
+          assets with significant overnight risk.
 
     ``GK = sqrt((1/n) * sum(0.5*(ln(H/L))^2 - (2*ln(2)-1)*(ln(C/O))^2))``
 
@@ -449,6 +554,12 @@ def parkinson(
     Uses the high-low range to estimate volatility, which is more efficient
     than close-to-close since it captures intraday extremes.
 
+    Interpretation:
+        - Approximately 5x more efficient than close-to-close.
+        - Tends to underestimate true volatility when there are
+          overnight gaps (since it ignores open/close).
+        - Best suited for assets that trade continuously (e.g. forex).
+
     ``Parkinson = sqrt((1 / (4 * n * ln(2))) * sum((ln(H/L))^2))``
 
     Parameters
@@ -497,6 +608,12 @@ def rogers_satchell(
 
     Accounts for non-zero drift (trending markets), making it more robust
     than Parkinson or Garman-Klass for trending assets.
+
+    Interpretation:
+        - Better than Garman-Klass for assets with strong trends,
+          because it does not assume zero drift.
+        - Still does not handle overnight gaps; for that, use
+          Yang-Zhang.
 
     ``RS = sqrt((1/n) * sum(ln(H/C)*ln(H/O) + ln(L/C)*ln(L/O)))``
 
@@ -556,6 +673,14 @@ def yang_zhang(
     (close-to-open) volatility, open-to-close volatility, and the
     Rogers-Satchell estimator.
 
+    Interpretation:
+        - **The gold standard** for OHLC volatility estimation.
+        - Handles both overnight gaps and intraday drift.
+        - Use this as the default volatility estimator when you have
+          full OHLC data.
+        - Compare with close-to-close: if Yang-Zhang is significantly
+          higher, overnight/gap risk is material.
+
     Parameters
     ----------
     high : pd.Series
@@ -609,6 +734,12 @@ def close_to_close(
     equivalent to :func:`historical_volatility` but named explicitly to
     distinguish it from range-based estimators.
 
+    Interpretation:
+        - The baseline volatility measure. All other estimators
+          (Parkinson, Garman-Klass, Yang-Zhang) should be compared
+          against this.
+        - See :func:`historical_volatility` for full interpretation.
+
     Parameters
     ----------
     data : pd.Series
@@ -652,6 +783,15 @@ def ulcer_index(
     Measures downside volatility by computing the quadratic mean of
     percentage drawdowns from the rolling maximum over the given period.
     Higher values indicate greater drawdown depth and duration.
+
+    Interpretation:
+        - **Low values (< 5)**: Stable asset with shallow drawdowns.
+        - **High values (> 10)**: Asset is experiencing significant
+          drawdowns.
+        - Unlike standard deviation, only measures downside risk.
+        - Used in the Martin Ratio (return / Ulcer Index) as a
+          risk-adjusted performance metric.
+        - Rising Ulcer Index = drawdowns are deepening = trouble.
 
     ``UI = sqrt(mean(R^2))`` where ``R = 100 * (C - max(C, n)) / max(C, n)``
 
@@ -699,8 +839,19 @@ def relative_volatility_index(
     """Relative Volatility Index (RVI).
 
     Applies the RSI formula to the rolling standard deviation of closes
-    rather than to price changes. Values above 50 suggest increasing
-    volatility, below 50 decreasing.
+    rather than to price changes.
+
+    Interpretation:
+        - **> 50**: Volatility is increasing (standard deviation is
+          rising) -- directional moves are more likely.
+        - **< 50**: Volatility is decreasing (standard deviation is
+          falling) -- consolidation / range-bound.
+        - Not a standalone indicator; best used as a filter.
+
+    Trading rules:
+        - Confirm RSI signals: only take RSI buy signals when RVI > 50.
+        - Avoid breakout trades when RVI < 50 (low volatility = false
+          breakout risk).
 
     Parameters
     ----------
@@ -761,6 +912,14 @@ def acceleration_bands(
     consolidation. Uses ``factor * (high - low) / (high + low)`` as the
     width multiplier.
 
+    Interpretation:
+        - **Price above upper band**: Strong uptrend / breakout.
+        - **Price below lower band**: Strong downtrend / breakdown.
+        - **Bands narrowing**: Consolidation -- breakout imminent.
+        - **Bands widening**: Trend accelerating.
+        - Similar concept to Bollinger Bands but based on range
+          acceleration rather than standard deviation.
+
     Parameters
     ----------
     high : pd.Series
@@ -818,6 +977,12 @@ def standard_deviation(
 
     Computes the rolling sample standard deviation over the given period.
 
+    Interpretation:
+        - **Rising**: Volatility increasing -- larger price swings.
+        - **Falling**: Volatility decreasing -- tighter price action.
+        - Low standard deviation often precedes a breakout.
+        - Used to compute Bollinger Bands (middle +/- N * std_dev).
+
     Parameters
     ----------
     data : pd.Series
@@ -854,6 +1019,12 @@ def variance(
     """Rolling variance.
 
     Computes the rolling sample variance over the given period.
+
+    Interpretation:
+        - The square of standard deviation. Same directional
+          interpretation as standard deviation.
+        - Useful in mathematical contexts where variance is preferred
+          (e.g. portfolio optimization, risk decomposition).
 
     Parameters
     ----------

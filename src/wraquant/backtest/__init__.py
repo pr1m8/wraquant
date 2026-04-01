@@ -1,8 +1,53 @@
 """Backtesting framework for trading strategies.
 
-Provides both vectorized and event-driven backtesting engines,
-strategy abstractions, execution models, performance analysis,
-event tracking, position sizing, and tearsheet generation.
+Provides a full-featured backtesting infrastructure for evaluating
+trading strategies on historical data.  Supports both fast vectorized
+backtesting (for signal-based strategies) and event-driven simulation
+(for complex order logic), with 30+ performance metrics, position sizing
+models, regime-aware filtering, and publication-quality tearsheets.
+
+Key sub-modules:
+
+- **Engine** (``engine``) -- ``Backtest`` (event-driven engine with
+  fill simulation), ``VectorizedBacktest`` (fast signal-based engine),
+  and ``walk_forward_backtest`` (rolling out-of-sample evaluation).
+- **Strategy** (``strategy``) -- ``Strategy`` base class for defining
+  entry/exit logic, signal generation, and position management.
+- **Metrics** (``metrics``) -- 30+ performance metrics computed from
+  an equity curve: ``performance_summary`` (one-call overview),
+  ``omega_ratio``, ``burke_ratio``, ``ulcer_performance_index``,
+  ``kappa_ratio``, ``tail_ratio``, ``rachev_ratio``,
+  ``gain_to_pain_ratio``, ``kelly_fraction`` (optimal bet sizing),
+  ``risk_of_ruin``, ``profit_factor``, ``system_quality_number``,
+  ``expectancy``, ``recovery_factor``, and more.
+- **Position sizing** (``position``) -- ``PositionSizer`` framework,
+  ``risk_parity_position``, ``regime_conditional_sizing`` (size based
+  on detected regime), ``regime_signal_filter`` (suppress signals in
+  unfavorable regimes), ``clip_weights``, ``rebalance_threshold``.
+- **Events** (``events``) -- ``EventTracker`` for logging trades,
+  rebalances, and drawdown events during simulation.
+  ``detect_drawdown_events`` and ``detect_regime_changes`` identify
+  key structural events in the equity curve.
+- **Tearsheet** (``tearsheet``) -- ``generate_tearsheet`` and
+  ``comprehensive_tearsheet`` produce multi-panel performance reports.
+  ``monthly_returns_table``, ``drawdown_table``,
+  ``rolling_metrics_table``, ``strategy_comparison``, and
+  ``trade_analysis`` for detailed diagnostics.
+- **Integrations** -- Wrappers for vectorbt, quantstats, empyrical,
+  pyfolio, and ffn.
+
+Example:
+    >>> from wraquant.backtest import VectorizedBacktest, performance_summary
+    >>> bt = VectorizedBacktest(signal_fn=my_signal)
+    >>> result = bt.run(prices)
+    >>> perf = performance_summary(result["equity_curve"])
+    >>> print(f"Sharpe: {perf['sharpe']:.2f}, Max DD: {perf['max_drawdown']:.1%}")
+
+Use ``wraquant.backtest`` for strategy evaluation and walk-forward
+analysis.  For risk measurement on the resulting equity curve, see
+``wraquant.risk``.  For parallel parameter sweeps, see
+``wraquant.scale.parallel_backtest``.  For interactive tearsheet
+visualization, see ``wraquant.viz.plot_backtest_tearsheet``.
 """
 
 from wraquant.backtest.engine import Backtest, VectorizedBacktest, walk_forward_backtest

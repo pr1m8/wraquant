@@ -1,16 +1,52 @@
 """The wraquant Experiment Lab -- systematic strategy research platform.
 
-The experiment module provides two layers:
+Provides a structured framework for running, tracking, comparing, and
+analyzing trading strategies and models across parameter grids, cross-
+validation folds, and walk-forward windows.  Designed to bring
+experiment-tracking discipline (like MLflow or Weights & Biases) to
+quantitative finance research, ensuring reproducibility and preventing
+the common pitfall of p-hacking through untracked parameter sweeps.
 
-**High-level Lab API** (new):
+The module provides two layers:
+
+**High-level Lab API**:
     ``Lab``, ``Experiment``, ``ExperimentResults``, ``ExperimentStore``
     -- a complete research platform for running, tracking, comparing,
     and analyzing strategies across parameter grids and CV folds.
 
-**Low-level utilities** (existing):
+**Low-level utilities**:
     ``ParameterGrid``, ``grid_search``, ``random_search``,
     ``walk_forward_optimize``, ``parameter_sensitivity``, etc.
     -- building blocks for custom optimization workflows.
+
+Key components:
+
+- **Lab / Experiment** -- Define experiments with parameter grids,
+  run them with automatic result capture, and compare outcomes across
+  configurations.  ``ExperimentStore`` persists results to disk for
+  later analysis.
+- **CV methods** -- ``walk_forward_splits``, ``rolling_splits``,
+  ``purged_kfold_splits``, ``combinatorial_purged_splits`` for
+  generating time-aware train/test splits without lookahead bias.
+- **Grid search** -- ``grid_search`` (exhaustive), ``random_search``
+  (randomized), and ``walk_forward_optimize`` (rolling optimization)
+  for parameter tuning.
+- **Sensitivity analysis** -- ``parameter_sensitivity`` (one-at-a-time),
+  ``parameter_heatmap`` (two-parameter interaction),
+  ``robustness_check``, and ``stability_score`` for understanding how
+  fragile a strategy is to parameter perturbation.
+
+Example:
+    >>> from wraquant.experiment import Lab, grid_search, parameter_sensitivity
+    >>> lab = Lab("momentum_study")
+    >>> exp = lab.create_experiment(strategy_fn, param_grid)
+    >>> results = exp.run(prices)
+    >>> results.best_params
+
+Use ``wraquant.experiment`` for systematic strategy research and parameter
+optimization.  For parallel execution of parameter sweeps, see
+``wraquant.scale.parallel_backtest``.  For the backtesting engine itself,
+see ``wraquant.backtest``.
 """
 
 from __future__ import annotations

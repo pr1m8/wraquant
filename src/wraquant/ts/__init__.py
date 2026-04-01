@@ -1,8 +1,56 @@
 """Time series analysis and forecasting.
 
-Covers decomposition, seasonality detection, change-point detection,
-stationarity transformations, stationarity tests, time series features,
-anomaly detection, and forecasting.
+Provides a complete pipeline for financial time series modeling: from
+decomposing a series into trend, seasonal, and residual components,
+through stationarity testing and transformation, to forecasting with
+classical, stochastic-process, and machine-learning-backed methods.
+Designed for the challenges of financial data -- non-stationarity,
+regime changes, fat tails, and low signal-to-noise ratios.
+
+Key sub-modules:
+
+- **Decomposition** (``decomposition``) -- ``seasonal_decompose`` (additive/
+  multiplicative), ``stl_decompose`` (STL -- robust to outliers),
+  ``ssa_decompose`` (Singular Spectrum Analysis), ``emd_decompose``
+  (Empirical Mode Decomposition), ``wavelet_decompose``, and
+  ``unobserved_components`` (Harvey structural model).
+- **Seasonality** (``seasonality``) -- ``detect_seasonality`` (auto-detect
+  period), ``fourier_features`` (generate sin/cos regressors),
+  ``multi_fourier_features``, ``seasonal_strength``, and
+  ``multi_seasonal_decompose``.
+- **Change-point detection** (``changepoint``) -- ``detect_changepoints``
+  (Bayesian or PELT) and ``cusum`` for detecting structural breaks in
+  mean, variance, or trend.
+- **Stationarity** (``stationarity``) -- ``adf_test``, ``kpss_test``,
+  ``phillips_perron``, ``variance_ratio_test``, ``difference``,
+  ``fractional_difference`` (preserve memory while achieving
+  stationarity), ``detrend``, and ``optimal_differencing``.
+- **Features** (``features``) -- ``autocorrelation_features``,
+  ``spectral_features``, and ``complexity_features`` for summarizing
+  time series structure in ML pipelines.
+- **Anomaly detection** (``anomaly``) -- ``isolation_forest_ts``,
+  ``prophet_anomaly``, and ``grubbs_test_ts``.
+- **Forecasting** (``forecasting``) -- ``auto_arima``, ``auto_forecast``
+  (automatic model selection), ``exponential_smoothing``,
+  ``theta_forecast``, ``ensemble_forecast``, ``rolling_forecast``,
+  ``holt_winters_forecast``, and ``forecast_evaluation``.
+- **Stochastic processes** (``stochastic``) -- ``ornstein_uhlenbeck_forecast``,
+  ``jump_diffusion_forecast``, ``regime_switching_forecast``, and
+  ``var_forecast``.
+- **Advanced integrations** (``advanced``) -- Wrappers for tsfresh,
+  stumpy (matrix profile), tslearn (DTW, k-means), darts, sktime,
+  and statsforecast.
+
+Example:
+    >>> from wraquant.ts import stl_decompose, auto_forecast, adf_test
+    >>> decomp = stl_decompose(prices, period=252)
+    >>> stationarity = adf_test(returns)
+    >>> forecast = auto_forecast(returns, h=20)
+
+Use ``wraquant.ts`` for time series modeling and forecasting.  For
+statistical tests on returns (normality, autocorrelation), see
+``wraquant.stats``.  For volatility-specific forecasting (GARCH), see
+``wraquant.vol``.  For regime-switching models, see ``wraquant.regimes``.
 """
 
 from wraquant.ts.advanced import (
