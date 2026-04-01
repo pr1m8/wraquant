@@ -476,6 +476,18 @@ def build_server(name: str = "wraquant") -> Any:
     # Tier 3: Auto-registered tools (ALL wraquant functions)
     # ------------------------------------------------------------------
 
+    # ------------------------------------------------------------------
+    # Supervisor (high-level orchestrator)
+    # ------------------------------------------------------------------
+
+    from wraquant_mcp.supervisor import register_supervisor_tools
+
+    register_supervisor_tools(mcp, ctx)
+
+    # ------------------------------------------------------------------
+    # Tier 3: Auto-registered tools (ALL wraquant functions)
+    # ------------------------------------------------------------------
+
     from wraquant_mcp.auto_register import register_auto_tools
 
     register_auto_tools(mcp, ctx)
