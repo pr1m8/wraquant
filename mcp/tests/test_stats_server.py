@@ -180,6 +180,24 @@ class TestDistributionFit:
         assert "statistic" in jb
         assert "p_value" in jb
 
+    def test_fit_distribution_direct(self, ctx):
+        """Test fit_distribution function directly."""
+        from wraquant.stats.distributions import fit_distribution
+
+        returns = ctx.get_dataset("returns")["returns"].dropna()
+        result = fit_distribution(returns, dist="norm")
+        assert "params" in result
+        assert "ks_statistic" in result or "ks_stat" in result
+
+    def test_jarque_bera_direct(self, ctx):
+        """Test jarque_bera function directly."""
+        from wraquant.stats.distributions import jarque_bera
+
+        returns = ctx.get_dataset("returns")["returns"].dropna()
+        result = jarque_bera(returns)
+        assert "statistic" in result
+        assert "p_value" in result
+
 
 # ------------------------------------------------------------------
 # Regression

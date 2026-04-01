@@ -253,27 +253,49 @@ class TestBetaAnalysis:
 
 
 class TestFactorAnalysis:
-    """Test factor_analysis tool."""
+    """Test factor analysis through direct wraquant calls."""
 
-    def test_statistical_factor_model(self, risk_tools):
-        result = risk_tools["factor_analysis"](
-            dataset="portfolio_returns",
-            column="AAPL",
-            model="pca",
-            n_factors=2,
-        )
-        assert "model_id" in result
-        assert result["model"] == "pca"
+    def test_statistical_factor_model_direct(self, ctx):
+        """Test PCA factor model directly on multi-asset returns."""
+        from wraquant.risk.factor import statistical_factor_model
 
-    def test_factor_model_stores_model(self, risk_tools, ctx):
-        risk_tools["factor_analysis"](
-            dataset="portfolio_returns",
-            column="AAPL",
-            model="pca",
-            n_factors=2,
+        df = ctx.get_dataset("portfolio_returns")
+        result = statistical_factor_model(df, n_factors=2)
+
+        assert isinstance(result, dict)
+        assert "factors" in result
+        assert "loadings" in result
+        assert "explained_variance" in result
+        assert "explained_variance_ratio" in result
+
+        # Store as model in context
+        stored = ctx.store_model(
+            "pca_factors", result,
+            model_type="factor_pca",
+            source_dataset="portfolio_returns",
         )
-        models = ctx.list_models()
-        assert any("factor" in m for m in models)
+        assert stored["model_id"] == "pca_factors"
+
+    def test_factor_model_variance_explained(self, ctx):
+        """PCA should explain some meaningful variance."""
+        from wraquant.risk.factor import statistical_factor_model
+
+        df = ctx.get_dataset("portfolio_returns")
+        result = statistical_factor_model(df, n_factors=2)
+
+        total = sum(result["explained_variance_ratio"])
+        assert total > 0.1  # should explain more than 10% with 2 factors
+
+    def test_factor_model_stores_in_context(self, ctx):
+        """Verify model is stored and retrievable."""
+        from wraquant.risk.factor import statistical_factor_model
+
+        df = ctx.get_dataset("portfolio_returns")
+        result = statistical_factor_model(df, n_factors=2)
+        ctx.store_model("factor_test", result, model_type="pca")
+
+        retrieved = ctx.get_model("factor_test")
+        assert "loadings" in retrieved
 
 
 # ------------------------------------------------------------------

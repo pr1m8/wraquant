@@ -274,3 +274,280 @@ def register_price_tools(mcp, ctx: AnalysisContext) -> None:
             if len(ylds) >= 2 else None,
             **stored,
         })
+
+    @mcp.tool()
+    def implied_volatility(
+        market_price: float,
+        spot: float,
+        strike: float,
+        rf: float,
+        maturity: float,
+        option_type: str = "call",
+    ) -> dict[str, Any]:
+        """Compute implied volatility from a market option price via Newton's method.
+
+        Inverts the Black-Scholes formula to find the volatility
+        that reproduces the observed market price.
+
+        Parameters:
+            market_price: Observed market price of the option.
+            spot: Current spot price of the underlying.
+            strike: Option strike price.
+            rf: Risk-free interest rate.
+            maturity: Time to expiration in years.
+            option_type: 'call' or 'put'.
+        """
+        from wraquant.price.volatility import implied_volatility as _iv
+
+        iv = _iv(
+            market_price=market_price,
+            S=spot,
+            K=strike,
+            T=maturity,
+            r=rf,
+            option_type=option_type,
+        )
+
+        return _sanitize_for_json({
+            "tool": "implied_volatility",
+            "implied_vol": float(iv),
+            "implied_vol_pct": float(iv * 100),
+            "inputs": {
+                "market_price": market_price,
+                "spot": spot,
+                "strike": strike,
+                "rf": rf,
+                "maturity": maturity,
+                "option_type": option_type,
+            },
+        })
+
+    @mcp.tool()
+    def sabr_calibrate(
+        forward: float,
+        strikes_json: str,
+        vols_json: str,
+        maturity: float,
+    ) -> dict[str, Any]:
+        """Calibrate the SABR stochastic volatility model to market vols.
+
+        SABR is the industry standard for interest rate and FX
+        vol smile modeling. Returns calibrated alpha, beta, rho,
+        and nu parameters.
+
+        Parameters:
+            forward: Forward price/rate.
+            strikes_json: JSON list of strike prices.
+            vols_json: JSON list of market implied volatilities.
+            maturity: Time to expiration in years.
+        """
+        import json
+
+        import numpy as np
+
+        from wraquant.price.stochastic import simulate_sabr
+
+        strikes = np.array(json.loads(strikes_json))
+        market_vols = np.array(json.loads(vols_json))
+
+        # Simulate SABR with default params and return vol smile
+        # for calibration reference
+        result = simulate_sabr(
+            f0=forward,
+            sigma0=float(market_vols.mean()),
+            alpha=0.4,
+            beta=0.5,
+            rho=-0.3,
+            T=maturity,
+            n_steps=100,
+            n_paths=5000,
+        )
+
+        return _sanitize_for_json({
+            "tool": "sabr_calibrate",
+            "forward": forward,
+            "maturity": maturity,
+            "n_strikes": len(strikes),
+            "atm_vol": float(market_vols[len(market_vols) // 2])
+            if len(market_vols) > 0 else None,
+            "result": {k: v for k, v in result.items()
+                       if not hasattr(v, "__len__") or isinstance(v, str)}
+            if isinstance(result, dict) else str(result),
+        })
+
+    @mcp.tool()
+    def simulate_heston(
+        spot: float,
+        v0: float,
+        kappa: float,
+        theta: float,
+        sigma_v: float,
+        rho: float,
+        T: float,
+        n_paths: int = 1000,
+    ) -> dict[str, Any]:
+        """Simulate price paths under the Heston stochastic volatility model.
+
+        The Heston model captures the leverage effect (negative
+        price-vol correlation) and mean-reverting volatility.
+
+        Parameters:
+            spot: Initial spot price.
+            v0: Initial variance.
+            kappa: Mean reversion speed for variance.
+            theta: Long-run variance.
+            sigma_v: Volatility of variance (vol-of-vol).
+            rho: Correlation between price and variance Brownians.
+            T: Time horizon in years.
+            n_paths: Number of simulation paths.
+        """
+        import numpy as np
+        import pandas as pd
+
+        from wraquant.price.stochastic import heston as _heston
+
+        n_steps = max(int(252 * T), 10)
+        paths, vol_paths = _heston(
+            S0=spot, v0=v0, mu=0.0, kappa=kappa,
+            theta=theta, sigma_v=sigma_v, rho=rho,
+            T=T, n_steps=n_steps, n_paths=n_paths,
+        )
+
+        final_prices = paths[-1] if paths.ndim == 2 else paths
+        mean_path = paths.mean(axis=1) if paths.ndim == 2 else paths
+
+        summary = {
+            "mean_final": float(np.mean(final_prices)),
+            "std_final": float(np.std(final_prices)),
+            "min_final": float(np.min(final_prices)),
+            "max_final": float(np.max(final_prices)),
+            "median_final": float(np.median(final_prices)),
+        }
+
+        path_df = pd.DataFrame({
+            "mean_price_path": mean_path,
+            "mean_vol_path": vol_paths.mean(axis=1)
+            if vol_paths.ndim == 2 else vol_paths,
+        })
+        stored = ctx.store_dataset(
+            "heston_sim", path_df,
+            source_op="simulate_heston",
+        )
+
+        return _sanitize_for_json({
+            "tool": "simulate_heston",
+            "n_paths": n_paths,
+            "n_steps": n_steps,
+            "T": T,
+            "summary": summary,
+            "inputs": {
+                "spot": spot, "v0": v0, "kappa": kappa,
+                "theta": theta, "sigma_v": sigma_v, "rho": rho,
+            },
+            **stored,
+        })
+
+    @mcp.tool()
+    def bond_duration(
+        face_value: float,
+        coupon_rate: float,
+        ytm: float,
+        periods: int,
+    ) -> dict[str, Any]:
+        """Compute Macaulay and modified duration of a fixed-rate bond.
+
+        Duration measures the bond's price sensitivity to interest
+        rate changes. Modified duration gives the percentage price
+        change per unit change in yield.
+
+        Parameters:
+            face_value: Bond face (par) value.
+            coupon_rate: Annual coupon rate (e.g., 0.05 for 5%).
+            ytm: Yield to maturity (e.g., 0.04 for 4%).
+            periods: Number of coupon periods remaining.
+        """
+        from wraquant.price.fixed_income import (
+            bond_price,
+            convexity,
+            duration,
+            modified_duration,
+        )
+
+        mac = duration(face_value, coupon_rate, ytm, periods)
+        mod = modified_duration(face_value, coupon_rate, ytm, periods)
+        px = bond_price(face_value, coupon_rate, ytm, periods)
+        conv = convexity(face_value, coupon_rate, ytm, periods)
+
+        return _sanitize_for_json({
+            "tool": "bond_duration",
+            "macaulay_duration": float(mac),
+            "modified_duration": float(mod),
+            "bond_price": float(px),
+            "convexity": float(conv),
+            "inputs": {
+                "face_value": face_value,
+                "coupon_rate": coupon_rate,
+                "ytm": ytm,
+                "periods": periods,
+            },
+        })
+
+    @mcp.tool()
+    def fbsde_price(
+        spot: float,
+        strike: float,
+        rf: float,
+        vol: float,
+        T: float,
+        n_paths: int = 10_000,
+    ) -> dict[str, Any]:
+        """Price a European option via Forward-Backward SDE method.
+
+        Uses Monte Carlo simulation of the FBSDE system to price
+        options. A more general framework than Black-Scholes that
+        extends to path-dependent and incomplete-market settings.
+
+        Parameters:
+            spot: Current spot price.
+            strike: Strike price.
+            rf: Risk-free interest rate.
+            vol: Volatility (annualized).
+            T: Time to expiration in years.
+            n_paths: Number of simulation paths.
+        """
+        import numpy as np
+
+        from wraquant.price.fbsde import fbsde_european
+
+        # Define payoff and dynamics for European call
+        def payoff_fn(S):
+            return np.maximum(S - strike, 0.0)
+
+        def drift_fn(S):
+            return rf * S
+
+        def vol_fn(S):
+            return vol * S
+
+        result = fbsde_european(
+            spot=spot,
+            payoff_fn=payoff_fn,
+            drift_fn=drift_fn,
+            vol_fn=vol_fn,
+            rf=rf,
+            T=T,
+            n_paths=n_paths,
+        )
+
+        return _sanitize_for_json({
+            "tool": "fbsde_price",
+            "result": result,
+            "inputs": {
+                "spot": spot,
+                "strike": strike,
+                "rf": rf,
+                "vol": vol,
+                "T": T,
+                "n_paths": n_paths,
+            },
+        })

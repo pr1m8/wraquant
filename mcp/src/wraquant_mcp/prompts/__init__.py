@@ -1,6 +1,6 @@
 """MCP prompt templates for guided quant analysis workflows.
 
-42 prompts across 8 categories that guide AI agents through
+72 prompts across 8 categories that guide AI agents through
 multi-step quantitative finance workflows using wraquant tools.
 """
 

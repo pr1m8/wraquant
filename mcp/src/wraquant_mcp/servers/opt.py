@@ -1,6 +1,8 @@
 """Portfolio optimization MCP tools.
 
-Tools: optimize_portfolio, efficient_frontier, rebalance_analysis.
+Tools: optimize_portfolio, efficient_frontier, rebalance_analysis,
+black_litterman, hierarchical_risk_parity, min_volatility,
+max_sharpe, risk_budgeting.
 """
 
 from __future__ import annotations
@@ -221,4 +223,265 @@ def register_opt_tools(mcp, ctx: AnalysisContext) -> None:
             "total_turnover": total_turnover / 2,  # one-way
             "n_trades": sum(1 for t in trades.values() if t["direction"] != "hold"),
             "trades": trades,
+        })
+
+    @mcp.tool()
+    def black_litterman(
+        dataset: str,
+        market_weights_json: str = "[]",
+        views_json: str = "{}",
+    ) -> dict[str, Any]:
+        """Run Black-Litterman portfolio optimization with investor views.
+
+        Combines market equilibrium returns with subjective views
+        to produce posterior expected returns and optimal weights.
+
+        Parameters:
+            dataset: Dataset with multi-asset returns.
+            market_weights_json: JSON list of market-cap weights.
+                If empty, uses equal weights.
+            views_json: JSON dict of asset views (expected returns).
+                e.g. '{"AAPL": 0.10, "MSFT": 0.05}'
+        """
+        import json
+
+        import numpy as np
+
+        from wraquant.opt.portfolio import black_litterman as _bl
+
+        df = ctx.get_dataset(dataset)
+        returns = df.select_dtypes(include=[np.number]).dropna()
+
+        views = json.loads(views_json) if views_json and views_json != "{}" else {}
+
+        result = _bl(returns, views=views)
+
+        model_name = f"bl_{dataset}"
+        stored = ctx.store_model(
+            model_name, result,
+            model_type="black_litterman",
+            source_dataset=dataset,
+        )
+
+        weights = {}
+        if hasattr(result, "weights"):
+            w = result.weights
+            if hasattr(w, "items"):
+                weights = {str(k): float(v) for k, v in w.items()}
+            elif hasattr(w, "tolist"):
+                weights = dict(zip(returns.columns, w.tolist()))
+            else:
+                weights = dict(zip(returns.columns, list(w)))
+
+        return _sanitize_for_json({
+            **stored,
+            "method": "black_litterman",
+            "views": views,
+            "weights": weights,
+            "assets": list(returns.columns),
+        })
+
+    @mcp.tool()
+    def hierarchical_risk_parity(
+        dataset: str,
+    ) -> dict[str, Any]:
+        """Hierarchical Risk Parity (HRP) portfolio optimization.
+
+        Uses hierarchical clustering to build a diversified portfolio
+        without matrix inversion. More stable than MVO for
+        ill-conditioned covariance matrices.
+
+        Parameters:
+            dataset: Dataset with multi-asset returns.
+        """
+        import numpy as np
+
+        from wraquant.opt.portfolio import hierarchical_risk_parity as _hrp
+
+        df = ctx.get_dataset(dataset)
+        returns = df.select_dtypes(include=[np.number]).dropna()
+
+        result = _hrp(returns)
+
+        model_name = f"hrp_{dataset}"
+        stored = ctx.store_model(
+            model_name, result,
+            model_type="hrp",
+            source_dataset=dataset,
+        )
+
+        weights = {}
+        if hasattr(result, "weights"):
+            w = result.weights
+            if hasattr(w, "items"):
+                weights = {str(k): float(v) for k, v in w.items()}
+            elif hasattr(w, "tolist"):
+                weights = dict(zip(returns.columns, w.tolist()))
+            else:
+                weights = dict(zip(returns.columns, list(w)))
+
+        return _sanitize_for_json({
+            **stored,
+            "method": "hrp",
+            "weights": weights,
+            "assets": list(returns.columns),
+        })
+
+    @mcp.tool()
+    def min_volatility(
+        dataset: str,
+    ) -> dict[str, Any]:
+        """Minimum variance portfolio optimization.
+
+        Finds the portfolio with the lowest possible volatility.
+        The only efficient portfolio that doesn't require expected
+        return estimates.
+
+        Parameters:
+            dataset: Dataset with multi-asset returns.
+        """
+        import numpy as np
+
+        from wraquant.opt.portfolio import min_volatility as _min_vol
+
+        df = ctx.get_dataset(dataset)
+        returns = df.select_dtypes(include=[np.number]).dropna()
+
+        result = _min_vol(returns)
+
+        model_name = f"minvol_{dataset}"
+        stored = ctx.store_model(
+            model_name, result,
+            model_type="min_volatility",
+            source_dataset=dataset,
+        )
+
+        weights = {}
+        if hasattr(result, "weights"):
+            w = result.weights
+            if hasattr(w, "items"):
+                weights = {str(k): float(v) for k, v in w.items()}
+            elif hasattr(w, "tolist"):
+                weights = dict(zip(returns.columns, w.tolist()))
+            else:
+                weights = dict(zip(returns.columns, list(w)))
+
+        return _sanitize_for_json({
+            **stored,
+            "method": "min_volatility",
+            "weights": weights,
+            "assets": list(returns.columns),
+            "portfolio_volatility": float(result.volatility)
+            if hasattr(result, "volatility") else None,
+        })
+
+    @mcp.tool()
+    def max_sharpe(
+        dataset: str,
+        risk_free_rate: float = 0.04,
+    ) -> dict[str, Any]:
+        """Maximum Sharpe ratio (tangency) portfolio optimization.
+
+        Finds the portfolio on the efficient frontier with the
+        highest risk-adjusted return.
+
+        Parameters:
+            dataset: Dataset with multi-asset returns.
+            risk_free_rate: Risk-free rate for Sharpe calculation.
+        """
+        import numpy as np
+
+        from wraquant.opt.portfolio import max_sharpe as _max_sharpe
+
+        df = ctx.get_dataset(dataset)
+        returns = df.select_dtypes(include=[np.number]).dropna()
+
+        result = _max_sharpe(returns, risk_free_rate=risk_free_rate)
+
+        model_name = f"maxsharpe_{dataset}"
+        stored = ctx.store_model(
+            model_name, result,
+            model_type="max_sharpe",
+            source_dataset=dataset,
+        )
+
+        weights = {}
+        if hasattr(result, "weights"):
+            w = result.weights
+            if hasattr(w, "items"):
+                weights = {str(k): float(v) for k, v in w.items()}
+            elif hasattr(w, "tolist"):
+                weights = dict(zip(returns.columns, w.tolist()))
+            else:
+                weights = dict(zip(returns.columns, list(w)))
+
+        return _sanitize_for_json({
+            **stored,
+            "method": "max_sharpe",
+            "risk_free_rate": risk_free_rate,
+            "weights": weights,
+            "assets": list(returns.columns),
+            "sharpe_ratio": float(result.sharpe_ratio)
+            if hasattr(result, "sharpe_ratio") else None,
+            "expected_return": float(result.expected_return)
+            if hasattr(result, "expected_return") else None,
+            "volatility": float(result.volatility)
+            if hasattr(result, "volatility") else None,
+        })
+
+    @mcp.tool()
+    def risk_budgeting(
+        dataset: str,
+        target_risk_json: str = "[]",
+    ) -> dict[str, Any]:
+        """Risk budgeting portfolio: target specific risk contributions per asset.
+
+        Finds weights such that each asset contributes a target
+        fraction of total portfolio risk. Generalizes risk parity
+        (where all targets are equal).
+
+        Parameters:
+            dataset: Dataset with multi-asset returns.
+            target_risk_json: JSON list of target risk contributions
+                (must sum to 1). If empty, defaults to equal risk (risk parity).
+        """
+        import json
+
+        import numpy as np
+
+        from wraquant.risk.portfolio_analytics import risk_budgeting as _rb
+
+        df = ctx.get_dataset(dataset)
+        returns = df.select_dtypes(include=[np.number]).dropna()
+
+        target = json.loads(target_risk_json) \
+            if target_risk_json and target_risk_json != "[]" else []
+
+        cov = returns.cov().values
+
+        if target:
+            target_arr = np.array(target)
+        else:
+            n = returns.shape[1]
+            target_arr = np.ones(n) / n
+
+        result = _rb(cov, target_risk=target_arr)
+
+        weights = {}
+        if isinstance(result, dict) and "weights" in result:
+            w = result["weights"]
+            if hasattr(w, "tolist"):
+                weights = dict(zip(returns.columns, w.tolist()))
+            else:
+                weights = dict(zip(returns.columns, list(w)))
+
+        return _sanitize_for_json({
+            "tool": "risk_budgeting",
+            "dataset": dataset,
+            "target_risk": target_arr.tolist(),
+            "weights": weights,
+            "assets": list(returns.columns),
+            "result": {k: v for k, v in result.items()
+                       if k != "weights"}
+            if isinstance(result, dict) else str(result),
         })
