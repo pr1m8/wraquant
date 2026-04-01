@@ -181,7 +181,10 @@ def fbsde_european(
         z_target = Y_next * dW[t] / dt
 
         # Solve least squares for Z
-        coeffs_z, _, _, _ = np.linalg.lstsq(basis, z_target, rcond=None)
+        from wraquant.stats.regression import ols
+
+        result_z = ols(z_target, basis, add_constant=False)
+        coeffs_z = result_z["coefficients"]
         Z[t] = basis @ coeffs_z
 
         # Compute Y_t using the backward Euler scheme
@@ -591,7 +594,10 @@ def reflected_bsde(
 
         # Z regression
         z_target = Y_next * dW[t] / dt
-        coeffs_z, _, _, _ = np.linalg.lstsq(basis, z_target, rcond=None)
+        from wraquant.stats.regression import ols as _ols
+
+        result_z = _ols(z_target, basis, add_constant=False)
+        coeffs_z = result_z["coefficients"]
         Z[t] = basis @ coeffs_z
 
         # Continuation value (backward Euler)

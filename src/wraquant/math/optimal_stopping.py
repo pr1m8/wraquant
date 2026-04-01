@@ -122,9 +122,12 @@ def longstaff_schwartz(
 
         # Regression
         try:
-            coeffs = np.linalg.lstsq(basis, Y, rcond=None)[0]
+            from wraquant.stats.regression import ols
+
+            result = ols(Y, basis, add_constant=False)
+            coeffs = result["coefficients"]
             continuation = basis @ coeffs
-        except np.linalg.LinAlgError:
+        except (np.linalg.LinAlgError, Exception):
             continuation = Y
 
         # Exercise decision

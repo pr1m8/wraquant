@@ -33,6 +33,8 @@ from typing import Any, Callable
 import numpy as np
 import pandas as pd
 
+from wraquant.core._coerce import coerce_array
+
 
 # ---------------------------------------------------------------------------
 # Kalman Filter
@@ -121,6 +123,9 @@ def kalman_filter(
         kalman_regression: Time-varying coefficient regression.
         unscented_kalman: Nonlinear state estimation.
     """
+    observations = np.asarray(observations, dtype=np.float64)
+    if observations.ndim == 1:
+        observations = observations.reshape(-1, 1)
     x0 = np.atleast_1d(x0).flatten()
     n = len(x0)
     T = len(observations)
@@ -350,7 +355,7 @@ def kalman_regression(
         kalman_filter: General-purpose Kalman filter.
         kalman_smoother: RTS backward smoother.
     """
-    y_arr = np.asarray(y, dtype=np.float64).flatten()
+    y_arr = coerce_array(y, "y")
     X_arr = np.asarray(X, dtype=np.float64)
     if X_arr.ndim == 1:
         X_arr = X_arr.reshape(-1, 1)

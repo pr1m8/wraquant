@@ -313,7 +313,8 @@ def breusch_pagan(
         >>> X = rng.normal(0, 1, (200, 2))
         >>> X = sm.add_constant(X)
         >>> y = X @ [1, 0.5, -0.3] + rng.normal(0, 1, 200)
-        >>> resid = y - X @ np.linalg.lstsq(X, y, rcond=None)[0]
+        >>> from wraquant.stats.regression import ols
+        >>> resid = ols(y, X, add_constant=False)["residuals"]
         >>> result = breusch_pagan(resid, X)
         >>> "lm_stat" in result
         True
@@ -396,7 +397,8 @@ def white_test(
         >>> X = sm.add_constant(X)
         >>> # Heteroskedastic errors: variance depends on X
         >>> y = X @ [1, 0.5, -0.3] + rng.normal(0, 1, 200) * (1 + np.abs(X[:, 1]))
-        >>> resid = y - X @ np.linalg.lstsq(X, y, rcond=None)[0]
+        >>> from wraquant.stats.regression import ols
+        >>> resid = ols(y, X, add_constant=False)["residuals"]
         >>> result = white_test(resid, X)
         >>> "lm_stat" in result
         True

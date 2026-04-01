@@ -682,14 +682,16 @@ def _granger_f_test(
 
     # OLS residuals
     try:
-        beta_r = np.linalg.lstsq(X_r, Y, rcond=None)[0]
-        resid_r = Y - X_r @ beta_r
+        from wraquant.stats.regression import ols
+
+        result_r = ols(Y, X_r, add_constant=False)
+        resid_r = result_r["residuals"]
         ssr_r = resid_r @ resid_r
 
-        beta_u = np.linalg.lstsq(X_u, Y, rcond=None)[0]
-        resid_u = Y - X_u @ beta_u
+        result_u = ols(Y, X_u, add_constant=False)
+        resid_u = result_u["residuals"]
         ssr_u = resid_u @ resid_u
-    except np.linalg.LinAlgError:
+    except (np.linalg.LinAlgError, Exception):
         return 1.0
 
     df1 = max_lag

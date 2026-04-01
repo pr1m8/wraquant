@@ -13,6 +13,8 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from wraquant.core._coerce import coerce_series
+
 
 def label_regimes(states: pd.Series, returns: pd.Series) -> pd.Series:
     """Assign descriptive labels to numeric regime states.

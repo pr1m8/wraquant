@@ -9,6 +9,8 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
+from wraquant.core._coerce import coerce_series
+
 
 def returns(
     prices: pd.Series | pd.DataFrame,
@@ -33,6 +35,8 @@ def returns(
         3    0.039604
         dtype: float64
     """
+    if isinstance(prices, (list, np.ndarray)):
+        prices = coerce_series(prices, name="prices")
     return prices.pct_change(periods=periods)
 
 
@@ -49,6 +53,8 @@ def log_returns(
     Returns:
         Log returns: ln(P_t / P_{t-n})
     """
+    if isinstance(prices, (list, np.ndarray)):
+        prices = coerce_series(prices, name="prices")
     return np.log(prices / prices.shift(periods))
 
 
@@ -63,6 +69,8 @@ def cumulative_returns(
     Returns:
         Cumulative return series starting from 0.
     """
+    if isinstance(simple_returns, (list, np.ndarray)):
+        simple_returns = coerce_series(simple_returns, name="returns")
     return (1 + simple_returns).cumprod() - 1
 
 
@@ -75,6 +83,8 @@ def drawdowns(prices: pd.Series | pd.DataFrame) -> pd.Series | pd.DataFrame:
     Returns:
         Drawdown series (negative values representing decline from peak).
     """
+    if isinstance(prices, (list, np.ndarray)):
+        prices = coerce_series(prices, name="prices")
     peak = prices.cummax()
     return (prices - peak) / peak
 

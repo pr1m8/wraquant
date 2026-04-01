@@ -13,6 +13,8 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from wraquant.core._coerce import coerce_series
+
 __all__ = [
     "to_tearsheet",
     "to_json",
@@ -65,7 +67,7 @@ def to_tearsheet(
         to_json: Serialize any data to JSON.
         format_table: Pretty-print a DataFrame.
     """
-    returns = returns.dropna()
+    returns = coerce_series(returns, name="returns").dropna()
     n_periods = len(returns)
 
     # Assume 252 trading days per year for annualization
@@ -101,7 +103,7 @@ def to_tearsheet(
     }
 
     if benchmark is not None:
-        benchmark = benchmark.dropna()
+        benchmark = coerce_series(benchmark, name="benchmark").dropna()
         # Align the two series
         aligned_returns, aligned_bench = returns.align(benchmark, join="inner")
         if len(aligned_returns) > 1:
