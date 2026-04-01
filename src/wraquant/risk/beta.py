@@ -284,10 +284,10 @@ def dimson_beta(
     r_squared = ols_result["r_squared"]
 
     return {
-        "total_beta": sum(lag_betas),
+        "total_beta": float(sum(lag_betas)),
         "lag_betas": lag_betas,
         "alpha": alpha,
-        "r_squared": r_squared,
+        "r_squared": float(r_squared),
     }
 
 
@@ -368,9 +368,9 @@ def conditional_beta(
     downside_beta = _ols_beta(down_data["r"].values, down_data["b"].values)
 
     return {
-        "upside_beta": upside_beta,
-        "downside_beta": downside_beta,
-        "beta_asymmetry": downside_beta - upside_beta,
+        "upside_beta": float(upside_beta),
+        "downside_beta": float(downside_beta),
+        "beta_asymmetry": float(downside_beta - upside_beta),
         "n_up": int(up_mask.sum()),
         "n_down": int(down_mask.sum()),
     }

@@ -626,10 +626,10 @@ def price_impact_regression(
     data = data.dropna()
     if len(data) < lags + 3:
         return {
-            "permanent_impact": np.nan,
-            "temporary_impact": np.nan,
-            "beta_0": np.nan,
-            "r_squared": np.nan,
+            "permanent_impact": float("nan"),
+            "temporary_impact": float("nan"),
+            "beta_0": float("nan"),
+            "r_squared": float("nan"),
         }
 
     y = data["dp"].values
@@ -642,10 +642,10 @@ def price_impact_regression(
         ols_result = _ols(y, X, add_constant=True)
     except (np.linalg.LinAlgError, ValueError):
         return {
-            "permanent_impact": np.nan,
-            "temporary_impact": np.nan,
-            "beta_0": np.nan,
-            "r_squared": np.nan,
+            "permanent_impact": float("nan"),
+            "temporary_impact": float("nan"),
+            "beta_0": float("nan"),
+            "r_squared": float("nan"),
         }
 
     beta = ols_result["coefficients"]

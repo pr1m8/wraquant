@@ -7,6 +7,8 @@ from typing import Literal
 import numpy as np
 import pandas as pd
 
+from wraquant.core._coerce import coerce_series
+
 
 def to_returns(
     prices: pd.Series | pd.DataFrame,
@@ -27,6 +29,8 @@ def to_returns(
     pd.Series or pd.DataFrame
         Return series.  The first row will be ``NaN``.
     """
+    if not isinstance(prices, (pd.Series, pd.DataFrame)):
+        prices = coerce_series(prices, name="prices")
     if method == "simple":
         return prices.pct_change()
     if method == "log":
@@ -86,6 +90,7 @@ def to_excess_returns(
     pd.Series
         Excess return series.
     """
+    returns = coerce_series(returns, name="returns")
     if isinstance(risk_free_rate, pd.Series):
         risk_free_rate = risk_free_rate.reindex(returns.index, method="ffill")
     return returns - risk_free_rate
@@ -158,6 +163,8 @@ def percentile_rank(
         Rolling percentile ranks.
     """
 
+    data = coerce_series(data, name="data")
+
     def _pct_rank(arr: np.ndarray) -> float:
         current = arr[-1]
         if np.isnan(current):
@@ -183,6 +190,7 @@ def expanding_zscore(data: pd.Series) -> pd.Series:
     pd.Series
         Z-scores computed using all data up to and including each point.
     """
+    data = coerce_series(data, name="data")
     expanding_mean = data.expanding(min_periods=2).mean()
     expanding_std = data.expanding(min_periods=2).std()
     return (data - expanding_mean) / expanding_std
@@ -206,6 +214,7 @@ def rolling_zscore(
     pd.Series
         Z-scores computed over the trailing *window* observations.
     """
+    data = coerce_series(data, name="data")
     rolling_mean = data.rolling(window=window).mean()
     rolling_std = data.rolling(window=window).std()
     return (data - rolling_mean) / rolling_std

@@ -394,7 +394,7 @@ def fit_clayton_copula(
     return {
         "theta": theta,
         "copula_type": "clayton",
-        "lower_tail_dependence": 2 ** (-1.0 / theta),
+        "lower_tail_dependence": float(2 ** (-1.0 / theta)),
     }
 
 
@@ -493,7 +493,7 @@ def fit_gumbel_copula(
     return {
         "theta": theta,
         "copula_type": "gumbel",
-        "upper_tail_dependence": 2 - 2 ** (1.0 / theta),
+        "upper_tail_dependence": float(2 - 2 ** (1.0 / theta)),
     }
 
 

@@ -585,7 +585,7 @@ def comprehensive_tearsheet(
                     "mean_return": float(regime_rets.mean()),
                     "annualized_return": ann_ret,
                     "annualized_volatility": ann_vol,
-                    "sharpe": ann_ret / ann_vol if ann_vol > 0 else 0.0,
+                    "sharpe": float(ann_ret / ann_vol) if ann_vol > 0 else 0.0,
                     "total_return": float((1 + regime_rets).prod() - 1),
                 }
 

@@ -153,7 +153,7 @@ def factor_risk_model(
         "alpha": alpha_val,
         "factor_risk": factor_risk,
         "specific_risk": specific_risk,
-        "r_squared": r_squared,
+        "r_squared": float(r_squared),
         "residual_vol": residual_vol,
         "contributions": contributions,
     }
@@ -352,8 +352,8 @@ def fama_french_regression(
         "betas": betas,
         "t_stats": t_stats_dict,
         "p_values": p_values_dict,
-        "r_squared": r_squared,
-        "adj_r_squared": adj_r_squared,
+        "r_squared": float(r_squared),
+        "adj_r_squared": float(adj_r_squared),
         "residual_vol": residual_vol,
     }
 

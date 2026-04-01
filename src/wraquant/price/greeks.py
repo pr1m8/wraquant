@@ -276,7 +276,7 @@ def all_greeks(
     r: float,
     sigma: float,
     option_type: str | OptionType = "call",
-) -> dict[str, np.float64]:
+) -> dict[str, float]:
     """Compute all Black-Scholes Greeks in a single efficient call.
 
     Computes d1 and d2 once and derives all five Greeks, avoiding the
@@ -293,7 +293,7 @@ def all_greeks(
         option_type (str | OptionType): ``'call'`` or ``'put'``.
 
     Returns:
-        dict[str, np.float64]: Dictionary with keys ``'delta'``,
+        dict[str, float]: Dictionary with keys ``'delta'``,
             ``'gamma'``, ``'theta'``, ``'vega'``, ``'rho'``.  See
             the individual Greek functions for interpretation of each
             value.
@@ -342,9 +342,9 @@ def all_greeks(
         rho_val = -K * T * exp_neg_rT * norm.cdf(-d2_val)
 
     return {
-        "delta": np.float64(delta_val),
-        "gamma": np.float64(gamma_val),
-        "theta": np.float64(theta_val),
-        "vega": np.float64(vega_val),
-        "rho": np.float64(rho_val),
+        "delta": float(delta_val),
+        "gamma": float(gamma_val),
+        "theta": float(theta_val),
+        "vega": float(vega_val),
+        "rho": float(rho_val),
     }

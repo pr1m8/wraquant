@@ -2565,7 +2565,7 @@ def mediation_analysis(
                 "total": total_effect,
                 "direct": direct_effect,
                 "indirect": indirect_effect,
-                "check_c_minus_cprime": total_effect - direct_effect,
+                "check_c_minus_cprime": float(total_effect - direct_effect),
             }
         },
     )

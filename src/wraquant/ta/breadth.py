@@ -140,9 +140,19 @@ def mcclellan_oscillator(
     fast: int = 19,
     slow: int = 39,
 ) -> pd.Series:
-    """McClellan Oscillator — difference between fast and slow EMA of AD diff.
+    """McClellan Oscillator -- difference between fast and slow EMA of AD diff.
 
     ``McClellan = EMA(advancing - declining, fast) - EMA(advancing - declining, slow)``
+
+    Interpretation:
+        - **Above zero**: Short-term breadth momentum is positive
+          (more stocks advancing than declining, accelerating).
+        - **Below zero**: Short-term breadth momentum is negative.
+        - **Above +100**: Very overbought breadth-wise.
+        - **Below -100**: Very oversold breadth-wise.
+        - **Zero-line crossover**: Breadth momentum shift.
+        - Best used for timing entries: buy when the oscillator turns
+          up from below -100 (oversold breadth bounce).
 
     Parameters
     ----------
@@ -186,10 +196,18 @@ def mcclellan_summation(
     fast: int = 19,
     slow: int = 39,
 ) -> pd.Series:
-    """McClellan Summation Index — cumulative sum of the McClellan Oscillator.
+    """McClellan Summation Index -- cumulative sum of the McClellan Oscillator.
 
     This is the running total of the McClellan Oscillator, providing a
     longer-term view of market breadth.
+
+    Interpretation:
+        - **Rising**: Long-term breadth is improving (more and more
+          stocks participating in the advance).
+        - **Falling**: Long-term breadth is deteriorating.
+        - **Above +1000**: Strongly bullish long-term breadth.
+        - **Below -1000**: Strongly bearish long-term breadth.
+        - Acts as a long-term trend indicator for market internals.
 
     Parameters
     ----------

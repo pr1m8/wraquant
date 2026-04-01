@@ -410,10 +410,10 @@ def risk_factor_decomposition(
 
     return {
         "total_variance": total_var,
-        "factor_variance": max(factor_var, 0.0),
+        "factor_variance": float(max(factor_var, 0.0)),
         "idiosyncratic_variance": idio_var,
-        "factor_risk_share": max(factor_var, 0.0) / total_var if total_var > 0 else 0.0,
-        "idiosyncratic_risk_share": idio_var / total_var if total_var > 0 else 0.0,
+        "factor_risk_share": float(max(factor_var, 0.0) / total_var) if total_var > 0 else 0.0,
+        "idiosyncratic_risk_share": float(idio_var / total_var) if total_var > 0 else 0.0,
         "betas": betas,
         "factor_marginal_contributions": factor_marginal,
     }

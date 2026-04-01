@@ -326,11 +326,22 @@ def up_down_capture(
 
 
 def drawdown(data: pd.Series) -> pd.Series:
-    """Drawdown from peak — current decline from running maximum.
+    """Drawdown from peak -- current decline from running maximum.
 
     ``DD = (data - running_max) / running_max``
 
     Returns non-positive values (0 at peaks, negative during drawdowns).
+
+    Interpretation:
+        - **0**: At or near all-time high (no drawdown).
+        - **-0.05 to -0.10**: Mild pullback (5-10%). Normal in
+          healthy trends.
+        - **-0.10 to -0.20**: Correction territory. May indicate
+          trend weakness.
+        - **< -0.20**: Bear market territory. Significant damage to
+          portfolio.
+        - Drawdown duration (how long it stays negative) is often
+          more painful psychologically than drawdown depth.
 
     Parameters
     ----------
@@ -368,6 +379,13 @@ def max_drawdown_rolling(
 
     For each point, computes the worst drawdown experienced within the
     trailing *window* periods.
+
+    Interpretation:
+        - Tracks the worst loss experienced in the recent past.
+        - **Deepening max drawdown**: Risk is increasing.
+        - **Stable, shallow max drawdown**: Low-risk environment.
+        - Use as a risk management metric: if rolling max drawdown
+          exceeds a threshold, reduce position size or exit.
 
     Parameters
     ----------

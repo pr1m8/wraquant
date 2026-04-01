@@ -250,7 +250,7 @@ def financial_metrics(
     # Profit factor
     gross_profit = float(np.nansum(strat_returns[strat_returns > 0]))
     gross_loss = float(np.abs(np.nansum(strat_returns[strat_returns < 0])))
-    profit_factor = gross_profit / gross_loss if gross_loss > 0 else np.inf
+    profit_factor = float(gross_profit / gross_loss) if gross_loss > 0 else float("inf")
 
     return {
         "strategy_return": cumulative,

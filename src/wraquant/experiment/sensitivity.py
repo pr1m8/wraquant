@@ -12,6 +12,8 @@ from typing import Any, Callable
 import numpy as np
 import pandas as pd
 
+from wraquant.core._coerce import coerce_array  # noqa: F401
+
 
 def parameter_sensitivity(
     objective_fn: Callable[..., float],

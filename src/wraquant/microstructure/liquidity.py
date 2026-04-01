@@ -861,10 +861,10 @@ def spread_decomposition(
     if mean_eff <= 0:
         # Degenerate case
         return {
-            "adverse_selection": np.nan,
-            "order_processing": np.nan,
-            "inventory_holding": np.nan,
-            "effective_spread_mean": mean_eff * 2.0,
+            "adverse_selection": float("nan"),
+            "order_processing": float("nan"),
+            "inventory_holding": float("nan"),
+            "effective_spread_mean": float(mean_eff * 2.0),
         }
 
     # Adverse selection fraction
