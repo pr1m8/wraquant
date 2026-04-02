@@ -291,10 +291,13 @@ viz = [
   "pyvista>=0.47.1",
 ]
 scale = ["dask>=2026.1.2", "dask-ml>=2025.1.0", "ray>=2.54.0"]
-dashboard = ["streamlit>=1.45.0", "plotly>=6.6.0"]
+dashboard = ["streamlit>=1.56.0", "plotly>=6.6.0"]
 all = [
   "wraquant[market-data,timeseries,cleaning,validation,etl,ingestion,workflow,optimization,regimes,backtesting,risk,pricing,stochastic,viz,bayes,causal,scale,dashboard,ml,accelerate,quant-math]",
 ]
+
+[tool.uv]
+extra-build-dependencies = { copulae = ["numpy"] }
 
 [build-system]
 requires = ["pdm-backend"]
