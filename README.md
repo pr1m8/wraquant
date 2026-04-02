@@ -8,7 +8,7 @@
 
 **The ultimate quantitative finance toolkit for Python.**
 
-1,097 functions | 3,630+ tests | 27 modules | 265 TA indicators | 97K lines of code
+1,097 functions | 3,630+ tests | 27 modules | 265 TA indicators | 100K+ LOC | MCP server for AI agents
 
 ---
 
@@ -17,6 +17,13 @@
 wraquant is a comprehensive, deeply integrated quant finance library that combines
 risk management, regime detection, volatility modeling, derivatives pricing,
 backtesting, machine learning, and technical analysis in one cohesive framework.
+
+**wraquant + wraquant-mcp = an AI-native quant research lab.** Point Claude or any
+MCP-compatible agent at your data and it has 218 production-grade tools, 327
+guided workflow prompts, and a shared DuckDB workspace at its disposal. The agent
+can fit GARCH models, detect regimes, optimize portfolios, run backtests, price
+derivatives, and generate tearsheets -- all through structured tool calls with
+persistent state. No notebooks, no glue code, no context window bloat.
 
 Unlike libraries that wrap a single domain, wraquant's modules work **together**.
 The library is organized as a six-layer directed acyclic graph where each module
@@ -27,8 +34,8 @@ knows how to feed its outputs into the next:
 - Build ML features from 265 TA indicators --> walk-forward validate with purged K-fold --> deploy with regime-conditional position sizing
 - Bootstrap a yield curve --> price options via characteristic functions --> compute Greeks --> hedge with Almgren-Chriss optimal execution
 
-Every function ships with deep docstrings that explain not just *what* it does,
-but *when* to use it, *how* to interpret the output, and *which alternative* to
+Every function ships with deep docstrings that explain not just _what_ it does,
+but _when_ to use it, _how_ to interpret the output, and _which alternative_ to
 consider. Mathematical formulations are included where applicable. References
 point to the original papers.
 
@@ -166,22 +173,22 @@ The most comprehensive risk module in any Python quant library. Covers the full
 spectrum from simple return-based metrics through tail-risk modeling, credit risk,
 copula dependency, and Monte Carlo simulation.
 
-| Sub-module | Functions | Highlights |
-|---|---|---|
-| **metrics** | 10 | Sharpe, Sortino, Information Ratio, Treynor, M-squared, Jensen's alpha, appraisal ratio, capture ratios, hit ratio, max drawdown |
-| **var** | 4 | Historical/parametric VaR, CVaR (Expected Shortfall), GARCH-VaR, Greeks-based VaR |
-| **portfolio_analytics** | 7 | Component/marginal/incremental VaR, risk budgeting, concentration ratio, tracking error, active share |
-| **beta** | 6 | Rolling, Blume-adjusted, Vasicek-shrinkage, Dimson (illiquidity), conditional (up/down market), EWMA beta |
-| **factor** | 4 | Factor risk model, statistical (PCA) factors, Fama-French regression, factor contribution |
-| **tail** | 5 | Cornish-Fisher VaR, ES decomposition, CDaR, DaR, tail ratio analysis |
-| **historical** | 4 | Crisis drawdowns (top-N with lifecycle), event impact, contagion analysis, drawdown attribution |
-| **stress** | 11 | Return/vol/spot/correlation/liquidity stress, historical crisis replay (GFC, COVID, dot-com), reverse stress test, sensitivity ladder, joint stress, marginal stress contribution |
-| **copulas** | 8 | Gaussian, Student-t, Clayton, Gumbel, Frank copulas + simulation, tail dependence, rank correlation |
-| **dcc** | 4 | DCC-GARCH, rolling DCC, correlation forecasting, conditional covariance |
-| **credit** | 7 | Merton structural model, Altman Z-score, default probability, credit/CDS spreads, LGD, expected loss |
-| **survival** | 8 | Kaplan-Meier, Nelson-Aalen, Cox PH, exponential/Weibull models, hazard rate, log-rank test |
-| **monte_carlo** | 6 | Importance sampling VaR, antithetic variates, stratified sampling, block/stationary bootstrap, filtered historical simulation |
-| **integrations** | 7 | PyPortfolioOpt, riskfolio-lib, skfolio, copulas/copulae, vine copula, pyextremes EVT |
+| Sub-module              | Functions | Highlights                                                                                                                                                                        |
+| ----------------------- | --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **metrics**             | 10        | Sharpe, Sortino, Information Ratio, Treynor, M-squared, Jensen's alpha, appraisal ratio, capture ratios, hit ratio, max drawdown                                                  |
+| **var**                 | 4         | Historical/parametric VaR, CVaR (Expected Shortfall), GARCH-VaR, Greeks-based VaR                                                                                                 |
+| **portfolio_analytics** | 7         | Component/marginal/incremental VaR, risk budgeting, concentration ratio, tracking error, active share                                                                             |
+| **beta**                | 6         | Rolling, Blume-adjusted, Vasicek-shrinkage, Dimson (illiquidity), conditional (up/down market), EWMA beta                                                                         |
+| **factor**              | 4         | Factor risk model, statistical (PCA) factors, Fama-French regression, factor contribution                                                                                         |
+| **tail**                | 5         | Cornish-Fisher VaR, ES decomposition, CDaR, DaR, tail ratio analysis                                                                                                              |
+| **historical**          | 4         | Crisis drawdowns (top-N with lifecycle), event impact, contagion analysis, drawdown attribution                                                                                   |
+| **stress**              | 11        | Return/vol/spot/correlation/liquidity stress, historical crisis replay (GFC, COVID, dot-com), reverse stress test, sensitivity ladder, joint stress, marginal stress contribution |
+| **copulas**             | 8         | Gaussian, Student-t, Clayton, Gumbel, Frank copulas + simulation, tail dependence, rank correlation                                                                               |
+| **dcc**                 | 4         | DCC-GARCH, rolling DCC, correlation forecasting, conditional covariance                                                                                                           |
+| **credit**              | 7         | Merton structural model, Altman Z-score, default probability, credit/CDS spreads, LGD, expected loss                                                                              |
+| **survival**            | 8         | Kaplan-Meier, Nelson-Aalen, Cox PH, exponential/Weibull models, hazard rate, log-rank test                                                                                        |
+| **monte_carlo**         | 6         | Importance sampling VaR, antithetic variates, stratified sampling, block/stationary bootstrap, filtered historical simulation                                                     |
+| **integrations**        | 7         | PyPortfolioOpt, riskfolio-lib, skfolio, copulas/copulae, vine copula, pyextremes EVT                                                                                              |
 
 ```python
 from wraquant.risk import (
@@ -211,28 +218,28 @@ stochastic volatility, and implied vol surfaces.
 
 **Realized volatility estimators** (non-parametric, from OHLC data):
 
-| Estimator | Efficiency vs Close-to-Close | Best For |
-|---|---|---|
-| `realized_volatility` | 1x (baseline) | Simple daily close data |
-| `parkinson` | ~5x | Range-based, no drift |
-| `garman_klass` | ~8x | Most efficient single-day OHLC |
-| `rogers_satchell` | ~5x | Trending markets (handles drift) |
-| `yang_zhang` | ~8x | **Best general-purpose OHLC estimator** |
-| `bipower_variation` | Jump-robust | Separating jumps from diffusion |
-| `two_scale_realized_variance` | Noise-robust | High-frequency data with microstructure noise |
-| `realized_kernel` | Noise-robust | Optimal with irregular tick data |
+| Estimator                     | Efficiency vs Close-to-Close | Best For                                      |
+| ----------------------------- | ---------------------------- | --------------------------------------------- |
+| `realized_volatility`         | 1x (baseline)                | Simple daily close data                       |
+| `parkinson`                   | ~5x                          | Range-based, no drift                         |
+| `garman_klass`                | ~8x                          | Most efficient single-day OHLC                |
+| `rogers_satchell`             | ~5x                          | Trending markets (handles drift)              |
+| `yang_zhang`                  | ~8x                          | **Best general-purpose OHLC estimator**       |
+| `bipower_variation`           | Jump-robust                  | Separating jumps from diffusion               |
+| `two_scale_realized_variance` | Noise-robust                 | High-frequency data with microstructure noise |
+| `realized_kernel`             | Noise-robust                 | Optimal with irregular tick data              |
 
 **GARCH family** (parametric conditional volatility):
 
-| Model | Key Feature | When to Use |
-|---|---|---|
-| `garch_fit` | Standard GARCH(p,q) | Starting point; captures volatility clustering |
-| `egarch_fit` | Exponential GARCH | Leverage effect without positivity constraints |
-| `gjr_garch_fit` | Asymmetric threshold | Equities: negative returns increase vol more |
-| `figarch_fit` | Fractionally integrated | Long-memory vol (FX, commodities) |
-| `harch_fit` | Heterogeneous horizons | Mixed participant time horizons |
-| `aparch_fit` | Asymmetric power | Flexible power transformation |
-| `dcc_fit` | Dynamic Conditional Correlation | Multi-asset time-varying covariance |
+| Model           | Key Feature                     | When to Use                                    |
+| --------------- | ------------------------------- | ---------------------------------------------- |
+| `garch_fit`     | Standard GARCH(p,q)             | Starting point; captures volatility clustering |
+| `egarch_fit`    | Exponential GARCH               | Leverage effect without positivity constraints |
+| `gjr_garch_fit` | Asymmetric threshold            | Equities: negative returns increase vol more   |
+| `figarch_fit`   | Fractionally integrated         | Long-memory vol (FX, commodities)              |
+| `harch_fit`     | Heterogeneous horizons          | Mixed participant time horizons                |
+| `aparch_fit`    | Asymmetric power                | Flexible power transformation                  |
+| `dcc_fit`       | Dynamic Conditional Correlation | Multi-asset time-varying covariance            |
 
 Plus: `garch_forecast`, `garch_rolling_forecast`, `garch_model_selection`,
 `realized_garch`, `news_impact_curve`, `volatility_persistence`,
@@ -264,6 +271,7 @@ dcc = dcc_fit(returns_df)  # Time-varying correlation and covariance
 exploiting market regime shifts.
 
 **Detection methods:**
+
 - `fit_gaussian_hmm` / `fit_hmm` -- Gaussian HMM with multi-restart EM (the workhorse)
 - `fit_ms_regression` / `fit_ms_autoregression` -- Hamilton-style Markov-switching models
 - `fit_multivariate_hmm` -- Joint regime detection across multiple assets
@@ -273,12 +281,14 @@ exploiting market regime shifts.
 - `cusum_control_chart` -- Quality-control-style monitoring
 
 **Kalman filtering:**
+
 - `kalman_filter` -- Forward pass (real-time state estimation)
 - `kalman_smoother` -- RTS two-pass (optimal ex-post estimates)
 - `kalman_regression` -- Time-varying betas and hedge ratios
 - `unscented_kalman` -- Nonlinear state dynamics
 
 **Regime analysis:**
+
 - `regime_statistics` / `regime_conditional_moments` -- Per-regime return/vol/Sharpe
 - `regime_transition_analysis` -- Transition probabilities, expected durations
 - `regime_separation_score` / `regime_stability_score` -- Model quality metrics
@@ -287,6 +297,7 @@ exploiting market regime shifts.
 - `regime_duration_analysis` -- How long does each regime last?
 
 **Portfolio integration:**
+
 - `regime_aware_portfolio` -- Adjust weights by current regime probability
 - `rolling_regime_probability` -- Time-varying posterior for blending strategies
 
@@ -320,26 +331,26 @@ best_k = select_n_states(returns, max_states=5)
 **265 indicators** across **19 sub-modules**, covering the complete taxonomy
 of technical analysis from classical chart overlays to exotic oscillators.
 
-| Sub-module | Count | Indicators |
-|---|---|---|
-| **overlap** | 12 | SMA, EMA, WMA, DEMA, TEMA, KAMA, VWAP, Supertrend, Ichimoku, Bollinger Bands, Keltner Channel, Donchian |
-| **momentum** | 22 | RSI, MACD, Stochastic, Williams %R, CCI, ROC, TSI, CMO, DPO, PPO, Awesome Oscillator, Ultimate Oscillator, Stochastic RSI, SMI, Schaff, Squeeze Histogram, PMO, Klinger, Inertia, CoG, Psychological Line |
-| **trend** | 18 | ADX, Aroon, PSAR, Vortex, TRIX, Heikin Ashi, ZigZag, McGinley Dynamic, Schaff Trend Cycle, GUPPY MMA, Rainbow MA, Hull MA, Zero-Lag EMA, VIDYA, Tilson T3, Fractal Adaptive MA, Linear Regression + Slope |
-| **volume** | 10 | OBV, A/D Line, CMF, MFI, EOM, Force Index, NVI, PVI, VPT, A/D Oscillator |
-| **volatility** | 18 | ATR, True Range, NATR, Bollinger Width, Keltner Width, Chaikin Volatility, Historical Vol, Mass Index, Ulcer Index, RVI, Acceleration Bands, Std Dev, Variance, + OHLC estimators (Garman-Klass, Parkinson, Rogers-Satchell, Yang-Zhang, Close-to-Close) |
-| **patterns** | 37 | Doji, Hammer, Engulfing, Morning/Evening Star, Three White Soldiers, Three Black Crows, Harami, Spinning Top, Marubozu, Piercing, Dark Cloud, Shooting Star, Tweezer Top/Bottom, Abandoned Baby, Kicking, Belt Hold, Rising/Falling Three Methods, and 15 more |
-| **candles** | 12 | Body size, range, shadow ratios, body-to-range, direction, momentum, gap, inside/outside bar, pin bar |
-| **price_action** | 10 | Higher highs/lows, swing high/low, trend bars, gap analysis, range expansion, narrow range (NR4/NR7), wide range bar, key reversal, pivot reversal |
-| **signals** | 9 | crossover, crossunder, above, below, rising, falling, highest, lowest, normalize |
-| **breadth** | 10 | Advance/Decline line + ratio, McClellan Oscillator + Summation, Arms Index (TRIN), new highs/lows, percent above MA, high/low index, bullish percent, cumulative volume index |
-| **statistics** | 12 | Z-score, percentile rank, skewness, kurtosis, entropy, Hurst exponent, beta, correlation, R-squared, information coefficient, mean deviation, median |
-| **cycles** | 8 | Hilbert Transform (dominant period, trend mode, instantaneous phase), sine wave, Even Better Sinewave, bandpass filter, roofing filter, decycler |
-| **fibonacci** | 6 | Retracements, extensions, fans, time zones, pivot points, auto-Fibonacci |
-| **smoothing** | 12 | ALMA, JMA, Butterworth, Super Smoother, Gaussian, Hann/Hamming window MA, LSMA, SWMA, TRIMA, SinEMA, Kaufman Efficiency Ratio |
-| **custom** | 16 | Squeeze Momentum, Anchored VWAP, Ehlers Fisher, Adaptive RSI, Linear Regression Channel, Market Structure, Volume-Weighted MACD, Pivot Points, Swing Points, Standard Error Bands, R-squared indicator, Polynomial/Raff Regression, Detrended Regression, Relative Strength |
-| **exotic** | 15 | Choppiness Index, Random Walk Index, Polarized Fractal Efficiency, Ergodic Oscillator, Elder Thermometer, KAIRI, Connors TPS, PZO, Pretty Good Oscillator, Market Facilitation Index, Gopalakrishnan Range, Efficiency Ratio, Trend Intensity, DMI, Relative Momentum Index |
-| **support_resistance** | 6 | Algorithmic S/R detection, fractal levels, price clustering, round numbers, supply/demand zones, trendline detection |
-| **performance** | 10 | Relative performance, Mansfield RSI, alpha, tracking error, up/down capture, drawdown, rolling max drawdown, pain index, gain/loss ratio, profit factor |
+| Sub-module             | Count | Indicators                                                                                                                                                                                                                                                                  |
+| ---------------------- | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **overlap**            | 12    | SMA, EMA, WMA, DEMA, TEMA, KAMA, VWAP, Supertrend, Ichimoku, Bollinger Bands, Keltner Channel, Donchian                                                                                                                                                                     |
+| **momentum**           | 22    | RSI, MACD, Stochastic, Williams %R, CCI, ROC, TSI, CMO, DPO, PPO, Awesome Oscillator, Ultimate Oscillator, Stochastic RSI, SMI, Schaff, Squeeze Histogram, PMO, Klinger, Inertia, CoG, Psychological Line                                                                   |
+| **trend**              | 18    | ADX, Aroon, PSAR, Vortex, TRIX, Heikin Ashi, ZigZag, McGinley Dynamic, Schaff Trend Cycle, GUPPY MMA, Rainbow MA, Hull MA, Zero-Lag EMA, VIDYA, Tilson T3, Fractal Adaptive MA, Linear Regression + Slope                                                                   |
+| **volume**             | 10    | OBV, A/D Line, CMF, MFI, EOM, Force Index, NVI, PVI, VPT, A/D Oscillator                                                                                                                                                                                                    |
+| **volatility**         | 18    | ATR, True Range, NATR, Bollinger Width, Keltner Width, Chaikin Volatility, Historical Vol, Mass Index, Ulcer Index, RVI, Acceleration Bands, Std Dev, Variance, + OHLC estimators (Garman-Klass, Parkinson, Rogers-Satchell, Yang-Zhang, Close-to-Close)                    |
+| **patterns**           | 37    | Doji, Hammer, Engulfing, Morning/Evening Star, Three White Soldiers, Three Black Crows, Harami, Spinning Top, Marubozu, Piercing, Dark Cloud, Shooting Star, Tweezer Top/Bottom, Abandoned Baby, Kicking, Belt Hold, Rising/Falling Three Methods, and 15 more              |
+| **candles**            | 12    | Body size, range, shadow ratios, body-to-range, direction, momentum, gap, inside/outside bar, pin bar                                                                                                                                                                       |
+| **price_action**       | 10    | Higher highs/lows, swing high/low, trend bars, gap analysis, range expansion, narrow range (NR4/NR7), wide range bar, key reversal, pivot reversal                                                                                                                          |
+| **signals**            | 9     | crossover, crossunder, above, below, rising, falling, highest, lowest, normalize                                                                                                                                                                                            |
+| **breadth**            | 10    | Advance/Decline line + ratio, McClellan Oscillator + Summation, Arms Index (TRIN), new highs/lows, percent above MA, high/low index, bullish percent, cumulative volume index                                                                                               |
+| **statistics**         | 12    | Z-score, percentile rank, skewness, kurtosis, entropy, Hurst exponent, beta, correlation, R-squared, information coefficient, mean deviation, median                                                                                                                        |
+| **cycles**             | 8     | Hilbert Transform (dominant period, trend mode, instantaneous phase), sine wave, Even Better Sinewave, bandpass filter, roofing filter, decycler                                                                                                                            |
+| **fibonacci**          | 6     | Retracements, extensions, fans, time zones, pivot points, auto-Fibonacci                                                                                                                                                                                                    |
+| **smoothing**          | 12    | ALMA, JMA, Butterworth, Super Smoother, Gaussian, Hann/Hamming window MA, LSMA, SWMA, TRIMA, SinEMA, Kaufman Efficiency Ratio                                                                                                                                               |
+| **custom**             | 16    | Squeeze Momentum, Anchored VWAP, Ehlers Fisher, Adaptive RSI, Linear Regression Channel, Market Structure, Volume-Weighted MACD, Pivot Points, Swing Points, Standard Error Bands, R-squared indicator, Polynomial/Raff Regression, Detrended Regression, Relative Strength |
+| **exotic**             | 15    | Choppiness Index, Random Walk Index, Polarized Fractal Efficiency, Ergodic Oscillator, Elder Thermometer, KAIRI, Connors TPS, PZO, Pretty Good Oscillator, Market Facilitation Index, Gopalakrishnan Range, Efficiency Ratio, Trend Intensity, DMI, Relative Momentum Index |
+| **support_resistance** | 6     | Algorithmic S/R detection, fractal levels, price clustering, round numbers, supply/demand zones, trendline detection                                                                                                                                                        |
+| **performance**        | 10    | Relative performance, Mansfield RSI, alpha, tracking error, up/down capture, drawdown, rolling max drawdown, pain index, gain/loss ratio, profit factor                                                                                                                     |
 
 ```python
 from wraquant.ta import (
@@ -1351,46 +1362,54 @@ All optional dependencies are organized into installable groups.
 Core functionality (numpy, scipy, pandas, statsmodels, pydantic, structlog)
 is always available.
 
-| Group | What it enables | Key packages |
-|---|---|---|
-| `market-data` | Data fetching | yfinance, fredapi, nasdaq-data-link, exchange-calendars |
-| `ml` | Machine learning | scikit-learn |
-| `timeseries` | Advanced time series | pmdarima, arch, sktime, statsforecast, tsfresh, stumpy, pywavelets, ruptures |
-| `cleaning` | Data cleaning | pyjanitor, rapidfuzz, dateparser, price-parser |
-| `validation` | Schema validation | pandera, great-expectations, frictionless |
-| `etl` | ETL and databases | dlt, ibis, sqlalchemy, asyncpg, s3fs, gcsfs |
-| `warehouse` | Data warehouse | dbt-core, dbt-duckdb, dbt-postgres |
-| `ingestion` | HTTP / websockets | httpx, aiohttp, websockets, beautifulsoup4 |
-| `workflow` | Orchestration | prefect, dagster, apscheduler |
-| `profiling` | Performance profiling | pyinstrument, scalene, memory-profiler |
-| `optimization` | Mathematical optimization | cvxpy, cvxopt, pulp, pyomo, pymoo, ortools |
-| `regimes` | Regime detection | hmmlearn, pomegranate, pykalman, filterpy, dynamax, ruptures |
-| `backtesting` | Backtest integrations | vectorbt, quantstats, pyfolio, empyrical, ffn |
-| `risk` | Risk integrations | pyportfolioopt, riskfolio-lib, skfolio, copulas, pyextremes |
-| `pricing` | Derivatives pricing | QuantLib, rateslib, financepy, py-vollib |
-| `stochastic` | SDE simulation | sdepy, sdeint, torchsde |
-| `pde` | PDE solvers | devito, py-pde, FiPy, findiff |
-| `causal` | Causal inference | dowhy, econml, DoubleML |
-| `bayes` | Bayesian inference | pymc, arviz, numpyro, bambi, emcee, blackjax |
-| `viz` | Visualization | matplotlib, plotly, seaborn, bokeh, altair, holoviews, datashader |
-| `scale` | Distributed computing | dask, ray |
-| `dashboard` | Interactive dashboard | streamlit, plotly |
-| `accelerate` | Performance | polars, pyarrow, duckdb, numba, bottleneck |
-| `symbolic` | Symbolic math | sympy, symengine, mpmath, numdifftools |
-| `logging` | Enhanced logging | loguru, rich, tenacity |
-| `quant-math` | JAX ecosystem | jax, jaxlib, equinox, diffrax, optax |
-| `lp-extra` | LP solvers | highspy, mip, swiglpk |
-| `conic-extra` | Conic solvers | ecos |
-| `nlp-extra` | NLP solvers | casadi, nlopt |
-| `dev` | Development | pytest, hypothesis, ruff, mypy, pyright, jupyterlab |
+| Group          | What it enables           | Key packages                                                                 |
+| -------------- | ------------------------- | ---------------------------------------------------------------------------- |
+| `market-data`  | Data fetching             | yfinance, fredapi, nasdaq-data-link, exchange-calendars                      |
+| `ml`           | Machine learning          | scikit-learn                                                                 |
+| `timeseries`   | Advanced time series      | pmdarima, arch, sktime, statsforecast, tsfresh, stumpy, pywavelets, ruptures |
+| `cleaning`     | Data cleaning             | pyjanitor, rapidfuzz, dateparser, price-parser                               |
+| `validation`   | Schema validation         | pandera, great-expectations, frictionless                                    |
+| `etl`          | ETL and databases         | dlt, ibis, sqlalchemy, asyncpg, s3fs, gcsfs                                  |
+| `warehouse`    | Data warehouse            | dbt-core, dbt-duckdb, dbt-postgres                                           |
+| `ingestion`    | HTTP / websockets         | httpx, aiohttp, websockets, beautifulsoup4                                   |
+| `workflow`     | Orchestration             | prefect, dagster, apscheduler                                                |
+| `profiling`    | Performance profiling     | pyinstrument, scalene, memory-profiler                                       |
+| `optimization` | Mathematical optimization | cvxpy, cvxopt, pulp, pyomo, pymoo, ortools                                   |
+| `regimes`      | Regime detection          | hmmlearn, pomegranate, pykalman, filterpy, dynamax, ruptures                 |
+| `backtesting`  | Backtest integrations     | vectorbt, quantstats, pyfolio, empyrical, ffn                                |
+| `risk`         | Risk integrations         | pyportfolioopt, riskfolio-lib, skfolio, copulas, pyextremes                  |
+| `pricing`      | Derivatives pricing       | QuantLib, rateslib, financepy, py-vollib                                     |
+| `stochastic`   | SDE simulation            | sdepy, sdeint, torchsde                                                      |
+| `pde`          | PDE solvers               | devito, py-pde, FiPy, findiff                                                |
+| `causal`       | Causal inference          | dowhy, econml, DoubleML                                                      |
+| `bayes`        | Bayesian inference        | pymc, arviz, numpyro, bambi, emcee, blackjax                                 |
+| `viz`          | Visualization             | matplotlib, plotly, seaborn, bokeh, altair, holoviews, datashader            |
+| `scale`        | Distributed computing     | dask, ray                                                                    |
+| `dashboard`    | Interactive dashboard     | streamlit, plotly                                                            |
+| `accelerate`   | Performance               | polars, pyarrow, duckdb, numba, bottleneck                                   |
+| `symbolic`     | Symbolic math             | sympy, symengine, mpmath, numdifftools                                       |
+| `logging`      | Enhanced logging          | loguru, rich, tenacity                                                       |
+| `quant-math`   | JAX ecosystem             | jax, jaxlib, equinox, diffrax, optax                                         |
+| `lp-extra`     | LP solvers                | highspy, mip, swiglpk                                                        |
+| `conic-extra`  | Conic solvers             | ecos                                                                         |
+| `nlp-extra`    | NLP solvers               | casadi, nlopt                                                                |
+| `dev`          | Development               | pytest, hypothesis, ruff, mypy, pyright, jupyterlab                          |
 
 ---
 
 ## MCP Server (AI Agent Integration)
 
-wraquant-mcp exposes all 1,097 wraquant functions as MCP (Model Context
-Protocol) tools for Claude, LangChain, and other AI agents. 182 hand-crafted
-tools, 128 prompt templates, shared DuckDB state.
+**wraquant-mcp** exposes wraquant as an MCP server for Claude, LangChain, and
+other AI agents. Instead of writing Python, an agent calls structured tools
+to run analysis, with results persisted in a shared DuckDB workspace.
+
+| Metric              | Value                                     |
+| ------------------- | ----------------------------------------- |
+| Hand-crafted tools  | 218 across 22 module servers              |
+| Prompt templates    | 327 (226 per-tool guides + 101 workflows) |
+| Tests               | 357 passing, 0 failures                   |
+| Tool guide coverage | 100%                                      |
+| Error handling      | 100%                                      |
 
 ```bash
 pip install wraquant-mcp
@@ -1411,11 +1430,31 @@ Claude Desktop config (`~/.claude/claude_desktop_config.json`):
 }
 ```
 
-Composes with OpenBB MCP (data fetching), DuckDB MCP (SQL queries on shared
-state), Jupyter MCP (notebook interaction), and Alpaca MCP (trade execution).
+**Example agent conversation:**
+
+```text
+User:  Analyze AAPL risk and detect the current market regime
+Agent: [calls compute_returns, risk_metrics, detect_regimes, fit_garch]
+       AAPL Sharpe: 0.72, Max DD: -32%, Current regime: bull (P=0.87)
+       GJR-GARCH persistence: 0.971, leverage effect significant
+       VaR(95%): -2.1%, CVaR: -3.4%
+```
+
+**Module servers:** risk (15), vol (11), data (17), microstructure (16),
+viz (14), math (14), regimes (12), stats (11), ta (11), ts (10),
+backtest (10), execution (10), ml (9), price (9), opt (8), causal (7),
+bayes (7), econometrics (6), forex (6), experiment (5), fundamental (5),
+news (5).
+
+**Prompt categories:** system, analysis, risk, regime, portfolio, strategy,
+ML, pricing, reporting, execution, econometrics, forex, data, math, bayes,
+plus 226 per-tool usage guides.
+
+Composes with OpenBB MCP (data), DuckDB MCP (SQL), Jupyter MCP (notebooks),
+and Alpaca MCP (execution) through a shared DuckDB file.
 
 See [mcp/README.md](mcp/README.md) for full documentation, tool reference,
-prompt template catalog, and example workflows.
+prompt catalog, and worked examples.
 
 ---
 
@@ -1432,6 +1471,7 @@ pdm run docs                   # Build Sphinx documentation
 ```
 
 Conventions:
+
 - **Commits**: Conventional commits (`feat(module):`, `fix(module):`, `chore:`)
 - **Imports**: Lazy imports for all optional deps via `@requires_extra`
 - **Types**: Type hints everywhere, `from __future__ import annotations` in every file
