@@ -74,7 +74,9 @@ _MENU_ITEMS = [
     "Technical Analysis", "Returns & Stats", "Time Series", "---",
     "Risk Dashboard", "VaR & Stress Test", "Portfolio", "---",
     "Volatility", "Regimes", "Forecasting", "---",
-    "Microstructure", "Quant Lab", "ML Lab", "---",
+    "Backtest Lab", "ML Lab", "---",
+    "Microstructure", "Quant Lab", "---",
+    "Pricing & Options", "Causal & Bayes", "---",
     "News & Events", "FX Analysis",
 ]
 
@@ -84,7 +86,9 @@ _MENU_ICONS = [
     "graph-up", "bar-chart", "clock-history", None,
     "shield", "exclamation-triangle", "pie-chart", None,
     "activity", "layers", "graph-up-arrow", None,
-    "cpu", "mortarboard", "robot", None,
+    "play-circle", "robot", None,
+    "cpu", "mortarboard", None,
+    "cash-coin", "diagram-3", None,
     "newspaper", "currency-exchange",
 ]
 
@@ -156,9 +160,12 @@ _PAGE_MODULES = {
     "News & Events": "wraquant.dashboard.views.news_events",
     "FX Analysis": "wraquant.dashboard.views.fx_analysis",
     "Time Series": "wraquant.dashboard.views.time_series",
+    "Backtest Lab": "wraquant.dashboard.views.backtest_lab",
     "Microstructure": "wraquant.dashboard.views.microstructure",
     "Quant Lab": "wraquant.dashboard.views.quant_lab",
     "ML Lab": "wraquant.dashboard.views.ml_lab",
+    "Pricing & Options": "wraquant.dashboard.views.pricing",
+    "Causal & Bayes": "wraquant.dashboard.views.causal_bayes",
 }
 
 if selected and selected != "---":
