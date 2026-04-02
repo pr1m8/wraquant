@@ -5,7 +5,7 @@
 groups = ["default", "accelerate", "all", "backtesting", "bayes", "causal", "cleaning", "conic-extra", "dashboard", "dev", "etl", "ingestion", "logging", "lp-extra", "market-data", "ml", "nlp-extra", "optimization", "pde", "pricing", "profiling", "quant-math", "regimes", "risk", "scale", "stochastic", "symbolic", "timeseries", "validation", "viz", "warehouse", "workflow"]
 strategy = []
 lock_version = "4.5.0"
-content_hash = "sha256:6499f8e2c04fdd22ee7f52b51d5492e2d3e6cb075bca5c57dae4766653759b4e"
+content_hash = "sha256:da50dc9691ab65822015322f6e3187b9accb8196c61bdd87f8d54916aeb09984"
 
 [[metadata.targets]]
 requires_python = ">=3.13"
@@ -224,25 +224,6 @@ dependencies = [
 files = [
     {file = "alive-progress-3.3.0.tar.gz", hash = "sha256:457dd2428b48dacd49854022a46448d236a48f1b7277874071c39395307e830c"},
     {file = "alive_progress-3.3.0-py3-none-any.whl", hash = "sha256:63dd33bb94cde15ad9e5b666dbba8fedf71b72a4935d6fb9a92931e69402c9ff"},
-]
-
-[[package]]
-name = "alphalens-reloaded"
-version = "0.4.3"
-summary = ""
-dependencies = [
-    "empyrical-reloaded",
-    "ipython",
-    "matplotlib",
-    "numpy",
-    "pandas",
-    "scipy",
-    "seaborn",
-    "statsmodels",
-]
-files = [
-    {file = "alphalens-reloaded-0.4.3.tar.gz", hash = "sha256:78985b5d502d5ab3e81d1bb77b08250fd0ece43b0fe3c696256f98154f44f7d0"},
-    {file = "alphalens_reloaded-0.4.3-py3-none-any.whl", hash = "sha256:33110d9cbef52cf175d77ab62506823b6e072b023da4afd2baa7ef68bdcd1f7c"},
 ]
 
 [[package]]
@@ -837,22 +818,6 @@ version = "1.9.78.123"
 summary = ""
 files = [
     {file = "backtrader-1.9.78.123-py2.py3-none-any.whl", hash = "sha256:9a07a516b0de9155539a35c56e9404d8711dd7020b3d37b30495e83e1b9d5dfd"},
-]
-
-[[package]]
-name = "bambi"
-version = "0.16.0"
-summary = ""
-dependencies = [
-    "arviz",
-    "formulae",
-    "graphviz",
-    "pandas",
-    "pymc",
-]
-files = [
-    {file = "bambi-0.16.0-py3-none-any.whl", hash = "sha256:a16c524ad84cf10abd1a61587ef4331d8f6ed4d2414384c234f8af4830bde391"},
-    {file = "bambi-0.16.0.tar.gz", hash = "sha256:ca3d1f1fc9523328e4e8c96a1ae0a019380e39abb33afc4b014bc7dd5c50ae88"},
 ]
 
 [[package]]
@@ -1566,38 +1531,6 @@ files = [
 ]
 
 [[package]]
-name = "copulae"
-version = "0.7.9"
-summary = ""
-dependencies = [
-    "numpy",
-    "pandas",
-    "scikit-learn",
-    "scipy",
-    "statsmodels",
-    "wheel",
-    "wrapt",
-]
-files = [
-    {file = "copulae-0.7.9.tar.gz", hash = "sha256:dff4582ccdf746b171eaace9ba70d03a00e57a49f8852cd3d80bf26781dc3af1"},
-]
-
-[[package]]
-name = "copulas"
-version = "0.14.0"
-summary = ""
-dependencies = [
-    "numpy",
-    "pandas",
-    "plotly",
-    "scipy",
-]
-files = [
-    {file = "copulas-0.14.0-py3-none-any.whl", hash = "sha256:de0bf2357401340fe784fd85ca0087950fb47267779fc7ba793c483e5d2e402c"},
-    {file = "copulas-0.14.0.tar.gz", hash = "sha256:e1dd90663f3c6a8210e1313159adbf1c2ed48bf69224ffe99a338243a880e678"},
-]
-
-[[package]]
 name = "coreforecast"
 version = "0.0.17"
 summary = ""
@@ -2009,36 +1942,6 @@ dependencies = [
 files = [
     {file = "dagster_shared-1.12.21-py3-none-any.whl", hash = "sha256:c1bdc6017f477c623377a2757b24d5213a96f02cf05449bc762eb79f608a240c"},
     {file = "dagster_shared-1.12.21.tar.gz", hash = "sha256:dcc31bc71b9625c63747770319ed4228ca72ccfeca95e70cd60bf4bfbb5876fa"},
-]
-
-[[package]]
-name = "darts"
-version = "0.20.0"
-summary = ""
-dependencies = [
-    "holidays",
-    "ipython",
-    "joblib",
-    "lightgbm",
-    "matplotlib",
-    "nfoursid",
-    "numpy",
-    "pandas",
-    "pmdarima",
-    "pytorch-lightning",
-    "requests",
-    "scikit-learn",
-    "scipy",
-    "statsforecast",
-    "statsmodels",
-    "tbats",
-    "torch",
-    "tqdm",
-    "xarray",
-]
-files = [
-    {file = "darts-0.20.0-py3-none-any.whl", hash = "sha256:cc83553327f3b9de770a717907b3b46af4b69b6010132e3252dd1c0c8b37c2b9"},
-    {file = "darts-0.20.0.tar.gz", hash = "sha256:a26b17e7867c684c91bf87a1356ca2b08b1b2f903e7060ea9803af451cce51f7"},
 ]
 
 [[package]]
@@ -3087,21 +2990,6 @@ files = [
 ]
 
 [[package]]
-name = "formulae"
-version = "0.6.2"
-summary = ""
-dependencies = [
-    "numpy",
-    "packaging",
-    "pandas",
-    "scipy",
-]
-files = [
-    {file = "formulae-0.6.2-py3-none-any.whl", hash = "sha256:9b0913daf0ef213c70ce9ea2275604ef103e4d2a7a9edd86dadfd7095bdcfb65"},
-    {file = "formulae-0.6.2.tar.gz", hash = "sha256:c256c37bf40b5d61acc56faa174b97bc81b80722bdad97f4692dcc24b360af7f"},
-]
-
-[[package]]
 name = "formulaic"
 version = "1.2.1"
 summary = ""
@@ -3861,18 +3749,6 @@ files = [
     {file = "hmmlearn-0.3.3-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:491f3bd9e3c01fa1201057e1de2c87039fed0e225ad562111ad4a0e25c40ef00"},
     {file = "hmmlearn-0.3.3-cp313-cp313-win_amd64.whl", hash = "sha256:8f39d658a6366cb839157bdd8a075c62a43d3175e0f453145b5f2cdcdc05b4e3"},
     {file = "hmmlearn-0.3.3.tar.gz", hash = "sha256:1d3c5dc4c5257e0c238dc1fe5387700b8cb987eab808edb3e0c73829f1cc44ec"},
-]
-
-[[package]]
-name = "holidays"
-version = "0.93"
-summary = ""
-dependencies = [
-    "python-dateutil",
-]
-files = [
-    {file = "holidays-0.93-py3-none-any.whl", hash = "sha256:2bf4585b5b0956aa608e3dcab3cf7d19b69bf34f664f5881a4b9fdf87a0907da"},
-    {file = "holidays-0.93.tar.gz", hash = "sha256:6b04c45f759bce7c8df70863918ccaab0b465afd6c630a62c9855c99965704e5"},
 ]
 
 [[package]]
@@ -5537,24 +5413,6 @@ files = [
 ]
 
 [[package]]
-name = "mlforecast"
-version = "1.0.2"
-summary = ""
-dependencies = [
-    "cloudpickle",
-    "coreforecast",
-    "fsspec",
-    "optuna",
-    "pandas",
-    "scikit-learn",
-    "utilsforecast",
-]
-files = [
-    {file = "mlforecast-1.0.2-py3-none-any.whl", hash = "sha256:158553b08a526abfe1b2feed175e0a228a555e576948c20260a36f8c7a1d0b7c"},
-    {file = "mlforecast-1.0.2.tar.gz", hash = "sha256:a24f8e04e3590aad7bd037908cdb7b2cfbf295781cd4c8ff087b332968155624"},
-]
-
-[[package]]
 name = "momentchi2"
 version = "0.1.8"
 summary = ""
@@ -5946,20 +5804,6 @@ dependencies = [
 files = [
     {file = "neuralforecast-3.1.6-py3-none-any.whl", hash = "sha256:6e852386e15211f4673a4283788d08ac59150a1eec1c1e0c842f21db300e3279"},
     {file = "neuralforecast-3.1.6.tar.gz", hash = "sha256:8a0fd104298a838d2f2c7754836d779d915b9f3207188bcd34ea9380e3275a48"},
-]
-
-[[package]]
-name = "nfoursid"
-version = "1.0.2"
-summary = ""
-dependencies = [
-    "matplotlib",
-    "numpy",
-    "pandas",
-]
-files = [
-    {file = "nfoursid-1.0.2-py3-none-any.whl", hash = "sha256:2b51f319346a65bd2a66554d9bfd7846feb9ad359fad678566dfa3f124eace70"},
-    {file = "nfoursid-1.0.2.tar.gz", hash = "sha256:d65ba1bb98715f6310d0136aecdc997313caa239c08cc95f7e48378f77d06a24"},
 ]
 
 [[package]]
@@ -7728,42 +7572,6 @@ files = [
 ]
 
 [[package]]
-name = "pyextremes"
-version = "2.2.4"
-summary = ""
-dependencies = [
-    "emcee",
-    "matplotlib",
-    "numpy",
-    "pandas",
-    "scipy",
-]
-files = [
-    {file = "pyextremes-2.2.4-py3-none-any.whl", hash = "sha256:654e8eb396f663f5e85fad9daa560ae2f51a21986366e8666e6ded54fc919559"},
-    {file = "pyextremes-2.2.4.tar.gz", hash = "sha256:80b297da538894abc20bb25adfa3abf69362f4aff30c4c9469a0fe55727dfcb3"},
-]
-
-[[package]]
-name = "pyfolio-reloaded"
-version = "0.9.7"
-summary = ""
-dependencies = [
-    "empyrical-reloaded",
-    "ipython",
-    "matplotlib",
-    "numpy",
-    "pandas",
-    "pytz",
-    "scikit-learn",
-    "scipy",
-    "seaborn",
-]
-files = [
-    {file = "pyfolio_reloaded-0.9.7-py3-none-any.whl", hash = "sha256:3d5c94105abd56d41b23841bb1c0d861d0a80ff747d5854d1b2ce192b774c330"},
-    {file = "pyfolio_reloaded-0.9.7.tar.gz", hash = "sha256:2b522ff514579b2760ad9a95d02cadd02078621c5da8c34a091a44de554a71d5"},
-]
-
-[[package]]
 name = "pygments"
 version = "2.20.0"
 summary = ""
@@ -9004,19 +8812,6 @@ files = [
 ]
 
 [[package]]
-name = "river"
-version = "0.19.0"
-summary = ""
-dependencies = [
-    "numpy",
-    "pandas",
-    "scipy",
-]
-files = [
-    {file = "river-0.19.0.tar.gz", hash = "sha256:6b2192e27636334dd29eb43d6c46a53f9d7eef38eb8479a0797412b7c8c46020"},
-]
-
-[[package]]
 name = "rpds-py"
 version = "0.30.0"
 summary = ""
@@ -9567,42 +9362,6 @@ files = [
 ]
 
 [[package]]
-name = "skforecast"
-version = "0.19.1"
-summary = ""
-dependencies = [
-    "joblib",
-    "numba",
-    "numpy",
-    "optuna",
-    "pandas",
-    "rich",
-    "scikit-learn",
-    "scipy",
-    "tqdm",
-]
-files = [
-    {file = "skforecast-0.19.1-py3-none-any.whl", hash = "sha256:687c10f6ca51a168cdd3feaed834797f04021e7c33dfd388c99f8c92b013f45f"},
-    {file = "skforecast-0.19.1.tar.gz", hash = "sha256:67e5fe5415983e3678312a70cefa6f2f81da005162298e91643a6913c95979d8"},
-]
-
-[[package]]
-name = "sktime"
-version = "0.8.0"
-summary = ""
-dependencies = [
-    "numba",
-    "numpy",
-    "pandas",
-    "scikit-learn",
-    "statsmodels",
-    "wheel",
-]
-files = [
-    {file = "sktime-0.8.0.tar.gz", hash = "sha256:8970f2d4f2eb54c0181b05f5714d198a0fa95c127252475e5216a702347cd881"},
-]
-
-[[package]]
 name = "slicer"
 version = "0.0.7"
 summary = ""
@@ -10089,21 +9848,6 @@ summary = ""
 files = [
     {file = "tabulate-0.10.0-py3-none-any.whl", hash = "sha256:f0b0622e567335c8fabaaa659f1b33bcb6ddfe2e496071b743aa113f8774f2d3"},
     {file = "tabulate-0.10.0.tar.gz", hash = "sha256:e2cfde8f79420f6deeffdeda9aaec3b6bc5abce947655d17ac662b126e48a60d"},
-]
-
-[[package]]
-name = "tbats"
-version = "1.1.3"
-summary = ""
-dependencies = [
-    "numpy",
-    "pmdarima",
-    "scikit-learn",
-    "scipy",
-]
-files = [
-    {file = "tbats-1.1.3-py3-none-any.whl", hash = "sha256:aff37f39115583028dacbd87227bc2ac65e696ea25543ddcd78e334e1fbe8e3a"},
-    {file = "tbats-1.1.3.tar.gz", hash = "sha256:dccd0d4cd9e2fde30bf19a944ee957d2f865975846284f48ce673992c4f5d89e"},
 ]
 
 [[package]]
