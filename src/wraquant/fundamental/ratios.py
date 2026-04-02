@@ -57,9 +57,9 @@ def _get_fmp_client(fmp_client: Any | None = None) -> Any:
     """Return the provided client or construct a default one."""
     if fmp_client is not None:
         return fmp_client
-    from wraquant.data.providers.fmp import FMPProvider  # noqa: WPS433
+    from wraquant.data.providers.fmp import FMPClient  # noqa: WPS433
 
-    return FMPProvider()
+    return FMPClient()
 
 
 def _safe_get(data: dict | list, key: str, default: float = 0.0) -> float:
@@ -122,7 +122,7 @@ def profitability_ratios(
         symbol: Ticker symbol (e.g., ``"AAPL"``).
         period: ``"annual"`` or ``"quarter"``.  Annual data is more
             stable; quarterly reveals recent trends.
-        fmp_client: Optional pre-configured ``FMPProvider`` instance.
+        fmp_client: Optional pre-configured ``FMPClient`` instance.
             If ``None``, a default client is created.
 
     Returns:
@@ -220,7 +220,7 @@ def liquidity_ratios(
     Parameters:
         symbol: Ticker symbol.
         period: ``"annual"`` or ``"quarter"``.
-        fmp_client: Optional ``FMPProvider`` instance.
+        fmp_client: Optional ``FMPClient`` instance.
 
     Returns:
         Dictionary containing:
@@ -291,7 +291,7 @@ def leverage_ratios(
     Parameters:
         symbol: Ticker symbol.
         period: ``"annual"`` or ``"quarter"``.
-        fmp_client: Optional ``FMPProvider`` instance.
+        fmp_client: Optional ``FMPClient`` instance.
 
     Returns:
         Dictionary containing:
@@ -371,7 +371,7 @@ def efficiency_ratios(
     Parameters:
         symbol: Ticker symbol.
         period: ``"annual"`` or ``"quarter"``.
-        fmp_client: Optional ``FMPProvider`` instance.
+        fmp_client: Optional ``FMPClient`` instance.
 
     Returns:
         Dictionary containing:
@@ -463,7 +463,7 @@ def valuation_ratios(
 
     Parameters:
         symbol: Ticker symbol.
-        fmp_client: Optional ``FMPProvider`` instance.
+        fmp_client: Optional ``FMPClient`` instance.
 
     Returns:
         Dictionary containing:
@@ -554,7 +554,7 @@ def growth_ratios(
         symbol: Ticker symbol.
         period: ``"annual"`` or ``"quarter"``.  Annual is less noisy;
             quarterly captures recent momentum.
-        fmp_client: Optional ``FMPProvider`` instance.
+        fmp_client: Optional ``FMPClient`` instance.
 
     Returns:
         Dictionary containing:
@@ -656,7 +656,7 @@ def dupont_decomposition(
     Parameters:
         symbol: Ticker symbol.
         period: ``"annual"`` or ``"quarter"``.
-        fmp_client: Optional ``FMPProvider`` instance.
+        fmp_client: Optional ``FMPClient`` instance.
 
     Returns:
         Dictionary containing:
@@ -759,7 +759,7 @@ def comprehensive_ratios(
         symbol: Ticker symbol.
         period: ``"annual"`` or ``"quarter"`` (used for non-valuation
             ratios; valuation ratios always use TTM).
-        fmp_client: Optional ``FMPProvider`` instance.  Passing one
+        fmp_client: Optional ``FMPClient`` instance.  Passing one
             avoids creating multiple clients.
 
     Returns:
@@ -837,7 +837,7 @@ def ratio_comparison(
         peers: List of peer ticker symbols.  If ``None``, peers are
             auto-discovered via FMP's ``stock_peers()`` endpoint,
             which returns companies in the same industry.
-        fmp_client: Optional pre-configured ``FMPProvider`` instance.
+        fmp_client: Optional pre-configured ``FMPClient`` instance.
 
     Returns:
         Dictionary containing:
@@ -1004,7 +1004,7 @@ def ratio_trends(
         symbol: Ticker symbol (e.g., ``"AAPL"``).
         periods: Number of annual periods to analyse.  Default 5 gives
             a full business-cycle view.  Use 3 for recent trajectory.
-        fmp_client: Optional pre-configured ``FMPProvider`` instance.
+        fmp_client: Optional pre-configured ``FMPClient`` instance.
 
     Returns:
         Dictionary containing:
@@ -1201,7 +1201,7 @@ def sector_comparison(
 
     Parameters:
         symbol: Ticker symbol (e.g., ``"AAPL"``).
-        fmp_client: Optional pre-configured ``FMPProvider`` instance.
+        fmp_client: Optional pre-configured ``FMPClient`` instance.
 
     Returns:
         Dictionary containing:

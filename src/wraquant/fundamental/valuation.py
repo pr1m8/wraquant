@@ -58,12 +58,12 @@ def _safe_div(numerator: float, denominator: float, default: float = 0.0) -> flo
 
 
 def _get_fmp_client(fmp_client: Any | None = None) -> Any:
-    """Return the provided client or construct a default ``FMPProvider``."""
+    """Return the provided client or construct a default ``FMPClient``."""
     if fmp_client is not None:
         return fmp_client
-    from wraquant.data.providers.fmp import FMPProvider  # noqa: WPS433
+    from wraquant.data.providers.fmp import FMPClient  # noqa: WPS433
 
-    return FMPProvider()
+    return FMPClient()
 
 
 def _safe_get(data: dict | list, key: str, default: float = 0.0) -> float:
@@ -136,7 +136,7 @@ def dcf_valuation(
             (~2--3%) as an upper bound.
         projection_years: Number of years to project FCF.
             Typical: 5--10.
-        fmp_client: Optional ``FMPProvider`` instance.
+        fmp_client: Optional ``FMPClient`` instance.
 
     Returns:
         Dictionary containing:
@@ -311,7 +311,7 @@ def relative_valuation(
         peers: List of peer ticker symbols.  If ``None``, the function
             uses FMP's sector peers (same industry/sector).  Provide
             explicit peers for more meaningful comparisons.
-        fmp_client: Optional ``FMPProvider`` instance.
+        fmp_client: Optional ``FMPClient`` instance.
 
     Returns:
         Dictionary containing:
@@ -448,7 +448,7 @@ def graham_number(
 
     Parameters:
         symbol: Ticker symbol.
-        fmp_client: Optional ``FMPProvider`` instance.
+        fmp_client: Optional ``FMPClient`` instance.
 
     Returns:
         Dictionary containing:
@@ -533,7 +533,7 @@ def peter_lynch_value(
 
     Parameters:
         symbol: Ticker symbol.
-        fmp_client: Optional ``FMPProvider`` instance.
+        fmp_client: Optional ``FMPClient`` instance.
 
     Returns:
         Dictionary containing:
@@ -639,7 +639,7 @@ def dividend_discount_model(
         required_return: Required rate of return / cost of equity.
             Typical range: 0.08--0.12.  Use CAPM or build-up method
             to estimate.
-        fmp_client: Optional ``FMPProvider`` instance.
+        fmp_client: Optional ``FMPClient`` instance.
 
     Returns:
         Dictionary containing:
@@ -768,7 +768,7 @@ def residual_income_model(
         fade_rate: Annual rate at which residual income fades toward
             zero.  Higher fade = more conservative.  0.0 = no fade
             (perpetual excess returns).  0.20 = industry reversion.
-        fmp_client: Optional ``FMPProvider`` instance.
+        fmp_client: Optional ``FMPClient`` instance.
 
     Returns:
         Dictionary containing:
@@ -894,7 +894,7 @@ def margin_of_safety(
         intrinsic_value: Your estimated fair value per share.
         current_price: Current market price.  If 0.0 and ``symbol``
             is provided, fetched from FMP.
-        fmp_client: Optional ``FMPProvider`` instance.
+        fmp_client: Optional ``FMPClient`` instance.
 
     Returns:
         Margin of safety as a float (e.g., 0.30 = 30% discount to
