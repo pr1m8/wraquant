@@ -1,6 +1,6 @@
 [project]
 name = "wraquant"
-version = "1.1.0"
+version = "1.2.0"
 description = "The ultimate quant finance toolkit for Python"
 dependencies = [
   "numpy>=2.4.2",

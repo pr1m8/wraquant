@@ -1593,7 +1593,7 @@ def _render_patterns_tab(close, high, low, open_, volume, COLORS, SERIES_COLORS,
             return f"color: {COLORS['danger']}"
         return ""
 
-    styled = summary_df.style.applymap(_color_signal, subset=["Last Signal"])
+    styled = summary_df.style.map(_color_signal, subset=["Last Signal"])
     st.dataframe(styled, use_container_width=True, hide_index=True)
 
     # Chart with pattern markers
@@ -1882,7 +1882,7 @@ def _render_signals_tab(close, high, low, volume, open_, COLORS):
             return f"color: {COLORS['warning']}; font-weight: 600"
         return f"color: {COLORS['neutral']}"
 
-    styled = df.style.applymap(_style_signal, subset=["Signal"])
+    styled = df.style.map(_style_signal, subset=["Signal"])
     st.dataframe(styled, use_container_width=True, hide_index=True, height=600)
 
 
