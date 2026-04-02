@@ -9,6 +9,8 @@ def register_pricing_prompts(mcp: Any) -> None:
     def option_pricing(underlying: str = "AAPL", strike: float = 150, expiry: str = "2024-06-21") -> list[dict]:
         """Option pricing: BS, Greeks, vol smile, Heston calibration."""
         return [{"role": "user", "content": {"type": "text", "text": f"""
+First load the wraquant_system_context prompt for full module context.
+
 Price a {underlying} option (K={strike}, expiry={expiry}):
 
 1. Get current price from workspace data.
@@ -25,6 +27,8 @@ Price a {underlying} option (K={strike}, expiry={expiry}):
     def yield_curve_analysis(dataset: str = "bond_data") -> list[dict]:
         """Yield curve construction and analysis."""
         return [{"role": "user", "content": {"type": "text", "text": f"""
+First load the wraquant_system_context prompt for full module context.
+
 Yield curve analysis from {dataset}:
 
 1. Bootstrap zero curve from bond prices/yields.
@@ -41,6 +45,8 @@ Yield curve analysis from {dataset}:
     def exotic_pricing() -> list[dict]:
         """Price exotic options via characteristic functions and FBSDEs."""
         return [{"role": "user", "content": {"type": "text", "text": """
+First load the wraquant_system_context prompt for full module context.
+
 Exotic option pricing:
 
 1. Choose model: Heston, Variance Gamma, NIG, or CGMY.
@@ -57,6 +63,8 @@ Exotic option pricing:
     def vol_arbitrage() -> list[dict]:
         """Volatility arbitrage: compare implied vs realized and trade the spread."""
         return [{"role": "user", "content": {"type": "text", "text": """
+First load the wraquant_system_context prompt for full module context.
+
 Volatility arbitrage analysis:
 
 1. **Data**: Check workspace_status for options and underlying price data.
@@ -96,6 +104,8 @@ Volatility arbitrage analysis:
     def convertible_bond(bond_dataset: str = "convertible_data") -> list[dict]:
         """Convertible bond pricing: Black-Scholes + credit spread hybrid model."""
         return [{"role": "user", "content": {"type": "text", "text": f"""
+First load the wraquant_system_context prompt for full module context.
+
 Convertible bond pricing for {bond_dataset}:
 
 1. **Data**: Load {bond_dataset} from workspace. Needs: face value, coupon rate, maturity,
@@ -136,6 +146,8 @@ Convertible bond pricing for {bond_dataset}:
     def structured_product() -> list[dict]:
         """Structured product pricing: price a principal-protected note."""
         return [{"role": "user", "content": {"type": "text", "text": """
+First load the wraquant_system_context prompt for full module context.
+
 Structured product pricing (principal-protected note):
 
 1. **Product definition**: A principal-protected note (PPN) with:

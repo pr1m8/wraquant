@@ -324,6 +324,8 @@ feature_selection for rigorous feature filtering.
     def feature_engineering(dataset: str = "prices") -> list[dict]:
         """Comprehensive feature engineering for ML."""
         return [{"role": "user", "content": {"type": "text", "text": f"""
+First load the wraquant_system_context prompt for full module context.
+
 Build feature set from {dataset}:
 
 1. Return features: 1d, 5d, 21d returns, log returns.
@@ -340,6 +342,8 @@ Build feature set from {dataset}:
     def model_comparison(dataset: str = "features") -> list[dict]:
         """Compare multiple ML models with walk-forward validation."""
         return [{"role": "user", "content": {"type": "text", "text": f"""
+First load the wraquant_system_context prompt for full module context.
+
 Compare models on {dataset}:
 
 1. Train Random Forest — walk-forward 5 splits.
@@ -356,6 +360,8 @@ Compare models on {dataset}:
     def hyperparameter_sweep(dataset: str = "features", model: str = "gradient_boost") -> list[dict]:
         """Grid search over model hyperparameters."""
         return [{"role": "user", "content": {"type": "text", "text": f"""
+First load the wraquant_system_context prompt for full module context.
+
 Hyperparameter sweep for {model} on {dataset}:
 
 1. Define parameter grid (e.g., n_estimators=[50,100,200], max_depth=[3,5,7]).
@@ -371,6 +377,8 @@ Hyperparameter sweep for {model} on {dataset}:
     def anomaly_detection(dataset: str = "returns") -> list[dict]:
         """Anomaly detection: isolation forest, z-score, and regime-based anomalies."""
         return [{"role": "user", "content": {"type": "text", "text": f"""
+First load the wraquant_system_context prompt for full module context.
+
 Anomaly detection on {dataset}:
 
 1. **Data**: Load {dataset} from workspace. compute_returns if raw prices.
@@ -404,6 +412,8 @@ Anomaly detection on {dataset}:
     def regime_ml(dataset: str = "returns") -> list[dict]:
         """Regime-enhanced ML: use regime labels and probabilities as features."""
         return [{"role": "user", "content": {"type": "text", "text": f"""
+First load the wraquant_system_context prompt for full module context.
+
 Regime-enhanced ML model on {dataset}:
 
 1. **Data**: Load {dataset} from workspace. compute_returns if raw prices.
@@ -440,6 +450,8 @@ Regime-enhanced ML model on {dataset}:
     def ensemble_strategy(dataset: str = "prices") -> list[dict]:
         """Ensemble strategy: combine RF, GBM, and LSTM predictions."""
         return [{"role": "user", "content": {"type": "text", "text": f"""
+First load the wraquant_system_context prompt for full module context.
+
 Ensemble ML strategy on {dataset}:
 
 1. **Data**: Load {dataset} from workspace. compute_returns.
@@ -478,6 +490,8 @@ Ensemble ML strategy on {dataset}:
     def feature_selection(dataset: str = "features", target: str = "next_day_return") -> list[dict]:
         """Feature selection: RFE, SHAP, and correlation filtering."""
         return [{"role": "user", "content": {"type": "text", "text": f"""
+First load the wraquant_system_context prompt for full module context.
+
 Feature selection for {dataset} predicting {target}:
 
 1. **Data**: Load {dataset} from workspace. Should be a feature matrix with many columns.

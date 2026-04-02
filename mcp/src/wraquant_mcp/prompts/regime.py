@@ -9,6 +9,8 @@ def register_regime_prompts(mcp: Any) -> None:
     def regime_detection(dataset: str = "returns") -> list[dict]:
         """Multi-method regime detection with comparison."""
         return [{"role": "user", "content": {"type": "text", "text": f"""
+First load the wraquant_system_context prompt for full module context.
+
 Detect market regimes in {dataset}:
 
 1. detect_regimes with method="hmm", n_regimes=2 — classic HMM.
@@ -24,6 +26,8 @@ Detect market regimes in {dataset}:
     def market_regime_monitor() -> list[dict]:
         """Current market state and regime probability monitoring."""
         return [{"role": "user", "content": {"type": "text", "text": """
+First load the wraquant_system_context prompt for full module context.
+
 Monitor current market regime:
 
 1. Check workspace for recent data. detect_regimes on latest returns.
@@ -39,6 +43,8 @@ Monitor current market regime:
     def regime_backtest(dataset: str = "returns") -> list[dict]:
         """Backtest regime-conditional strategy vs unconditional."""
         return [{"role": "user", "content": {"type": "text", "text": f"""
+First load the wraquant_system_context prompt for full module context.
+
 Regime-conditional backtest on {dataset}:
 
 1. detect_regimes — identify bull (regime 0) and bear (regime 1).
@@ -54,6 +60,8 @@ Regime-conditional backtest on {dataset}:
     def changepoint_analysis(dataset: str = "returns") -> list[dict]:
         """Structural break detection and pre/post comparison."""
         return [{"role": "user", "content": {"type": "text", "text": f"""
+First load the wraquant_system_context prompt for full module context.
+
 Changepoint analysis on {dataset}:
 
 1. changepoint_detect with PELT method — where are structural breaks?
@@ -68,6 +76,8 @@ Changepoint analysis on {dataset}:
     def multi_asset_regime(datasets_json: str = '{"equity":"SPY","bonds":"TLT","gold":"GLD","vol":"VIX"}') -> list[dict]:
         """Multi-asset regime detection: identify regimes across asset classes simultaneously."""
         return [{"role": "user", "content": {"type": "text", "text": f"""
+First load the wraquant_system_context prompt for full module context.
+
 Multi-asset regime detection using {datasets_json}:
 
 1. **Data**: Parse the datasets JSON and load each asset from workspace.
@@ -98,6 +108,8 @@ Multi-asset regime detection using {datasets_json}:
     def volatility_regime(dataset: str = "returns") -> list[dict]:
         """Volatility-based regime classification with GARCH persistence analysis."""
         return [{"role": "user", "content": {"type": "text", "text": f"""
+First load the wraquant_system_context prompt for full module context.
+
 Volatility regime analysis for {dataset}:
 
 1. **Data**: Load {dataset} from workspace. compute_returns if raw prices.
@@ -131,6 +143,8 @@ Volatility regime analysis for {dataset}:
     def correlation_regime(dataset: str = "multi_asset_returns") -> list[dict]:
         """Correlation regime analysis: DCC and regime-conditional correlations."""
         return [{"role": "user", "content": {"type": "text", "text": f"""
+First load the wraquant_system_context prompt for full module context.
+
 Correlation regime analysis for {dataset}:
 
 1. **Data**: Load {dataset} from workspace. Needs multi-asset return series (3+ assets).

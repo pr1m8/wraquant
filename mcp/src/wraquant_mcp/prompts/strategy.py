@@ -259,6 +259,8 @@ cointegration analysis in equity_deep_dive for individual stock assessment.
     def momentum_strategy(dataset: str = "prices") -> list[dict]:
         """Momentum strategy: signals, regime filter, backtest."""
         return [{"role": "user", "content": {"type": "text", "text": f"""
+First load the wraquant_system_context prompt for full module context.
+
 Momentum strategy on {dataset}:
 
 1. compute_indicator: RSI(14), MACD(12,26,9), ROC(20).
@@ -275,6 +277,8 @@ Momentum strategy on {dataset}:
     def mean_reversion(dataset: str = "prices") -> list[dict]:
         """Mean reversion strategy: stationarity, OU fit, signals, backtest."""
         return [{"role": "user", "content": {"type": "text", "text": f"""
+First load the wraquant_system_context prompt for full module context.
+
 Mean reversion strategy on {dataset}:
 
 1. compute_returns.
@@ -292,6 +296,8 @@ Mean reversion strategy on {dataset}:
     def trend_following(dataset: str = "prices") -> list[dict]:
         """Trend following: MA crossover, ADX filter, PSAR stops."""
         return [{"role": "user", "content": {"type": "text", "text": f"""
+First load the wraquant_system_context prompt for full module context.
+
 Trend following strategy on {dataset}:
 
 1. compute_indicator: SMA(50), SMA(200) — golden/death cross.
@@ -309,6 +315,8 @@ Trend following strategy on {dataset}:
     def statistical_arbitrage(dataset: str = "universe_returns") -> list[dict]:
         """Stat arb: PCA factors, residual alpha, signals, capacity."""
         return [{"role": "user", "content": {"type": "text", "text": f"""
+First load the wraquant_system_context prompt for full module context.
+
 Statistical arbitrage on {dataset}:
 
 1. factor_analysis — extract PCA factors from the universe.
@@ -326,6 +334,8 @@ Statistical arbitrage on {dataset}:
     def carry_trade(rates_json: str = '{"USD":5.25,"EUR":4.50,"JPY":0.10,"AUD":4.35,"GBP":5.25}') -> list[dict]:
         """FX carry trade: portfolio construction and backtest."""
         return [{"role": "user", "content": {"type": "text", "text": f"""
+First load the wraquant_system_context prompt for full module context.
+
 FX carry trade analysis with rates: {rates_json}:
 
 1. **Data**: Parse the rates JSON. Load FX spot rate data from workspace for each
@@ -360,6 +370,8 @@ FX carry trade analysis with rates: {rates_json}:
     def volatility_selling(dataset: str = "prices") -> list[dict]:
         """Short volatility strategy: put selling, straddle selling, and risk management."""
         return [{"role": "user", "content": {"type": "text", "text": f"""
+First load the wraquant_system_context prompt for full module context.
+
 Volatility selling strategy on {dataset}:
 
 1. **Data**: Load {dataset} from workspace. compute_returns.
@@ -397,6 +409,8 @@ Volatility selling strategy on {dataset}:
     def market_making(dataset: str = "tick_data") -> list[dict]:
         """Market making strategy: spread capture, inventory management, adverse selection."""
         return [{"role": "user", "content": {"type": "text", "text": f"""
+First load the wraquant_system_context prompt for full module context.
+
 Market making analysis on {dataset}:
 
 1. **Data**: Load {dataset} from workspace. Needs high-frequency or daily data with
@@ -434,6 +448,8 @@ Market making analysis on {dataset}:
     def sector_rotation(sectors_dataset: str = "sector_returns") -> list[dict]:
         """Sector rotation: momentum + fundamentals-based sector selection."""
         return [{"role": "user", "content": {"type": "text", "text": f"""
+First load the wraquant_system_context prompt for full module context.
+
 Sector rotation strategy on {sectors_dataset}:
 
 1. **Data**: Load {sectors_dataset} from workspace. Should include returns for major sectors

@@ -292,6 +292,8 @@ Strategic asset allocation across {datasets}:
     def tactical_allocation(dataset: str = "multi_asset_returns") -> list[dict]:
         """Regime-aware tactical allocation: tilt from strategic weights."""
         return [{"role": "user", "content": {"type": "text", "text": f"""
+First load the wraquant_system_context prompt for full module context.
+
 Tactical allocation on {dataset}:
 
 1. **Data**: Load {dataset} from workspace. compute_returns for each asset.
@@ -326,6 +328,8 @@ Tactical allocation on {dataset}:
     def risk_parity_deep_dive(dataset: str = "multi_asset_returns") -> list[dict]:
         """Equal risk contribution analysis: deep dive into risk parity construction."""
         return [{"role": "user", "content": {"type": "text", "text": f"""
+First load the wraquant_system_context prompt for full module context.
+
 Risk parity deep dive on {dataset}:
 
 1. **Data**: Load {dataset} from workspace. compute_returns for each asset.
@@ -363,6 +367,8 @@ Risk parity deep dive on {dataset}:
     def factor_tilt(dataset: str = "portfolio_returns", factors_dataset: str = "factor_returns") -> list[dict]:
         """Factor tilt analysis: tilt portfolio toward desired factor exposures."""
         return [{"role": "user", "content": {"type": "text", "text": f"""
+First load the wraquant_system_context prompt for full module context.
+
 Factor tilt analysis for {dataset} with factors from {factors_dataset}:
 
 1. **Data**: Load {dataset} and {factors_dataset} from workspace.
@@ -400,6 +406,8 @@ Factor tilt analysis for {dataset} with factors from {factors_dataset}:
     def esg_screen(dataset: str = "portfolio_returns", esg_scores: str = "esg_data") -> list[dict]:
         """ESG-constrained portfolio construction."""
         return [{"role": "user", "content": {"type": "text", "text": f"""
+First load the wraquant_system_context prompt for full module context.
+
 ESG-constrained portfolio analysis for {dataset} with {esg_scores}:
 
 1. **Data**: Load {dataset} (asset returns) and {esg_scores} (ESG ratings per asset).

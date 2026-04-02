@@ -9,6 +9,8 @@ def register_reporting_prompts(mcp: Any) -> None:
     def daily_risk_monitor(dataset: str = "portfolio_returns") -> list[dict]:
         """Daily risk monitoring checklist."""
         return [{"role": "user", "content": {"type": "text", "text": f"""
+First load the wraquant_system_context prompt for full module context.
+
 Daily risk check for {dataset}:
 
 1. risk_metrics — today's Sharpe, vol, drawdown status.
@@ -23,6 +25,8 @@ Daily risk check for {dataset}:
     def weekly_portfolio_review(dataset: str = "portfolio_returns") -> list[dict]:
         """Weekly portfolio review with attribution and outlook."""
         return [{"role": "user", "content": {"type": "text", "text": f"""
+First load the wraquant_system_context prompt for full module context.
+
 Weekly review for {dataset}:
 
 1. This week's performance — return, vol, Sharpe.
@@ -38,6 +42,8 @@ Weekly review for {dataset}:
     def strategy_tearsheet(dataset: str = "strategy_returns") -> list[dict]:
         """Full strategy performance tearsheet."""
         return [{"role": "user", "content": {"type": "text", "text": f"""
+First load the wraquant_system_context prompt for full module context.
+
 Generate tearsheet for {dataset}:
 
 1. comprehensive_tearsheet — all metrics.
@@ -54,6 +60,8 @@ Generate tearsheet for {dataset}:
     def research_summary() -> list[dict]:
         """Summarize current workspace: datasets, models, findings."""
         return [{"role": "user", "content": {"type": "text", "text": """
+First load the wraquant_system_context prompt for full module context.
+
 Summarize current research workspace:
 
 1. workspace_status — what datasets and models exist?
@@ -68,6 +76,8 @@ Summarize current research workspace:
     def sentiment_analysis(ticker: str = "AAPL") -> list[dict]:
         """News sentiment scoring and impact analysis."""
         return [{"role": "user", "content": {"type": "text", "text": f"""
+First load the wraquant_system_context prompt for full module context.
+
 Sentiment analysis for {ticker}:
 
 1. If news data available: compute sentiment scores.
@@ -83,6 +93,8 @@ Sentiment analysis for {ticker}:
     def fundamental_screen(universe: str = "sp500_returns") -> list[dict]:
         """Fundamental quality screening and valuation."""
         return [{"role": "user", "content": {"type": "text", "text": f"""
+First load the wraquant_system_context prompt for full module context.
+
 Fundamental screen on {universe}:
 
 1. If fundamental data available: compute ratios (P/E, P/B, ROE, D/E).
@@ -98,6 +110,8 @@ Fundamental screen on {universe}:
     def microstructure_analysis(dataset: str = "tick_data") -> list[dict]:
         """Market microstructure and liquidity analysis."""
         return [{"role": "user", "content": {"type": "text", "text": f"""
+First load the wraquant_system_context prompt for full module context.
+
 Microstructure analysis on {dataset}:
 
 1. Compute spread metrics — quoted, effective, realized spread.
@@ -113,6 +127,8 @@ Microstructure analysis on {dataset}:
     def execution_optimization(dataset: str = "prices", quantity: int = 10000) -> list[dict]:
         """Optimal execution scheduling and cost analysis."""
         return [{"role": "user", "content": {"type": "text", "text": f"""
+First load the wraquant_system_context prompt for full module context.
+
 Optimize execution of {quantity} shares using {dataset}:
 
 1. Estimate current market conditions — spread, depth, volatility.
@@ -127,6 +143,8 @@ Optimize execution of {quantity} shares using {dataset}:
     def bayesian_analysis(dataset: str = "returns") -> list[dict]:
         """Bayesian inference on financial data."""
         return [{"role": "user", "content": {"type": "text", "text": f"""
+First load the wraquant_system_context prompt for full module context.
+
 Bayesian analysis on {dataset}:
 
 1. Bayesian Sharpe ratio — posterior distribution with credible interval.
@@ -141,6 +159,8 @@ Bayesian analysis on {dataset}:
     def causal_analysis(treatment_dataset: str = "treated", control_dataset: str = "control") -> list[dict]:
         """Causal inference for policy/event impact."""
         return [{"role": "user", "content": {"type": "text", "text": f"""
+First load the wraquant_system_context prompt for full module context.
+
 Causal impact analysis: {treatment_dataset} vs {control_dataset}:
 
 1. Difference-in-differences — parallel trends check.
@@ -156,6 +176,8 @@ Causal impact analysis: {treatment_dataset} vs {control_dataset}:
     def monthly_report(dataset: str = "portfolio_returns") -> list[dict]:
         """Comprehensive monthly performance report."""
         return [{"role": "user", "content": {"type": "text", "text": f"""
+First load the wraquant_system_context prompt for full module context.
+
 Monthly performance report for {dataset}:
 
 1. **Data**: Load {dataset} from workspace. Filter to the most recent complete month.
@@ -190,6 +212,8 @@ Monthly performance report for {dataset}:
     def attribution_report(dataset: str = "portfolio_returns", benchmark_dataset: str = "benchmark_returns") -> list[dict]:
         """Brinson attribution: allocation, selection, and interaction effects."""
         return [{"role": "user", "content": {"type": "text", "text": f"""
+First load the wraquant_system_context prompt for full module context.
+
 Brinson attribution for {dataset} vs {benchmark_dataset}:
 
 1. **Data**: Load {dataset} (portfolio sector/asset returns and weights) and
@@ -224,6 +248,8 @@ Brinson attribution for {dataset} vs {benchmark_dataset}:
     def compliance_check(dataset: str = "portfolio_holdings", limits_json: str = '{"max_position":0.10,"max_sector":0.30,"max_drawdown":0.15,"min_liquidity_days":3}') -> list[dict]:
         """Compliance check: verify portfolio against risk limits."""
         return [{"role": "user", "content": {"type": "text", "text": f"""
+First load the wraquant_system_context prompt for full module context.
+
 Compliance check for {dataset} with limits: {limits_json}:
 
 1. **Data**: Load {dataset} from workspace. Parse limits JSON.
@@ -265,6 +291,8 @@ Compliance check for {dataset} with limits: {limits_json}:
     def client_report(dataset: str = "portfolio_returns", benchmark_dataset: str = "benchmark_returns") -> list[dict]:
         """Client-facing performance summary with clear, non-technical language."""
         return [{"role": "user", "content": {"type": "text", "text": f"""
+First load the wraquant_system_context prompt for full module context.
+
 Client report for {dataset} vs benchmark {benchmark_dataset}:
 
 1. **Data**: Load {dataset} and {benchmark_dataset} from workspace.
