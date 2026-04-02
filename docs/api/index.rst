@@ -85,6 +85,66 @@ for every public function and class.
 
       Plotly dashboards
 
+.. grid:: 3
+
+   .. grid-item-card:: Econometrics
+      :link: econometrics
+      :link-type: doc
+
+      Panel data & VAR
+
+   .. grid-item-card:: Microstructure
+      :link: microstructure
+      :link-type: doc
+
+      Liquidity & toxicity
+
+   .. grid-item-card:: Execution
+      :link: execution
+      :link-type: doc
+
+      TWAP, VWAP, Almgren-Chriss
+
+.. grid:: 3
+
+   .. grid-item-card:: Causal Inference
+      :link: causal
+      :link-type: doc
+
+      DID, synthetic control
+
+   .. grid-item-card:: Bayesian
+      :link: bayes
+      :link-type: doc
+
+      MCMC & model comparison
+
+   .. grid-item-card:: Forex
+      :link: forex
+      :link-type: doc
+
+      Carry, sessions, risk
+
+.. grid:: 3
+
+   .. grid-item-card:: Data
+      :link: data
+      :link-type: doc
+
+      Fetching & cleaning
+
+   .. grid-item-card:: Advanced Math
+      :link: math
+      :link-type: doc
+
+      Networks, Levy, optimal stopping
+
+   .. grid-item-card:: Core
+      :link: core
+      :link-type: doc
+
+      Types, coercion, results
+
 .. toctree::
    :maxdepth: 2
    :hidden:

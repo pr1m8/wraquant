@@ -61,6 +61,15 @@ from __future__ import annotations
 from typing import Any
 
 from wraquant._compat import Backend
+from wraquant.compose import (
+    Workflow,
+    WorkflowResult,
+    ml_workflow,
+    portfolio_workflow,
+    quick_analysis_workflow,
+    risk_workflow,
+    steps,
+)
 from wraquant.core.config import WQConfig, get_config, reset_config
 from wraquant.core.exceptions import (
     BacktestError,
@@ -94,15 +103,6 @@ from wraquant.core.types import (
     WeightsArray,
 )
 from wraquant.frame.factory import frame, series
-from wraquant.compose import (
-    Workflow,
-    WorkflowResult,
-    ml_workflow,
-    portfolio_workflow,
-    quick_analysis_workflow,
-    risk_workflow,
-    steps,
-)
 from wraquant.frame.ops import (
     cumulative_returns,
     drawdowns,
@@ -115,7 +115,7 @@ from wraquant.frame.ops import (
 )
 from wraquant.recipes import analyze
 
-__version__ = "0.1.0"
+__version__ = "1.0.0"
 
 __all__ = [
     # Version
