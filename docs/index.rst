@@ -3,21 +3,19 @@ wraquant
 
 **The ultimate quantitative finance toolkit for Python.**
 
-wraquant provides 27 modules covering risk management, volatility modeling,
-regime detection, technical analysis, machine learning, derivatives pricing,
-backtesting, portfolio optimization, and more -- all with a consistent API,
-deep documentation, and production-quality implementations.
+.. rst-class:: lead
 
-**New in v1.0.0: AI-native quant research lab.** wraquant-mcp exposes 218
-hand-crafted tools and 327 prompt templates as an MCP server. Point Claude
-or any AI agent at your data -- it can fit GARCH models, detect regimes,
-optimize portfolios, run backtests, and generate tearsheets through structured
-tool calls with persistent DuckDB state. No notebooks, no glue code.
+   1,097 functions | 3,630+ tests | 27 modules | 265 TA indicators | 100K+ LOC
+
+wraquant is a deeply integrated quant finance library that combines risk
+management, regime detection, volatility modeling, derivatives pricing,
+backtesting, portfolio optimization, fundamental analysis, machine learning,
+and technical analysis in one cohesive framework -- with a consistent API,
+deep documentation, and production-quality implementations.
 
 .. code-block:: bash
 
-   pip install wraquant-mcp
-   wraquant-mcp  # Start MCP server for Claude Desktop
+   pip install wraquant
 
 .. code-block:: python
 
@@ -27,12 +25,34 @@ tool calls with persistent DuckDB state. No notebooks, no glue code.
    report = wq.analyze(daily_returns)
    print(f"Sharpe: {report['risk']['sharpe']:.2f}")
    print(f"Max drawdown: {report['risk']['max_drawdown']:.2%}")
+   print(f"Regime: {report['regime']['current']}")
 
-   # Composable workflows
+   # Composable workflows -- zero glue code
    result = wq.quick_analysis_workflow().run(prices)
    result.risk       # risk metrics
    result.regimes    # regime detection
    result.garch      # GARCH volatility model
+
+
+AI-Native Quant Research Lab
+-----------------------------
+
+**New in v1.0.0.** wraquant-mcp exposes 218 hand-crafted tools and 327
+prompt templates as an MCP server. Point Claude or any AI agent at your
+data -- it can fit GARCH models, detect regimes, optimize portfolios, run
+backtests, and generate tearsheets through structured tool calls with
+persistent DuckDB state. No notebooks, no glue code.
+
+.. code-block:: bash
+
+   pip install wraquant-mcp
+   wraquant-mcp  # Start MCP server for Claude Desktop
+
+See the :doc:`mcp` page for configuration and the full tool catalog.
+
+
+Module Overview
+---------------
 
 .. grid:: 3
 
@@ -114,12 +134,33 @@ tool calls with persistent DuckDB state. No notebooks, no glue code.
 
 .. grid:: 3
 
-   .. grid-item-card:: MCP Server -- AI Quant Research Lab
+   .. grid-item-card:: Fundamental Analysis
+      :link: api/fundamental
+      :link-type: doc
+
+      28+ functions: financial ratios, DCF/DDM/RIM valuation,
+      DuPont decomposition, financial health scoring, earnings
+      quality, and stock screening (value, growth, quality,
+      Piotroski, Magic Formula).
+
+   .. grid-item-card:: News & Sentiment
+      :link: api/news
+      :link-type: doc
+
+      17 functions: news sentiment scoring, sentiment time
+      series and signals, earnings surprises, insider activity,
+      institutional ownership, SEC filings search.
+
+   .. grid-item-card:: MCP Server
+      :link: mcp
+      :link-type: doc
 
       218 tools, 327 prompts. Point an AI agent at your data:
       it fits GARCH, detects regimes, optimizes portfolios, runs
       backtests, prices derivatives, generates tearsheets.
       Shared DuckDB state. ``pip install wraquant-mcp``
+
+.. grid:: 3
 
    .. grid-item-card:: Econometrics
       :link: api/econometrics
@@ -134,6 +175,91 @@ tool calls with persistent DuckDB state. No notebooks, no glue code.
 
       Liquidity (Amihud, Kyle), toxicity (VPIN), market quality,
       spread decomposition, order flow, and execution cost models.
+
+   .. grid-item-card:: Execution Algorithms
+      :link: api/execution
+      :link-type: doc
+
+      Almgren-Chriss optimal execution, TWAP, VWAP, POV,
+      IS scheduling, transaction cost analysis, and
+      slippage estimation.
+
+.. grid:: 3
+
+   .. grid-item-card:: Forex
+      :link: api/forex
+      :link-type: doc
+
+      Carry trade analysis, currency strength, FX risk,
+      session timing, cross rates, and pip calculations.
+
+   .. grid-item-card:: Bayesian Inference
+      :link: api/bayes
+      :link-type: doc
+
+      PyMC, emcee, BlackJAX, NumPyro backends. Bayesian
+      Sharpe, portfolio, volatility, changepoints, and
+      model comparison.
+
+   .. grid-item-card:: Causal Inference
+      :link: api/causal
+      :link-type: doc
+
+      Difference-in-differences, synthetic control, IPW,
+      regression discontinuity, and IV estimation.
+
+.. grid:: 3
+
+   .. grid-item-card:: Data
+      :link: api/data
+      :link-type: doc
+
+      Fetching (yfinance, FRED, NASDAQ, FMP), cleaning,
+      validation, transforms, calendar alignment, and
+      caching.
+
+   .. grid-item-card:: Advanced Math
+      :link: api/math
+      :link-type: doc
+
+      Network analysis, Levy processes, optimal stopping,
+      spectral methods, PDEs, and entropy measures.
+
+   .. grid-item-card:: Visualization
+      :link: api/viz
+      :link-type: doc
+
+      Interactive Plotly dashboards for portfolios, regimes,
+      risk, volatility surfaces, correlation networks,
+      and tearsheets.
+
+
+Cross-Module Integration
+------------------------
+
+wraquant modules are organized as a directed acyclic graph. Each module
+feeds its outputs into the next with zero glue code::
+
+   data --> ta/stats/ts --> vol/regimes --> risk --> opt --> backtest --> viz
+                                |                    |          |
+                                +-------- ml --------+   fundamental/news
+
+Example pipeline:
+
+.. code-block:: python
+
+   from wraquant.vol import garch_fit
+   from wraquant.risk import garch_var, historical_stress_test
+   from wraquant.viz import plot_var_breaches
+
+   # Fit GJR-GARCH --> time-varying VaR --> stress test --> visualize
+   model = garch_fit(returns * 100, model="GJR", dist="t")
+   var = garch_var(returns, vol_model="GJR", dist="t", alpha=0.01)
+   stress = historical_stress_test(returns, scenarios=["gfc_2008", "covid_2020"])
+
+See the :doc:`getting_started` page for installation, configuration, and
+a complete walkthrough.
+
 
 .. toctree::
    :maxdepth: 2
@@ -155,6 +281,15 @@ tool calls with persistent DuckDB state. No notebooks, no glue code.
    :hidden:
 
    api/index
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Ecosystem
+   :hidden:
+
+   mcp
+   changelog
+
 
 Indices and tables
 ==================
