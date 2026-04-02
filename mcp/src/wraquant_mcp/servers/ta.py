@@ -1,10 +1,17 @@
 """Technical analysis MCP tools.
 
-Tools: list_indicators, multi_indicator, scan_signals.
+Tools: list_indicators, multi_indicator, scan_signals, momentum_indicators,
+trend_indicators, volatility_indicators, volume_indicators,
+overlay_indicators, pattern_recognition, fibonacci_levels,
+support_resistance, cycle_analysis, smoothing_indicators,
+exotic_indicators, statistics_indicators, breadth_indicators,
+candle_analysis, price_action_analysis, performance_indicators,
+ta_screening, ta_dashboard.
 """
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from wraquant_mcp.context import AnalysisContext, _sanitize_for_json

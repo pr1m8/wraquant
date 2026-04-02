@@ -74,7 +74,7 @@ def register_vol_tools(mcp, ctx: AnalysisContext) -> None:
 
         nic_df = pd.DataFrame({
             "shock": result["shocks"],
-            "variance": result["variances"],
+            "variance": result["conditional_variance"],
         })
         stored = ctx.store_dataset(
             f"{model_name}_nic", nic_df,
@@ -153,6 +153,8 @@ def register_vol_tools(mcp, ctx: AnalysisContext) -> None:
 
         if method == "close_to_close":
             result = func(df["close"], window=window)
+        elif method == "parkinson":
+            result = func(df["high"], df["low"], window=window)
         else:
             result = func(
                 df["open"], df["high"], df["low"], df["close"],

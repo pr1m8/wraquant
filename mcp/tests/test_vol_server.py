@@ -204,8 +204,8 @@ class TestForecastVolatility:
         returns = ctx.get_dataset("returns")["returns"].dropna().values
         result = garch_forecast(returns, horizon=10)
 
-        assert "forecast" in result
-        forecast = result["forecast"]
+        assert "forecast_volatility" in result
+        forecast = result["forecast_volatility"]
         assert len(forecast) == 10
         assert all(np.isfinite(v) for v in forecast)
 
@@ -277,14 +277,14 @@ class TestNewsImpactCurve:
         result = news_impact_curve(returns, model_type="GARCH", n_points=50)
 
         assert "shocks" in result
-        assert "variances" in result
+        assert "conditional_variance" in result
         assert len(result["shocks"]) == 50
-        assert len(result["variances"]) == 50
+        assert len(result["conditional_variance"]) == 50
 
         # Store in context
         nic_df = pd.DataFrame({
             "shock": result["shocks"],
-            "variance": result["variances"],
+            "variance": result["conditional_variance"],
         })
         stored = ctx.store_dataset("nic_result", nic_df, source_op="news_impact_curve")
         assert stored["rows"] == 50

@@ -282,7 +282,7 @@ class TestStationarityTests:
             dataset="returns", column="returns",
         )
         adf = result["adf"]
-        assert "statistic" in adf
+        assert "test_statistic" in adf
         assert "p_value" in adf
 
     def test_kpss_result_structure(self, stats_tools):
@@ -290,7 +290,7 @@ class TestStationarityTests:
             dataset="returns", column="returns",
         )
         kpss = result["kpss"]
-        assert "statistic" in kpss
+        assert "test_statistic" in kpss
         assert "p_value" in kpss
 
     def test_returns_should_be_stationary(self, stats_tools):
@@ -328,14 +328,17 @@ class TestCointegrationTest:
         assert isinstance(result["hedge_ratio"], float)
 
     def test_hedge_ratio_close_to_true_value(self, stats_tools):
-        """Hedge ratio should be near 0.8 for our synthetic pair."""
+        """Hedge ratio should be near 1/0.8 ≈ 1.25 for our synthetic pair.
+
+        Data is y2 = 0.8 * y1 + noise, so OLS of y1 on y2 gives ~1.25.
+        """
         result = stats_tools["cointegration_test"](
             dataset="cointegrated_pair",
             column_a="series_a",
             column_b="series_b",
         )
-        # Allow tolerance since it's estimated
-        assert 0.5 < result["hedge_ratio"] < 1.2
+        # hedge_ratio(y1, y2) regresses y1 on y2, giving ~1/0.8 ≈ 1.25
+        assert 0.8 < result["hedge_ratio"] < 1.6
 
     def test_half_life_is_finite(self, stats_tools):
         result = stats_tools["cointegration_test"](

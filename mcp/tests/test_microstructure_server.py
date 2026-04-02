@@ -93,9 +93,9 @@ class TestLiquidityMetrics:
         assert isinstance(result["kyle_lambda_latest"], float)
         assert np.isfinite(result["kyle_lambda_latest"])
 
-        assert isinstance(result["roll_spread"], float)
-        # Roll spread can be NaN if serial covariance is non-negative
-        # so just check the key exists
+        # Roll spread can be None (NaN sanitized to None) if serial
+        # covariance is non-negative, so just check the key exists
+        assert "roll_spread" in result
 
         assert isinstance(result["observations"], int)
         assert result["observations"] > 0

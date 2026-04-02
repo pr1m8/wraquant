@@ -1,7 +1,9 @@
 """Regime detection MCP tools (deep module-specific).
 
 Tools: regime_statistics, regime_transition, select_n_states,
-rolling_regime_probability.
+rolling_regime_probability, fit_gaussian_hmm, fit_ms_autoregression,
+gaussian_mixture_regimes, regime_conditional_moments, regime_scoring,
+regime_labels, kalman_filter, kalman_regression.
 
 Note: The basic detect_regimes tool lives in server.py (tier-2).
 These tools provide deeper regime analysis capabilities.

@@ -1,7 +1,11 @@
 """Market microstructure MCP tools.
 
 Tools: liquidity_metrics, toxicity_analysis, market_quality,
-spread_decomposition, price_impact, depth_analysis.
+spread_decomposition, price_impact, depth_analysis,
+kyle_lambda_rolling, amihud_rolling, corwin_schultz_spread,
+roll_spread, effective_spread, order_flow_imbalance,
+trade_classification, intraday_volatility_pattern,
+information_share, liquidity_commonality.
 """
 
 from __future__ import annotations

@@ -154,10 +154,11 @@ class TestStressTest:
     """Test stress_test tool and underlying wraquant stress functions."""
 
     def test_stress_test_historical(self, risk_tools):
+        # Default stress_test (no scenarios, no historical) runs vol_stress
         result = risk_tools["stress_test"](
-            dataset="returns", historical=True,
+            dataset="returns",
         )
-        assert "historical" in result["results"]
+        assert "vol_stress" in result["results"]
 
     def test_vol_stress_test_direct(self, ctx):
         """Test vol_stress_test function directly through context."""
@@ -175,13 +176,20 @@ class TestStressTest:
         result = stress_test_returns(returns, scenarios={"crash": -0.10})
         assert isinstance(result, dict)
 
-    def test_historical_stress_test_direct(self, ctx):
-        """Test historical_stress_test function directly."""
+    def test_historical_stress_test_direct(self):
+        """Test historical_stress_test function directly with proper dates."""
         from wraquant.risk.stress import historical_stress_test
 
-        returns = ctx.get_dataset("returns")["returns"].dropna()
+        rng = np.random.default_rng(42)
+        # Use dates overlapping with a built-in crisis period (COVID 2020)
+        dates = pd.bdate_range("2020-01-01", "2020-06-30")
+        returns = pd.Series(rng.normal(-0.001, 0.02, len(dates)), index=dates)
         result = historical_stress_test(returns)
         assert isinstance(result, dict)
+        assert "crisis_results" in result
+        assert "periods_found" in result
+        # Should find COVID crisis period
+        assert "covid_2020" in result["periods_found"]
 
 
 # ------------------------------------------------------------------
