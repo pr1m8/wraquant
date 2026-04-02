@@ -43,66 +43,75 @@ def register_opt_tools(mcp, ctx: AnalysisContext) -> None:
             views: Asset views for Black-Litterman.
                 e.g. {"AAPL": 0.10, "MSFT": 0.05}
         """
-        import numpy as np
+        try:
+            import numpy as np
 
-        from wraquant.opt.portfolio import (
-            black_litterman,
-            equal_weight,
-            hierarchical_risk_parity,
-            inverse_volatility,
-            max_sharpe,
-            mean_variance,
-            min_volatility,
-            risk_parity,
-        )
+            from wraquant.opt.portfolio import (
+                black_litterman,
+                equal_weight,
+                hierarchical_risk_parity,
+                inverse_volatility,
+                max_sharpe,
+                mean_variance,
+                min_volatility,
+                risk_parity,
+            )
 
-        df = ctx.get_dataset(dataset)
-        returns = df.select_dtypes(include=[np.number]).dropna()
+            df = ctx.get_dataset(dataset)
+            returns = df.select_dtypes(include=[np.number]).dropna()
 
-        methods = {
-            "max_sharpe": lambda: max_sharpe(returns, risk_free_rate=risk_free_rate),
-            "min_vol": lambda: min_volatility(returns),
-            "risk_parity": lambda: risk_parity(returns),
-            "mvo": lambda: mean_variance(
-                returns, target_return=target_return or 0.10,
-                risk_free_rate=risk_free_rate,
-            ),
-            "hrp": lambda: hierarchical_risk_parity(returns),
-            "bl": lambda: black_litterman(returns, views=views or {}),
-            "equal_weight": lambda: equal_weight(returns),
-            "inverse_vol": lambda: inverse_volatility(returns),
-        }
+            methods = {
+                "max_sharpe": lambda: max_sharpe(
+                    returns, risk_free_rate=risk_free_rate
+                ),
+                "min_vol": lambda: min_volatility(returns),
+                "risk_parity": lambda: risk_parity(returns),
+                "mvo": lambda: mean_variance(
+                    returns,
+                    target_return=target_return or 0.10,
+                    risk_free_rate=risk_free_rate,
+                ),
+                "hrp": lambda: hierarchical_risk_parity(returns),
+                "bl": lambda: black_litterman(returns, views=views or {}),
+                "equal_weight": lambda: equal_weight(returns),
+                "inverse_vol": lambda: inverse_volatility(returns),
+            }
 
-        func = methods.get(method)
-        if func is None:
-            return {"error": f"Unknown method '{method}'. Options: {list(methods)}"}
+            func = methods.get(method)
+            if func is None:
+                return {"error": f"Unknown method '{method}'. Options: {list(methods)}"}
 
-        result = func()
+            result = func()
 
-        model_name = f"opt_{dataset}_{method}"
-        stored = ctx.store_model(
-            model_name, result,
-            model_type=f"portfolio_{method}",
-            source_dataset=dataset,
-        )
+            model_name = f"opt_{dataset}_{method}"
+            stored = ctx.store_model(
+                model_name,
+                result,
+                model_type=f"portfolio_{method}",
+                source_dataset=dataset,
+            )
 
-        # Extract weights
-        weights = {}
-        if hasattr(result, "weights"):
-            w = result.weights
-            if hasattr(w, "items"):
-                weights = {str(k): float(v) for k, v in w.items()}
-            elif hasattr(w, "tolist"):
-                weights = dict(zip(returns.columns, w.tolist()))
-            else:
-                weights = dict(zip(returns.columns, list(w)))
+            # Extract weights
+            weights = {}
+            if hasattr(result, "weights"):
+                w = result.weights
+                if hasattr(w, "items"):
+                    weights = {str(k): float(v) for k, v in w.items()}
+                elif hasattr(w, "tolist"):
+                    weights = dict(zip(returns.columns, w.tolist(), strict=False))
+                else:
+                    weights = dict(zip(returns.columns, list(w), strict=False))
 
-        return _sanitize_for_json({
-            **stored,
-            "method": method,
-            "weights": weights,
-            "assets": list(returns.columns),
-        })
+            return _sanitize_for_json(
+                {
+                    **stored,
+                    "method": method,
+                    "weights": weights,
+                    "assets": list(returns.columns),
+                }
+            )
+        except Exception as e:
+            return {"error": str(e), "tool": "optimize_portfolio"}
 
     @mcp.tool()
     def efficient_frontier(
@@ -120,63 +129,84 @@ def register_opt_tools(mcp, ctx: AnalysisContext) -> None:
             n_points: Number of points on the frontier.
             risk_free_rate: Risk-free rate.
         """
-        import numpy as np
+        try:
+            import numpy as np
 
-        from wraquant.opt.portfolio import max_sharpe, mean_variance, min_volatility
+            from wraquant.opt.portfolio import max_sharpe, mean_variance, min_volatility
 
-        df = ctx.get_dataset(dataset)
-        returns = df.select_dtypes(include=[np.number]).dropna()
+            df = ctx.get_dataset(dataset)
+            returns = df.select_dtypes(include=[np.number]).dropna()
 
-        # Get min-vol and max-return bounds
-        min_vol_result = min_volatility(returns)
-        max_sharpe_result = max_sharpe(returns, risk_free_rate=risk_free_rate)
+            # Get min-vol and max-return bounds
+            min_vol_result = min_volatility(returns)
+            max_sharpe_result = max_sharpe(returns, risk_free_rate=risk_free_rate)
 
-        # Compute frontier points
-        min_ret = float(returns.mean().min()) * 252
-        max_ret = float(returns.mean().max()) * 252
-        target_returns = np.linspace(min_ret, max_ret, n_points)
+            # Compute frontier points
+            min_ret = float(returns.mean().min()) * 252
+            max_ret = float(returns.mean().max()) * 252
+            target_returns = np.linspace(min_ret, max_ret, n_points)
 
-        frontier = []
-        for target in target_returns:
-            try:
-                result = mean_variance(
-                    returns, target_return=target,
-                    risk_free_rate=risk_free_rate,
+            frontier = []
+            for target in target_returns:
+                try:
+                    result = mean_variance(
+                        returns,
+                        target_return=target,
+                        risk_free_rate=risk_free_rate,
+                    )
+                    if hasattr(result, "volatility") and hasattr(
+                        result, "expected_return"
+                    ):
+                        frontier.append(
+                            {
+                                "return": float(result.expected_return),
+                                "risk": float(result.volatility),
+                            }
+                        )
+                except Exception:
+                    continue
+
+            import pandas as pd
+
+            if frontier:
+                ef_df = pd.DataFrame(frontier)
+                stored = ctx.store_dataset(
+                    f"frontier_{dataset}",
+                    ef_df,
+                    source_op="efficient_frontier",
+                    parent=dataset,
                 )
-                if hasattr(result, "volatility") and hasattr(result, "expected_return"):
-                    frontier.append({
-                        "return": float(result.expected_return),
-                        "risk": float(result.volatility),
-                    })
-            except Exception:
-                continue
+            else:
+                stored = {}
 
-        import pandas as pd
-
-        if frontier:
-            ef_df = pd.DataFrame(frontier)
-            stored = ctx.store_dataset(
-                f"frontier_{dataset}", ef_df,
-                source_op="efficient_frontier", parent=dataset,
+            return _sanitize_for_json(
+                {
+                    "tool": "efficient_frontier",
+                    "dataset": dataset,
+                    "n_points": len(frontier),
+                    "frontier": frontier,
+                    "tangency": {
+                        "weights": (
+                            dict(
+                                zip(
+                                    returns.columns,
+                                    (
+                                        max_sharpe_result.weights.tolist()
+                                        if hasattr(max_sharpe_result.weights, "tolist")
+                                        else list(max_sharpe_result.weights)
+                                    ),
+                                    strict=False,
+                                )
+                            )
+                            if hasattr(max_sharpe_result, "weights")
+                            else {}
+                        ),
+                    },
+                    **stored,
+                }
             )
-        else:
-            stored = {}
-
-        return _sanitize_for_json({
-            "tool": "efficient_frontier",
-            "dataset": dataset,
-            "n_points": len(frontier),
-            "frontier": frontier,
-            "tangency": {
-                "weights": dict(zip(
-                    returns.columns,
-                    max_sharpe_result.weights.tolist()
-                    if hasattr(max_sharpe_result.weights, "tolist")
-                    else list(max_sharpe_result.weights),
-                )) if hasattr(max_sharpe_result, "weights") else {},
-            },
-            **stored,
-        })
+        except Exception as e:
+            return {"error": str(e), "tool": "efficient_frontier"}
 
     @mcp.tool()
     def rebalance_analysis(
@@ -193,37 +223,46 @@ def register_opt_tools(mcp, ctx: AnalysisContext) -> None:
             target_weights: Target portfolio weights by asset name.
             portfolio_value: Total portfolio value for trade sizing.
         """
-        import numpy as np
+        try:
+            import numpy as np
 
-        df = ctx.get_dataset(dataset)
+            df = ctx.get_dataset(dataset)
 
-        trades = {}
-        total_turnover = 0.0
+            trades = {}
+            total_turnover = 0.0
 
-        all_assets = set(list(current_weights.keys()) + list(target_weights.keys()))
+            all_assets = set(list(current_weights.keys()) + list(target_weights.keys()))
 
-        for asset in all_assets:
-            current = current_weights.get(asset, 0.0)
-            target = target_weights.get(asset, 0.0)
-            delta = target - current
-            trade_value = delta * portfolio_value
-            trades[asset] = {
-                "current_weight": current,
-                "target_weight": target,
-                "delta_weight": delta,
-                "trade_value": trade_value,
-                "direction": "buy" if delta > 0 else "sell" if delta < 0 else "hold",
-            }
-            total_turnover += abs(delta)
+            for asset in all_assets:
+                current = current_weights.get(asset, 0.0)
+                target = target_weights.get(asset, 0.0)
+                delta = target - current
+                trade_value = delta * portfolio_value
+                trades[asset] = {
+                    "current_weight": current,
+                    "target_weight": target,
+                    "delta_weight": delta,
+                    "trade_value": trade_value,
+                    "direction": (
+                        "buy" if delta > 0 else "sell" if delta < 0 else "hold"
+                    ),
+                }
+                total_turnover += abs(delta)
 
-        return _sanitize_for_json({
-            "tool": "rebalance_analysis",
-            "dataset": dataset,
-            "portfolio_value": portfolio_value,
-            "total_turnover": total_turnover / 2,  # one-way
-            "n_trades": sum(1 for t in trades.values() if t["direction"] != "hold"),
-            "trades": trades,
-        })
+            return _sanitize_for_json(
+                {
+                    "tool": "rebalance_analysis",
+                    "dataset": dataset,
+                    "portfolio_value": portfolio_value,
+                    "total_turnover": total_turnover / 2,  # one-way
+                    "n_trades": sum(
+                        1 for t in trades.values() if t["direction"] != "hold"
+                    ),
+                    "trades": trades,
+                }
+            )
+        except Exception as e:
+            return {"error": str(e), "tool": "rebalance_analysis"}
 
     @mcp.tool()
     def black_litterman(
@@ -243,43 +282,49 @@ def register_opt_tools(mcp, ctx: AnalysisContext) -> None:
             views_json: JSON dict of asset views (expected returns).
                 e.g. '{"AAPL": 0.10, "MSFT": 0.05}'
         """
-        import json
+        try:
+            import json
 
-        import numpy as np
+            import numpy as np
 
-        from wraquant.opt.portfolio import black_litterman as _bl
+            from wraquant.opt.portfolio import black_litterman as _bl
 
-        df = ctx.get_dataset(dataset)
-        returns = df.select_dtypes(include=[np.number]).dropna()
+            df = ctx.get_dataset(dataset)
+            returns = df.select_dtypes(include=[np.number]).dropna()
 
-        views = json.loads(views_json) if views_json and views_json != "{}" else {}
+            views = json.loads(views_json) if views_json and views_json != "{}" else {}
 
-        result = _bl(returns, views=views)
+            result = _bl(returns, views=views)
 
-        model_name = f"bl_{dataset}"
-        stored = ctx.store_model(
-            model_name, result,
-            model_type="black_litterman",
-            source_dataset=dataset,
-        )
+            model_name = f"bl_{dataset}"
+            stored = ctx.store_model(
+                model_name,
+                result,
+                model_type="black_litterman",
+                source_dataset=dataset,
+            )
 
-        weights = {}
-        if hasattr(result, "weights"):
-            w = result.weights
-            if hasattr(w, "items"):
-                weights = {str(k): float(v) for k, v in w.items()}
-            elif hasattr(w, "tolist"):
-                weights = dict(zip(returns.columns, w.tolist()))
-            else:
-                weights = dict(zip(returns.columns, list(w)))
+            weights = {}
+            if hasattr(result, "weights"):
+                w = result.weights
+                if hasattr(w, "items"):
+                    weights = {str(k): float(v) for k, v in w.items()}
+                elif hasattr(w, "tolist"):
+                    weights = dict(zip(returns.columns, w.tolist(), strict=False))
+                else:
+                    weights = dict(zip(returns.columns, list(w), strict=False))
 
-        return _sanitize_for_json({
-            **stored,
-            "method": "black_litterman",
-            "views": views,
-            "weights": weights,
-            "assets": list(returns.columns),
-        })
+            return _sanitize_for_json(
+                {
+                    **stored,
+                    "method": "black_litterman",
+                    "views": views,
+                    "weights": weights,
+                    "assets": list(returns.columns),
+                }
+            )
+        except Exception as e:
+            return {"error": str(e), "tool": "black_litterman"}
 
     @mcp.tool()
     def hierarchical_risk_parity(
@@ -294,38 +339,44 @@ def register_opt_tools(mcp, ctx: AnalysisContext) -> None:
         Parameters:
             dataset: Dataset with multi-asset returns.
         """
-        import numpy as np
+        try:
+            import numpy as np
 
-        from wraquant.opt.portfolio import hierarchical_risk_parity as _hrp
+            from wraquant.opt.portfolio import hierarchical_risk_parity as _hrp
 
-        df = ctx.get_dataset(dataset)
-        returns = df.select_dtypes(include=[np.number]).dropna()
+            df = ctx.get_dataset(dataset)
+            returns = df.select_dtypes(include=[np.number]).dropna()
 
-        result = _hrp(returns)
+            result = _hrp(returns)
 
-        model_name = f"hrp_{dataset}"
-        stored = ctx.store_model(
-            model_name, result,
-            model_type="hrp",
-            source_dataset=dataset,
-        )
+            model_name = f"hrp_{dataset}"
+            stored = ctx.store_model(
+                model_name,
+                result,
+                model_type="hrp",
+                source_dataset=dataset,
+            )
 
-        weights = {}
-        if hasattr(result, "weights"):
-            w = result.weights
-            if hasattr(w, "items"):
-                weights = {str(k): float(v) for k, v in w.items()}
-            elif hasattr(w, "tolist"):
-                weights = dict(zip(returns.columns, w.tolist()))
-            else:
-                weights = dict(zip(returns.columns, list(w)))
+            weights = {}
+            if hasattr(result, "weights"):
+                w = result.weights
+                if hasattr(w, "items"):
+                    weights = {str(k): float(v) for k, v in w.items()}
+                elif hasattr(w, "tolist"):
+                    weights = dict(zip(returns.columns, w.tolist(), strict=False))
+                else:
+                    weights = dict(zip(returns.columns, list(w), strict=False))
 
-        return _sanitize_for_json({
-            **stored,
-            "method": "hrp",
-            "weights": weights,
-            "assets": list(returns.columns),
-        })
+            return _sanitize_for_json(
+                {
+                    **stored,
+                    "method": "hrp",
+                    "weights": weights,
+                    "assets": list(returns.columns),
+                }
+            )
+        except Exception as e:
+            return {"error": str(e), "tool": "hierarchical_risk_parity"}
 
     @mcp.tool()
     def min_volatility(
@@ -340,40 +391,49 @@ def register_opt_tools(mcp, ctx: AnalysisContext) -> None:
         Parameters:
             dataset: Dataset with multi-asset returns.
         """
-        import numpy as np
+        try:
+            import numpy as np
 
-        from wraquant.opt.portfolio import min_volatility as _min_vol
+            from wraquant.opt.portfolio import min_volatility as _min_vol
 
-        df = ctx.get_dataset(dataset)
-        returns = df.select_dtypes(include=[np.number]).dropna()
+            df = ctx.get_dataset(dataset)
+            returns = df.select_dtypes(include=[np.number]).dropna()
 
-        result = _min_vol(returns)
+            result = _min_vol(returns)
 
-        model_name = f"minvol_{dataset}"
-        stored = ctx.store_model(
-            model_name, result,
-            model_type="min_volatility",
-            source_dataset=dataset,
-        )
+            model_name = f"minvol_{dataset}"
+            stored = ctx.store_model(
+                model_name,
+                result,
+                model_type="min_volatility",
+                source_dataset=dataset,
+            )
 
-        weights = {}
-        if hasattr(result, "weights"):
-            w = result.weights
-            if hasattr(w, "items"):
-                weights = {str(k): float(v) for k, v in w.items()}
-            elif hasattr(w, "tolist"):
-                weights = dict(zip(returns.columns, w.tolist()))
-            else:
-                weights = dict(zip(returns.columns, list(w)))
+            weights = {}
+            if hasattr(result, "weights"):
+                w = result.weights
+                if hasattr(w, "items"):
+                    weights = {str(k): float(v) for k, v in w.items()}
+                elif hasattr(w, "tolist"):
+                    weights = dict(zip(returns.columns, w.tolist(), strict=False))
+                else:
+                    weights = dict(zip(returns.columns, list(w), strict=False))
 
-        return _sanitize_for_json({
-            **stored,
-            "method": "min_volatility",
-            "weights": weights,
-            "assets": list(returns.columns),
-            "portfolio_volatility": float(result.volatility)
-            if hasattr(result, "volatility") else None,
-        })
+            return _sanitize_for_json(
+                {
+                    **stored,
+                    "method": "min_volatility",
+                    "weights": weights,
+                    "assets": list(returns.columns),
+                    "portfolio_volatility": (
+                        float(result.volatility)
+                        if hasattr(result, "volatility")
+                        else None
+                    ),
+                }
+            )
+        except Exception as e:
+            return {"error": str(e), "tool": "min_volatility"}
 
     @mcp.tool()
     def max_sharpe(
@@ -389,45 +449,60 @@ def register_opt_tools(mcp, ctx: AnalysisContext) -> None:
             dataset: Dataset with multi-asset returns.
             risk_free_rate: Risk-free rate for Sharpe calculation.
         """
-        import numpy as np
+        try:
+            import numpy as np
 
-        from wraquant.opt.portfolio import max_sharpe as _max_sharpe
+            from wraquant.opt.portfolio import max_sharpe as _max_sharpe
 
-        df = ctx.get_dataset(dataset)
-        returns = df.select_dtypes(include=[np.number]).dropna()
+            df = ctx.get_dataset(dataset)
+            returns = df.select_dtypes(include=[np.number]).dropna()
 
-        result = _max_sharpe(returns, risk_free_rate=risk_free_rate)
+            result = _max_sharpe(returns, risk_free_rate=risk_free_rate)
 
-        model_name = f"maxsharpe_{dataset}"
-        stored = ctx.store_model(
-            model_name, result,
-            model_type="max_sharpe",
-            source_dataset=dataset,
-        )
+            model_name = f"maxsharpe_{dataset}"
+            stored = ctx.store_model(
+                model_name,
+                result,
+                model_type="max_sharpe",
+                source_dataset=dataset,
+            )
 
-        weights = {}
-        if hasattr(result, "weights"):
-            w = result.weights
-            if hasattr(w, "items"):
-                weights = {str(k): float(v) for k, v in w.items()}
-            elif hasattr(w, "tolist"):
-                weights = dict(zip(returns.columns, w.tolist()))
-            else:
-                weights = dict(zip(returns.columns, list(w)))
+            weights = {}
+            if hasattr(result, "weights"):
+                w = result.weights
+                if hasattr(w, "items"):
+                    weights = {str(k): float(v) for k, v in w.items()}
+                elif hasattr(w, "tolist"):
+                    weights = dict(zip(returns.columns, w.tolist(), strict=False))
+                else:
+                    weights = dict(zip(returns.columns, list(w), strict=False))
 
-        return _sanitize_for_json({
-            **stored,
-            "method": "max_sharpe",
-            "risk_free_rate": risk_free_rate,
-            "weights": weights,
-            "assets": list(returns.columns),
-            "sharpe_ratio": float(result.sharpe_ratio)
-            if hasattr(result, "sharpe_ratio") else None,
-            "expected_return": float(result.expected_return)
-            if hasattr(result, "expected_return") else None,
-            "volatility": float(result.volatility)
-            if hasattr(result, "volatility") else None,
-        })
+            return _sanitize_for_json(
+                {
+                    **stored,
+                    "method": "max_sharpe",
+                    "risk_free_rate": risk_free_rate,
+                    "weights": weights,
+                    "assets": list(returns.columns),
+                    "sharpe_ratio": (
+                        float(result.sharpe_ratio)
+                        if hasattr(result, "sharpe_ratio")
+                        else None
+                    ),
+                    "expected_return": (
+                        float(result.expected_return)
+                        if hasattr(result, "expected_return")
+                        else None
+                    ),
+                    "volatility": (
+                        float(result.volatility)
+                        if hasattr(result, "volatility")
+                        else None
+                    ),
+                }
+            )
+        except Exception as e:
+            return {"error": str(e), "tool": "max_sharpe"}
 
     @mcp.tool()
     def risk_budgeting(
@@ -445,43 +520,53 @@ def register_opt_tools(mcp, ctx: AnalysisContext) -> None:
             target_risk_json: JSON list of target risk contributions
                 (must sum to 1). If empty, defaults to equal risk (risk parity).
         """
-        import json
+        try:
+            import json
 
-        import numpy as np
+            import numpy as np
 
-        from wraquant.risk.portfolio_analytics import risk_budgeting as _rb
+            from wraquant.risk.portfolio_analytics import risk_budgeting as _rb
 
-        df = ctx.get_dataset(dataset)
-        returns = df.select_dtypes(include=[np.number]).dropna()
+            df = ctx.get_dataset(dataset)
+            returns = df.select_dtypes(include=[np.number]).dropna()
 
-        target = json.loads(target_risk_json) \
-            if target_risk_json and target_risk_json != "[]" else []
+            target = (
+                json.loads(target_risk_json)
+                if target_risk_json and target_risk_json != "[]"
+                else []
+            )
 
-        cov = returns.cov().values
+            cov = returns.cov().values
 
-        if target:
-            target_arr = np.array(target)
-        else:
-            n = returns.shape[1]
-            target_arr = np.ones(n) / n
-
-        result = _rb(cov, target_risk=target_arr)
-
-        weights = {}
-        if isinstance(result, dict) and "weights" in result:
-            w = result["weights"]
-            if hasattr(w, "tolist"):
-                weights = dict(zip(returns.columns, w.tolist()))
+            if target:
+                target_arr = np.array(target)
             else:
-                weights = dict(zip(returns.columns, list(w)))
+                n = returns.shape[1]
+                target_arr = np.ones(n) / n
 
-        return _sanitize_for_json({
-            "tool": "risk_budgeting",
-            "dataset": dataset,
-            "target_risk": target_arr.tolist(),
-            "weights": weights,
-            "assets": list(returns.columns),
-            "result": {k: v for k, v in result.items()
-                       if k != "weights"}
-            if isinstance(result, dict) else str(result),
-        })
+            result = _rb(cov, target_risk=target_arr)
+
+            weights = {}
+            if isinstance(result, dict) and "weights" in result:
+                w = result["weights"]
+                if hasattr(w, "tolist"):
+                    weights = dict(zip(returns.columns, w.tolist(), strict=False))
+                else:
+                    weights = dict(zip(returns.columns, list(w), strict=False))
+
+            return _sanitize_for_json(
+                {
+                    "tool": "risk_budgeting",
+                    "dataset": dataset,
+                    "target_risk": target_arr.tolist(),
+                    "weights": weights,
+                    "assets": list(returns.columns),
+                    "result": (
+                        {k: v for k, v in result.items() if k != "weights"}
+                        if isinstance(result, dict)
+                        else str(result)
+                    ),
+                }
+            )
+        except Exception as e:
+            return {"error": str(e), "tool": "risk_budgeting"}

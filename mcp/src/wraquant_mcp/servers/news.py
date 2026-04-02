@@ -28,17 +28,22 @@ def register_news_tools(mcp, ctx: AnalysisContext) -> None:
             texts_json: JSON array of text strings to score
                 (e.g., '["Stock rallied on strong earnings", "Revenue missed expectations"]').
         """
-        from wraquant.news.sentiment import sentiment_score as _score
+        try:
+            from wraquant.news.sentiment import sentiment_score as _score
 
-        texts = json.loads(texts_json)
-        result = _score(texts)
+            texts = json.loads(texts_json)
+            result = _score(texts)
 
-        return _sanitize_for_json({
-            "tool": "sentiment_score",
-            "n_texts": len(texts),
-            "scores": result["scores"],
-            "mean_score": result["mean_score"],
-        })
+            return _sanitize_for_json(
+                {
+                    "tool": "sentiment_score",
+                    "n_texts": len(texts),
+                    "scores": result["scores"],
+                    "mean_score": result["mean_score"],
+                }
+            )
+        except Exception as e:
+            return {"error": str(e), "tool": "sentiment_score"}
 
     @mcp.tool()
     def news_impact(
@@ -60,26 +65,31 @@ def register_news_tools(mcp, ctx: AnalysisContext) -> None:
             window: Number of periods before and after each event
                 to include in the analysis window.
         """
-        import pandas as pd
+        try:
+            import pandas as pd
 
-        from wraquant.news.sentiment import news_impact as _impact
+            from wraquant.news.sentiment import news_impact as _impact
 
-        df = ctx.get_dataset(dataset)
-        returns = df[column].dropna()
+            df = ctx.get_dataset(dataset)
+            returns = df[column].dropna()
 
-        event_dates = json.loads(event_dates_json)
-        event_dates = pd.to_datetime(event_dates)
+            event_dates = json.loads(event_dates_json)
+            event_dates = pd.to_datetime(event_dates)
 
-        result = _impact(returns, event_dates, window=window)
+            result = _impact(returns, event_dates, window=window)
 
-        return _sanitize_for_json({
-            "tool": "news_impact",
-            "dataset": dataset,
-            "column": column,
-            "n_events": len(event_dates),
-            "window": window,
-            "car": result["car"],
-        })
+            return _sanitize_for_json(
+                {
+                    "tool": "news_impact",
+                    "dataset": dataset,
+                    "column": column,
+                    "n_events": len(event_dates),
+                    "window": window,
+                    "car": result["car"],
+                }
+            )
+        except Exception as e:
+            return {"error": str(e), "tool": "news_impact"}
 
     @mcp.tool()
     def earnings_surprise(
@@ -96,26 +106,31 @@ def register_news_tools(mcp, ctx: AnalysisContext) -> None:
             actual: Actual reported earnings per share.
             estimate: Consensus analyst estimate of earnings per share.
         """
-        from wraquant.news.sentiment import earnings_surprise as _surprise
+        try:
+            from wraquant.news.sentiment import earnings_surprise as _surprise
 
-        surprise = _surprise(actual, estimate)
+            surprise = _surprise(actual, estimate)
 
-        if surprise > 0.05:
-            signal = "strong_beat"
-        elif surprise > 0:
-            signal = "beat"
-        elif surprise > -0.05:
-            signal = "miss"
-        else:
-            signal = "strong_miss"
+            if surprise > 0.05:
+                signal = "strong_beat"
+            elif surprise > 0:
+                signal = "beat"
+            elif surprise > -0.05:
+                signal = "miss"
+            else:
+                signal = "strong_miss"
 
-        return _sanitize_for_json({
-            "tool": "earnings_surprise",
-            "actual": actual,
-            "estimate": estimate,
-            "surprise": surprise,
-            "signal": signal,
-        })
+            return _sanitize_for_json(
+                {
+                    "tool": "earnings_surprise",
+                    "actual": actual,
+                    "estimate": estimate,
+                    "surprise": surprise,
+                    "signal": signal,
+                }
+            )
+        except Exception as e:
+            return {"error": str(e), "tool": "earnings_surprise"}
 
     @mcp.tool()
     def sentiment_aggregate(
@@ -132,24 +147,29 @@ def register_news_tools(mcp, ctx: AnalysisContext) -> None:
                 (e.g., '[0.5, 0.3, -0.1, 0.7]').
             method: Aggregation method ('mean' or 'median').
         """
-        import numpy as np
+        try:
+            import numpy as np
 
-        from wraquant.news.sentiment import sentiment_aggregate as _agg
+            from wraquant.news.sentiment import sentiment_aggregate as _agg
 
-        scores = json.loads(scores_json)
-        result = _agg(scores, method=method)
+            scores = json.loads(scores_json)
+            result = _agg(scores, method=method)
 
-        arr = np.array(scores)
+            arr = np.array(scores)
 
-        return _sanitize_for_json({
-            "tool": "sentiment_aggregate",
-            "n_scores": len(scores),
-            "method": method,
-            "aggregate_score": result,
-            "std": float(np.std(arr)) if len(arr) > 0 else 0.0,
-            "min": float(np.min(arr)) if len(arr) > 0 else 0.0,
-            "max": float(np.max(arr)) if len(arr) > 0 else 0.0,
-        })
+            return _sanitize_for_json(
+                {
+                    "tool": "sentiment_aggregate",
+                    "n_scores": len(scores),
+                    "method": method,
+                    "aggregate_score": result,
+                    "std": float(np.std(arr)) if len(arr) > 0 else 0.0,
+                    "min": float(np.min(arr)) if len(arr) > 0 else 0.0,
+                    "max": float(np.max(arr)) if len(arr) > 0 else 0.0,
+                }
+            )
+        except Exception as e:
+            return {"error": str(e), "tool": "sentiment_aggregate"}
 
     @mcp.tool()
     def news_signal(
@@ -168,34 +188,43 @@ def register_news_tools(mcp, ctx: AnalysisContext) -> None:
             sentiment_col: Column with sentiment values.
             threshold: Absolute threshold for signal generation.
         """
-        import pandas as pd
+        try:
+            import pandas as pd
 
-        from wraquant.news.sentiment import news_signal as _signal
+            from wraquant.news.sentiment import news_signal as _signal
 
-        df = ctx.get_dataset(dataset)
-        sentiment = df[sentiment_col].dropna()
+            df = ctx.get_dataset(dataset)
+            sentiment = df[sentiment_col].dropna()
 
-        signals = _signal(sentiment, threshold=threshold)
+            signals = _signal(sentiment, threshold=threshold)
 
-        signal_df = pd.DataFrame({"signal": signals})
-        stored = ctx.store_dataset(
-            f"signals_{dataset}", signal_df,
-            source_op="news_signal", parent=dataset,
-        )
+            signal_df = pd.DataFrame({"signal": signals})
+            stored = ctx.store_dataset(
+                f"signals_{dataset}",
+                signal_df,
+                source_op="news_signal",
+                parent=dataset,
+            )
 
-        n_bullish = int((signals == 1).sum())
-        n_bearish = int((signals == -1).sum())
-        n_neutral = int((signals == 0).sum())
+            n_bullish = int((signals == 1).sum())
+            n_bearish = int((signals == -1).sum())
+            n_neutral = int((signals == 0).sum())
 
-        return _sanitize_for_json({
-            "tool": "news_signal",
-            "dataset": dataset,
-            "sentiment_col": sentiment_col,
-            "threshold": threshold,
-            "n_bullish": n_bullish,
-            "n_bearish": n_bearish,
-            "n_neutral": n_neutral,
-            "total_observations": n_bullish + n_bearish + n_neutral,
-            "latest_signal": int(signals.iloc[-1]) if len(signals) > 0 else None,
-            **stored,
-        })
+            return _sanitize_for_json(
+                {
+                    "tool": "news_signal",
+                    "dataset": dataset,
+                    "sentiment_col": sentiment_col,
+                    "threshold": threshold,
+                    "n_bullish": n_bullish,
+                    "n_bearish": n_bearish,
+                    "n_neutral": n_neutral,
+                    "total_observations": n_bullish + n_bearish + n_neutral,
+                    "latest_signal": (
+                        int(signals.iloc[-1]) if len(signals) > 0 else None
+                    ),
+                    **stored,
+                }
+            )
+        except Exception as e:
+            return {"error": str(e), "tool": "news_signal"}

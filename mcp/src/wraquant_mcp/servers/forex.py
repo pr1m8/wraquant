@@ -27,20 +27,25 @@ def register_forex_tools(mcp, ctx: AnalysisContext) -> None:
             rates_json: JSON object mapping currency codes to interest
                 rates, e.g. '{"USD": 0.05, "EUR": 0.04, "JPY": 0.001}'.
         """
-        import json
+        try:
+            import json
 
-        from wraquant.forex.carry import carry_portfolio
+            from wraquant.forex.carry import carry_portfolio
 
-        rates = json.loads(rates_json)
+            rates = json.loads(rates_json)
 
-        result = carry_portfolio(rates_dict=rates)
+            result = carry_portfolio(rates_dict=rates)
 
-        return _sanitize_for_json({
-            "tool": "carry_analysis",
-            "n_currencies": len(rates),
-            "rates": rates,
-            **result,
-        })
+            return _sanitize_for_json(
+                {
+                    "tool": "carry_analysis",
+                    "n_currencies": len(rates),
+                    "rates": rates,
+                    **result,
+                }
+            )
+        except Exception as e:
+            return {"error": str(e), "tool": "carry_analysis"}
 
     @mcp.tool()
     def cross_rate(
@@ -59,21 +64,26 @@ def register_forex_tools(mcp, ctx: AnalysisContext) -> None:
                 'divide' when common currency is in both bases or
                 both quotes.
         """
-        from wraquant.forex.pairs import cross_rate as _cross_rate
+        try:
+            from wraquant.forex.pairs import cross_rate as _cross_rate
 
-        result = _cross_rate(
-            pair1_rate=rate_a,
-            pair2_rate=rate_b,
-            method=cross_type,
-        )
+            result = _cross_rate(
+                pair1_rate=rate_a,
+                pair2_rate=rate_b,
+                method=cross_type,
+            )
 
-        return _sanitize_for_json({
-            "tool": "cross_rate",
-            "rate_a": rate_a,
-            "rate_b": rate_b,
-            "cross_type": cross_type,
-            "cross_rate": float(result),
-        })
+            return _sanitize_for_json(
+                {
+                    "tool": "cross_rate",
+                    "rate_a": rate_a,
+                    "rate_b": rate_b,
+                    "cross_type": cross_type,
+                    "cross_rate": float(result),
+                }
+            )
+        except Exception as e:
+            return {"error": str(e), "tool": "cross_rate"}
 
     @mcp.tool()
     def fx_risk(
@@ -90,25 +100,30 @@ def register_forex_tools(mcp, ctx: AnalysisContext) -> None:
                 exchange rates vs base, e.g. '{"EUR": 1.10, "GBP": 1.27}'.
             base_currency: Base currency for risk aggregation.
         """
-        import json
+        try:
+            import json
 
-        from wraquant.forex.risk import fx_portfolio_risk
+            from wraquant.forex.risk import fx_portfolio_risk
 
-        positions = json.loads(positions_json)
-        exchange_rates = json.loads(exchange_rates_json)
+            positions = json.loads(positions_json)
+            exchange_rates = json.loads(exchange_rates_json)
 
-        result = fx_portfolio_risk(
-            positions=positions,
-            exchange_rates=exchange_rates,
-            base_currency=base_currency,
-        )
+            result = fx_portfolio_risk(
+                positions=positions,
+                exchange_rates=exchange_rates,
+                base_currency=base_currency,
+            )
 
-        return _sanitize_for_json({
-            "tool": "fx_risk",
-            "base_currency": base_currency,
-            "n_positions": len(positions),
-            **result,
-        })
+            return _sanitize_for_json(
+                {
+                    "tool": "fx_risk",
+                    "base_currency": base_currency,
+                    "n_positions": len(positions),
+                    **result,
+                }
+            )
+        except Exception as e:
+            return {"error": str(e), "tool": "fx_risk"}
 
     @mcp.tool()
     def pip_calculator(
@@ -125,28 +140,37 @@ def register_forex_tools(mcp, ctx: AnalysisContext) -> None:
             pair: Currency pair string (e.g. 'EURUSD', 'USDJPY').
             lot_size: Position size in units of base currency.
         """
-        from wraquant.forex.analysis import pip_value, pips
-        from wraquant.forex.pairs import CurrencyPair
+        try:
+            from wraquant.forex.analysis import pip_value, pips
+            from wraquant.forex.pairs import CurrencyPair
 
-        is_jpy = "JPY" in pair.upper()
-        cp = CurrencyPair(pair[:3].upper(), pair[3:6].upper())
+            is_jpy = "JPY" in pair.upper()
+            cp = CurrencyPair(pair[:3].upper(), pair[3:6].upper())
 
-        price_change = exit - entry
-        pip_count = pips(price_change, pair=cp, is_jpy=is_jpy)
-        pv = pip_value(pair=cp, lot_size_units=lot_size, is_jpy=is_jpy)
-        pnl = float(pip_count) * pv
+            price_change = exit - entry
+            pip_count = pips(price_change, pair=cp, is_jpy=is_jpy)
+            pv = pip_value(pair=cp, lot_size_units=lot_size, is_jpy=is_jpy)
+            pnl = float(pip_count) * pv
 
-        return _sanitize_for_json({
-            "tool": "pip_calculator",
-            "pair": pair.upper(),
-            "entry": entry,
-            "exit": exit,
-            "lot_size": lot_size,
-            "pips": float(pip_count),
-            "pip_value": float(pv),
-            "pnl": pnl,
-            "direction": "long" if price_change > 0 else "short" if price_change < 0 else "flat",
-        })
+            return _sanitize_for_json(
+                {
+                    "tool": "pip_calculator",
+                    "pair": pair.upper(),
+                    "entry": entry,
+                    "exit": exit,
+                    "lot_size": lot_size,
+                    "pips": float(pip_count),
+                    "pip_value": float(pv),
+                    "pnl": pnl,
+                    "direction": (
+                        "long"
+                        if price_change > 0
+                        else "short" if price_change < 0 else "flat"
+                    ),
+                }
+            )
+        except Exception as e:
+            return {"error": str(e), "tool": "pip_calculator"}
 
     @mcp.tool()
     def session_info() -> dict[str, Any]:
@@ -155,28 +179,33 @@ def register_forex_tools(mcp, ctx: AnalysisContext) -> None:
         Returns which sessions are currently active and the major
         session overlap windows (highest liquidity periods).
         """
-        from wraquant.forex.session import (
-            current_session,
-            session_overlaps,
-        )
+        try:
+            from wraquant.forex.session import (
+                current_session,
+                session_overlaps,
+            )
 
-        active = current_session()
-        overlaps = session_overlaps()
+            active = current_session()
+            overlaps = session_overlaps()
 
-        return _sanitize_for_json({
-            "tool": "session_info",
-            "active_sessions": [s.value for s in active],
-            "n_active": len(active),
-            "overlaps": [
+            return _sanitize_for_json(
                 {
-                    "session_a": s1.value,
-                    "session_b": s2.value,
-                    "start_utc": start.isoformat(),
-                    "end_utc": end.isoformat(),
+                    "tool": "session_info",
+                    "active_sessions": [s.value for s in active],
+                    "n_active": len(active),
+                    "overlaps": [
+                        {
+                            "session_a": s1.value,
+                            "session_b": s2.value,
+                            "start_utc": start.isoformat(),
+                            "end_utc": end.isoformat(),
+                        }
+                        for s1, s2, start, end in overlaps
+                    ],
                 }
-                for s1, s2, start, end in overlaps
-            ],
-        })
+            )
+        except Exception as e:
+            return {"error": str(e), "tool": "session_info"}
 
     @mcp.tool()
     def currency_strength(
@@ -192,30 +221,41 @@ def register_forex_tools(mcp, ctx: AnalysisContext) -> None:
             pairs_dataset: Dataset with currency pair columns.
             window: Rolling window for strength calculation.
         """
-        import pandas as pd
+        try:
+            import pandas as pd
 
-        from wraquant.forex.pairs import currency_strength as _strength
+            from wraquant.forex.pairs import currency_strength as _strength
 
-        df = ctx.get_dataset(pairs_dataset)
+            df = ctx.get_dataset(pairs_dataset)
 
-        strength = _strength(df, window=window)
+            strength = _strength(df, window=window)
 
-        strength_df = strength.to_frame("strength") if isinstance(strength, pd.Series) else strength
-        stored = ctx.store_dataset(
-            f"fx_strength_{pairs_dataset}", strength_df,
-            source_op="currency_strength", parent=pairs_dataset,
-        )
+            strength_df = (
+                strength.to_frame("strength")
+                if isinstance(strength, pd.Series)
+                else strength
+            )
+            stored = ctx.store_dataset(
+                f"fx_strength_{pairs_dataset}",
+                strength_df,
+                source_op="currency_strength",
+                parent=pairs_dataset,
+            )
 
-        strength_dict = (
-            {str(k): float(v) for k, v in strength.items()}
-            if isinstance(strength, pd.Series)
-            else {}
-        )
+            strength_dict = (
+                {str(k): float(v) for k, v in strength.items()}
+                if isinstance(strength, pd.Series)
+                else {}
+            )
 
-        return _sanitize_for_json({
-            "tool": "currency_strength",
-            "dataset": pairs_dataset,
-            "window": window,
-            "strength_scores": strength_dict,
-            **stored,
-        })
+            return _sanitize_for_json(
+                {
+                    "tool": "currency_strength",
+                    "dataset": pairs_dataset,
+                    "window": window,
+                    "strength_scores": strength_dict,
+                    **stored,
+                }
+            )
+        except Exception as e:
+            return {"error": str(e), "tool": "currency_strength"}

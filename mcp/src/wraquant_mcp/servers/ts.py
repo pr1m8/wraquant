@@ -32,51 +32,60 @@ def register_ts_tools(mcp, ctx: AnalysisContext) -> None:
                 (exponential smoothing), 'theta', 'ensemble'.
             horizon: Number of periods to forecast.
         """
-        from wraquant.ts.forecasting import (
-            auto_arima,
-            auto_forecast,
-            ensemble_forecast,
-            exponential_smoothing,
-            theta_forecast,
-        )
+        try:
+            from wraquant.ts.forecasting import (
+                auto_arima,
+                auto_forecast,
+                ensemble_forecast,
+                exponential_smoothing,
+                theta_forecast,
+            )
 
-        df = ctx.get_dataset(dataset)
-        data = df[column].dropna()
+            df = ctx.get_dataset(dataset)
+            data = df[column].dropna()
 
-        methods = {
-            "auto": lambda: auto_forecast(data, h=horizon),
-            "arima": lambda: auto_arima(data, h=horizon),
-            "ets": lambda: exponential_smoothing(data, h=horizon),
-            "theta": lambda: theta_forecast(data, h=horizon),
-            "ensemble": lambda: ensemble_forecast(data, h=horizon),
-        }
+            methods = {
+                "auto": lambda: auto_forecast(data, h=horizon),
+                "arima": lambda: auto_arima(data, h=horizon),
+                "ets": lambda: exponential_smoothing(data, h=horizon),
+                "theta": lambda: theta_forecast(data, h=horizon),
+                "ensemble": lambda: ensemble_forecast(data, h=horizon),
+            }
 
-        func = methods.get(method)
-        if func is None:
-            return {"error": f"Unknown method '{method}'. Options: {list(methods)}"}
+            func = methods.get(method)
+            if func is None:
+                return {"error": f"Unknown method '{method}'. Options: {list(methods)}"}
 
-        result = func()
+            result = func()
 
-        import pandas as pd
+            import pandas as pd
 
-        if isinstance(result, dict) and "forecast" in result:
-            fc_values = result["forecast"]
-        else:
-            fc_values = result
+            if isinstance(result, dict) and "forecast" in result:
+                fc_values = result["forecast"]
+            else:
+                fc_values = result
 
-        fc_df = pd.DataFrame({"forecast": fc_values})
-        stored = ctx.store_dataset(
-            f"forecast_{dataset}_{method}", fc_df,
-            source_op="forecast", parent=dataset,
-        )
+            fc_df = pd.DataFrame({"forecast": fc_values})
+            stored = ctx.store_dataset(
+                f"forecast_{dataset}_{method}",
+                fc_df,
+                source_op="forecast",
+                parent=dataset,
+            )
 
-        return _sanitize_for_json({
-            "tool": "forecast",
-            "method": method,
-            "horizon": horizon,
-            "result": result if isinstance(result, dict) else {"forecast": result},
-            **stored,
-        })
+            return _sanitize_for_json(
+                {
+                    "tool": "forecast",
+                    "method": method,
+                    "horizon": horizon,
+                    "result": (
+                        result if isinstance(result, dict) else {"forecast": result}
+                    ),
+                    **stored,
+                }
+            )
+        except Exception as e:
+            return {"error": str(e), "tool": "forecast"}
 
     @mcp.tool()
     def decompose(
@@ -94,48 +103,58 @@ def register_ts_tools(mcp, ctx: AnalysisContext) -> None:
                 'stl', 'seasonal', 'ssa', 'emd'.
             period: Seasonal period (252 for daily financial data).
         """
-        from wraquant.ts.decomposition import (
-            seasonal_decompose,
-            ssa_decompose,
-            stl_decompose,
-        )
+        try:
+            from wraquant.ts.decomposition import (
+                seasonal_decompose,
+                ssa_decompose,
+                stl_decompose,
+            )
 
-        df = ctx.get_dataset(dataset)
-        data = df[column].dropna()
+            df = ctx.get_dataset(dataset)
+            data = df[column].dropna()
 
-        methods = {
-            "stl": lambda: stl_decompose(data, period=period),
-            "seasonal": lambda: seasonal_decompose(data, period=period),
-            "ssa": lambda: ssa_decompose(data),
-        }
+            methods = {
+                "stl": lambda: stl_decompose(data, period=period),
+                "seasonal": lambda: seasonal_decompose(data, period=period),
+                "ssa": lambda: ssa_decompose(data),
+            }
 
-        func = methods.get(method)
-        if func is None:
-            return {"error": f"Unknown method '{method}'. Options: {list(methods)}"}
+            func = methods.get(method)
+            if func is None:
+                return {"error": f"Unknown method '{method}'. Options: {list(methods)}"}
 
-        result = func()
+            result = func()
 
-        import pandas as pd
+            import pandas as pd
 
-        if isinstance(result, dict):
-            comp_df = pd.DataFrame({
-                k: v for k, v in result.items()
-                if hasattr(v, "__len__") and not isinstance(v, str)
-            })
-        else:
-            comp_df = pd.DataFrame({"result": [str(result)]})
+            if isinstance(result, dict):
+                comp_df = pd.DataFrame(
+                    {
+                        k: v
+                        for k, v in result.items()
+                        if hasattr(v, "__len__") and not isinstance(v, str)
+                    }
+                )
+            else:
+                comp_df = pd.DataFrame({"result": [str(result)]})
 
-        stored = ctx.store_dataset(
-            f"decomp_{dataset}_{method}", comp_df,
-            source_op="decompose", parent=dataset,
-        )
+            stored = ctx.store_dataset(
+                f"decomp_{dataset}_{method}",
+                comp_df,
+                source_op="decompose",
+                parent=dataset,
+            )
 
-        return _sanitize_for_json({
-            "tool": "decompose",
-            "method": method,
-            "period": period,
-            **stored,
-        })
+            return _sanitize_for_json(
+                {
+                    "tool": "decompose",
+                    "method": method,
+                    "period": period,
+                    **stored,
+                }
+            )
+        except Exception as e:
+            return {"error": str(e), "tool": "decompose"}
 
     @mcp.tool()
     def changepoint_detect(
@@ -152,27 +171,34 @@ def register_ts_tools(mcp, ctx: AnalysisContext) -> None:
             method: Detection method ('pelt', 'bayesian', 'cusum').
             max_changepoints: Maximum number of changepoints to detect.
         """
-        df = ctx.get_dataset(dataset)
-        data = df[column].dropna()
+        try:
+            df = ctx.get_dataset(dataset)
+            data = df[column].dropna()
 
-        if method == "cusum":
-            from wraquant.ts.changepoint import cusum
+            if method == "cusum":
+                from wraquant.ts.changepoint import cusum
 
-            result = cusum(data)
-        else:
-            from wraquant.ts.changepoint import detect_changepoints
+                result = cusum(data)
+            else:
+                from wraquant.ts.changepoint import detect_changepoints
 
-            result = detect_changepoints(
-                data, method=method, n_bkps=max_changepoints,
+                result = detect_changepoints(
+                    data,
+                    method=method,
+                    n_bkps=max_changepoints,
+                )
+
+            return _sanitize_for_json(
+                {
+                    "tool": "changepoint_detect",
+                    "dataset": dataset,
+                    "column": column,
+                    "method": method,
+                    "result": result,
+                }
             )
-
-        return _sanitize_for_json({
-            "tool": "changepoint_detect",
-            "dataset": dataset,
-            "column": column,
-            "method": method,
-            "result": result,
-        })
+        except Exception as e:
+            return {"error": str(e), "tool": "changepoint_detect"}
 
     @mcp.tool()
     def anomaly_detect(
@@ -190,34 +216,41 @@ def register_ts_tools(mcp, ctx: AnalysisContext) -> None:
                 'isolation_forest', 'grubbs'.
             contamination: Expected proportion of anomalies (0-1).
         """
-        from wraquant.ts.anomaly import grubbs_test_ts, isolation_forest_ts
+        try:
+            from wraquant.ts.anomaly import grubbs_test_ts, isolation_forest_ts
 
-        df = ctx.get_dataset(dataset)
-        data = df[column].dropna()
+            df = ctx.get_dataset(dataset)
+            data = df[column].dropna()
 
-        if method == "grubbs":
-            result = grubbs_test_ts(data)
-        else:
-            result = isolation_forest_ts(data, contamination=contamination)
+            if method == "grubbs":
+                result = grubbs_test_ts(data)
+            else:
+                result = isolation_forest_ts(data, contamination=contamination)
 
-        import pandas as pd
+            import pandas as pd
 
-        if isinstance(result, dict) and "anomalies" in result:
-            anom_df = pd.DataFrame({"anomaly": result["anomalies"]})
-            stored = ctx.store_dataset(
-                f"anomalies_{dataset}", anom_df,
-                source_op="anomaly_detect", parent=dataset,
+            if isinstance(result, dict) and "anomalies" in result:
+                anom_df = pd.DataFrame({"anomaly": result["anomalies"]})
+                stored = ctx.store_dataset(
+                    f"anomalies_{dataset}",
+                    anom_df,
+                    source_op="anomaly_detect",
+                    parent=dataset,
+                )
+            else:
+                stored = {}
+
+            return _sanitize_for_json(
+                {
+                    "tool": "anomaly_detect",
+                    "method": method,
+                    "contamination": contamination,
+                    "result": result,
+                    **stored,
+                }
             )
-        else:
-            stored = {}
-
-        return _sanitize_for_json({
-            "tool": "anomaly_detect",
-            "method": method,
-            "contamination": contamination,
-            "result": result,
-            **stored,
-        })
+        except Exception as e:
+            return {"error": str(e), "tool": "anomaly_detect"}
 
     @mcp.tool()
     def seasonality_analysis(
@@ -233,22 +266,29 @@ def register_ts_tools(mcp, ctx: AnalysisContext) -> None:
             dataset: Dataset containing the series.
             column: Column to analyze.
         """
-        from wraquant.ts.seasonality import detect_seasonality, seasonal_strength
+        try:
+            from wraquant.ts.seasonality import detect_seasonality, seasonal_strength
 
-        df = ctx.get_dataset(dataset)
-        data = df[column].dropna()
+            df = ctx.get_dataset(dataset)
+            data = df[column].dropna()
 
-        period = detect_seasonality(data)
-        strength = seasonal_strength(data, period=period if isinstance(period, int) else 252)
+            period = detect_seasonality(data)
+            strength = seasonal_strength(
+                data, period=period if isinstance(period, int) else 252
+            )
 
-        return _sanitize_for_json({
-            "tool": "seasonality_analysis",
-            "dataset": dataset,
-            "column": column,
-            "detected_period": period,
-            "seasonal_strength": strength,
-            "observations": len(data),
-        })
+            return _sanitize_for_json(
+                {
+                    "tool": "seasonality_analysis",
+                    "dataset": dataset,
+                    "column": column,
+                    "detected_period": period,
+                    "seasonal_strength": strength,
+                    "observations": len(data),
+                }
+            )
+        except Exception as e:
+            return {"error": str(e), "tool": "seasonality_analysis"}
 
     @mcp.tool()
     def ssa_decompose(
@@ -267,36 +307,46 @@ def register_ts_tools(mcp, ctx: AnalysisContext) -> None:
             column: Column to decompose.
             n_components: Number of SSA components to extract.
         """
-        import pandas as pd
+        try:
+            import pandas as pd
 
-        from wraquant.ts.decomposition import ssa_decompose as _ssa
+            from wraquant.ts.decomposition import ssa_decompose as _ssa
 
-        df = ctx.get_dataset(dataset)
-        data = df[column].dropna()
+            df = ctx.get_dataset(dataset)
+            data = df[column].dropna()
 
-        result = _ssa(data, n_components=n_components)
+            result = _ssa(data, n_components=n_components)
 
-        if isinstance(result, dict):
-            comp_df = pd.DataFrame({
-                k: v for k, v in result.items()
-                if hasattr(v, "__len__") and not isinstance(v, str)
-            })
-        else:
-            comp_df = pd.DataFrame({"result": [str(result)]})
+            if isinstance(result, dict):
+                comp_df = pd.DataFrame(
+                    {
+                        k: v
+                        for k, v in result.items()
+                        if hasattr(v, "__len__") and not isinstance(v, str)
+                    }
+                )
+            else:
+                comp_df = pd.DataFrame({"result": [str(result)]})
 
-        stored = ctx.store_dataset(
-            f"ssa_{dataset}", comp_df,
-            source_op="ssa_decompose", parent=dataset,
-        )
+            stored = ctx.store_dataset(
+                f"ssa_{dataset}",
+                comp_df,
+                source_op="ssa_decompose",
+                parent=dataset,
+            )
 
-        return _sanitize_for_json({
-            "tool": "ssa_decompose",
-            "dataset": dataset,
-            "column": column,
-            "n_components": n_components,
-            "component_names": list(comp_df.columns),
-            **stored,
-        })
+            return _sanitize_for_json(
+                {
+                    "tool": "ssa_decompose",
+                    "dataset": dataset,
+                    "column": column,
+                    "n_components": n_components,
+                    "component_names": list(comp_df.columns),
+                    **stored,
+                }
+            )
+        except Exception as e:
+            return {"error": str(e), "tool": "ssa_decompose"}
 
     @mcp.tool()
     def arima_diagnostics(
@@ -313,22 +363,27 @@ def register_ts_tools(mcp, ctx: AnalysisContext) -> None:
             dataset: Dataset containing the series.
             column: Column to analyze.
         """
-        from wraquant.ts.forecasting import arima_diagnostics as _diag
-        from wraquant.ts.forecasting import auto_arima
+        try:
+            from wraquant.ts.forecasting import arima_diagnostics as _diag
+            from wraquant.ts.forecasting import auto_arima
 
-        df = ctx.get_dataset(dataset)
-        data = df[column].dropna()
+            df = ctx.get_dataset(dataset)
+            data = df[column].dropna()
 
-        model = auto_arima(data, h=1)
-        result = _diag(model)
+            model = auto_arima(data, h=1)
+            result = _diag(model)
 
-        return _sanitize_for_json({
-            "tool": "arima_diagnostics",
-            "dataset": dataset,
-            "column": column,
-            "observations": len(data),
-            "diagnostics": result,
-        })
+            return _sanitize_for_json(
+                {
+                    "tool": "arima_diagnostics",
+                    "dataset": dataset,
+                    "column": column,
+                    "observations": len(data),
+                    "diagnostics": result,
+                }
+            )
+        except Exception as e:
+            return {"error": str(e), "tool": "arima_diagnostics"}
 
     @mcp.tool()
     def rolling_forecast(
@@ -349,45 +404,61 @@ def register_ts_tools(mcp, ctx: AnalysisContext) -> None:
             horizon: Forecast horizon in periods.
             window: Initial training window size.
         """
-        import pandas as pd
+        try:
+            import pandas as pd
 
-        from wraquant.ts.forecasting import auto_arima
-        from wraquant.ts.forecasting import rolling_forecast as _rf
+            from wraquant.ts.forecasting import auto_arima
+            from wraquant.ts.forecasting import rolling_forecast as _rf
 
-        df = ctx.get_dataset(dataset)
-        data = df[column].dropna()
+            df = ctx.get_dataset(dataset)
+            data = df[column].dropna()
 
-        def forecast_fn(train_data: pd.Series, h: int):
-            return auto_arima(train_data, h=h)
+            def forecast_fn(train_data: pd.Series, h: int):
+                return auto_arima(train_data, h=h)
 
-        result = _rf(data, forecast_fn, h=horizon, initial_window=window)
+            result = _rf(data, forecast_fn, h=horizon, initial_window=window)
 
-        if isinstance(result, dict):
-            result_df = pd.DataFrame({
-                k: v for k, v in result.items()
-                if hasattr(v, "__len__") and not isinstance(v, str)
-            })
-            if len(result_df) > 0:
-                stored = ctx.store_dataset(
-                    f"rolling_fc_{dataset}", result_df,
-                    source_op="rolling_forecast", parent=dataset,
+            if isinstance(result, dict):
+                result_df = pd.DataFrame(
+                    {
+                        k: v
+                        for k, v in result.items()
+                        if hasattr(v, "__len__") and not isinstance(v, str)
+                    }
                 )
+                if len(result_df) > 0:
+                    stored = ctx.store_dataset(
+                        f"rolling_fc_{dataset}",
+                        result_df,
+                        source_op="rolling_forecast",
+                        parent=dataset,
+                    )
+                else:
+                    stored = {}
             else:
                 stored = {}
-        else:
-            stored = {}
 
-        return _sanitize_for_json({
-            "tool": "rolling_forecast",
-            "dataset": dataset,
-            "column": column,
-            "horizon": horizon,
-            "window": window,
-            **stored,
-            "result": {k: v for k, v in result.items()
-                       if not hasattr(v, "__len__") or isinstance(v, str)}
-            if isinstance(result, dict) else str(result),
-        })
+            return _sanitize_for_json(
+                {
+                    "tool": "rolling_forecast",
+                    "dataset": dataset,
+                    "column": column,
+                    "horizon": horizon,
+                    "window": window,
+                    **stored,
+                    "result": (
+                        {
+                            k: v
+                            for k, v in result.items()
+                            if not hasattr(v, "__len__") or isinstance(v, str)
+                        }
+                        if isinstance(result, dict)
+                        else str(result)
+                    ),
+                }
+            )
+        except Exception as e:
+            return {"error": str(e), "tool": "rolling_forecast"}
 
     @mcp.tool()
     def ensemble_forecast(
@@ -405,34 +476,43 @@ def register_ts_tools(mcp, ctx: AnalysisContext) -> None:
             column: Column to forecast.
             horizon: Forecast horizon in periods.
         """
-        import pandas as pd
+        try:
+            import pandas as pd
 
-        from wraquant.ts.forecasting import ensemble_forecast as _ef
+            from wraquant.ts.forecasting import ensemble_forecast as _ef
 
-        df = ctx.get_dataset(dataset)
-        data = df[column].dropna()
+            df = ctx.get_dataset(dataset)
+            data = df[column].dropna()
 
-        result = _ef(data, h=horizon)
+            result = _ef(data, h=horizon)
 
-        if isinstance(result, dict) and "forecast" in result:
-            fc_values = result["forecast"]
-        else:
-            fc_values = result
+            if isinstance(result, dict) and "forecast" in result:
+                fc_values = result["forecast"]
+            else:
+                fc_values = result
 
-        fc_df = pd.DataFrame({"ensemble_forecast": fc_values})
-        stored = ctx.store_dataset(
-            f"ensemble_fc_{dataset}", fc_df,
-            source_op="ensemble_forecast", parent=dataset,
-        )
+            fc_df = pd.DataFrame({"ensemble_forecast": fc_values})
+            stored = ctx.store_dataset(
+                f"ensemble_fc_{dataset}",
+                fc_df,
+                source_op="ensemble_forecast",
+                parent=dataset,
+            )
 
-        return _sanitize_for_json({
-            "tool": "ensemble_forecast",
-            "dataset": dataset,
-            "column": column,
-            "horizon": horizon,
-            **stored,
-            "result": result if isinstance(result, dict) else {"forecast": result},
-        })
+            return _sanitize_for_json(
+                {
+                    "tool": "ensemble_forecast",
+                    "dataset": dataset,
+                    "column": column,
+                    "horizon": horizon,
+                    **stored,
+                    "result": (
+                        result if isinstance(result, dict) else {"forecast": result}
+                    ),
+                }
+            )
+        except Exception as e:
+            return {"error": str(e), "tool": "ensemble_forecast"}
 
     @mcp.tool()
     def ornstein_uhlenbeck(
@@ -449,31 +529,44 @@ def register_ts_tools(mcp, ctx: AnalysisContext) -> None:
             dataset: Dataset containing the series.
             column: Column to analyze (e.g., spread or price).
         """
-        from wraquant.ts.stochastic import ornstein_uhlenbeck_forecast
+        try:
+            from wraquant.ts.stochastic import ornstein_uhlenbeck_forecast
 
-        df = ctx.get_dataset(dataset)
-        data = df[column].dropna()
+            df = ctx.get_dataset(dataset)
+            data = df[column].dropna()
 
-        result = ornstein_uhlenbeck_forecast(data, h=10)
+            result = ornstein_uhlenbeck_forecast(data, h=10)
 
-        import pandas as pd
+            import pandas as pd
 
-        if isinstance(result, dict) and "forecast" in result:
-            ou_df = pd.DataFrame({"ou_forecast": result["forecast"]})
-            stored = ctx.store_dataset(
-                f"ou_{dataset}", ou_df,
-                source_op="ornstein_uhlenbeck", parent=dataset,
+            if isinstance(result, dict) and "forecast" in result:
+                ou_df = pd.DataFrame({"ou_forecast": result["forecast"]})
+                stored = ctx.store_dataset(
+                    f"ou_{dataset}",
+                    ou_df,
+                    source_op="ornstein_uhlenbeck",
+                    parent=dataset,
+                )
+            else:
+                stored = {}
+
+            return _sanitize_for_json(
+                {
+                    "tool": "ornstein_uhlenbeck",
+                    "dataset": dataset,
+                    "column": column,
+                    "observations": len(data),
+                    **stored,
+                    "result": (
+                        {
+                            k: v
+                            for k, v in result.items()
+                            if not hasattr(v, "__len__") or isinstance(v, str)
+                        }
+                        if isinstance(result, dict)
+                        else str(result)
+                    ),
+                }
             )
-        else:
-            stored = {}
-
-        return _sanitize_for_json({
-            "tool": "ornstein_uhlenbeck",
-            "dataset": dataset,
-            "column": column,
-            "observations": len(data),
-            **stored,
-            "result": {k: v for k, v in result.items()
-                       if not hasattr(v, "__len__") or isinstance(v, str)}
-            if isinstance(result, dict) else str(result),
-        })
+        except Exception as e:
+            return {"error": str(e), "tool": "ornstein_uhlenbeck"}

@@ -36,29 +36,34 @@ def register_fundamental_tools(mcp, ctx: AnalysisContext) -> None:
             equity: Total shareholders' equity.
             debt: Total debt (short-term + long-term).
         """
-        from wraquant.fundamental.ratios import (
-            debt_to_equity,
-            pb_ratio,
-            pe_ratio,
-            roe,
-        )
+        try:
+            from wraquant.fundamental.ratios import (
+                debt_to_equity,
+                pb_ratio,
+                pe_ratio,
+                roe,
+            )
 
-        pe = pe_ratio(price, earnings)
-        pb = pb_ratio(price, book_value)
-        r = roe(net_income, equity)
-        de = debt_to_equity(debt, equity)
+            pe = pe_ratio(price, earnings)
+            pb = pb_ratio(price, book_value)
+            r = roe(net_income, equity)
+            de = debt_to_equity(debt, equity)
 
-        # Derived: earnings yield = 1 / P/E
-        earnings_yield = 1.0 / pe if pe != 0.0 else 0.0
+            # Derived: earnings yield = 1 / P/E
+            earnings_yield = 1.0 / pe if pe != 0.0 else 0.0
 
-        return _sanitize_for_json({
-            "tool": "fundamental_ratios",
-            "pe_ratio": pe,
-            "pb_ratio": pb,
-            "roe": r,
-            "debt_to_equity": de,
-            "earnings_yield": earnings_yield,
-        })
+            return _sanitize_for_json(
+                {
+                    "tool": "fundamental_ratios",
+                    "pe_ratio": pe,
+                    "pb_ratio": pb,
+                    "roe": r,
+                    "debt_to_equity": de,
+                    "earnings_yield": earnings_yield,
+                }
+            )
+        except Exception as e:
+            return {"error": str(e), "tool": "fundamental_ratios"}
 
     @mcp.tool()
     def piotroski_score(
@@ -80,25 +85,30 @@ def register_fundamental_tools(mcp, ctx: AnalysisContext) -> None:
                 prev_shares_outstanding, gross_margin, prev_gross_margin,
                 asset_turnover, prev_asset_turnover.
         """
-        from wraquant.fundamental.valuation import piotroski_f_score
+        try:
+            from wraquant.fundamental.valuation import piotroski_f_score
 
-        financials = json.loads(financials_json)
-        score = piotroski_f_score(financials)
+            financials = json.loads(financials_json)
+            score = piotroski_f_score(financials)
 
-        # Interpret the score
-        if score >= 8:
-            interpretation = "strong"
-        elif score >= 5:
-            interpretation = "neutral"
-        else:
-            interpretation = "weak"
+            # Interpret the score
+            if score >= 8:
+                interpretation = "strong"
+            elif score >= 5:
+                interpretation = "neutral"
+            else:
+                interpretation = "weak"
 
-        return _sanitize_for_json({
-            "tool": "piotroski_score",
-            "score": score,
-            "max_score": 9,
-            "interpretation": interpretation,
-        })
+            return _sanitize_for_json(
+                {
+                    "tool": "piotroski_score",
+                    "score": score,
+                    "max_score": 9,
+                    "interpretation": interpretation,
+                }
+            )
+        except Exception as e:
+            return {"error": str(e), "tool": "piotroski_score"}
 
     @mcp.tool()
     def dcf_valuation(
@@ -118,31 +128,36 @@ def register_fundamental_tools(mcp, ctx: AnalysisContext) -> None:
             terminal_growth: Perpetual growth rate (e.g., 0.02 = 2%).
                 Must be less than discount_rate.
         """
-        from wraquant.fundamental.valuation import dcf_valuation as _dcf
+        try:
+            from wraquant.fundamental.valuation import dcf_valuation as _dcf
 
-        cash_flows = json.loads(cash_flows_json)
+            cash_flows = json.loads(cash_flows_json)
 
-        result = _dcf(
-            cash_flows=cash_flows,
-            discount_rate=discount_rate,
-            terminal_growth=terminal_growth,
-        )
+            result = _dcf(
+                cash_flows=cash_flows,
+                discount_rate=discount_rate,
+                terminal_growth=terminal_growth,
+            )
 
-        # Terminal value as percentage of total
-        tv_pct = (
-            result["pv_terminal"] / result["present_value"] * 100
-            if result["present_value"] != 0.0
-            else 0.0
-        )
+            # Terminal value as percentage of total
+            tv_pct = (
+                result["pv_terminal"] / result["present_value"] * 100
+                if result["present_value"] != 0.0
+                else 0.0
+            )
 
-        return _sanitize_for_json({
-            "tool": "dcf_valuation",
-            "discount_rate": discount_rate,
-            "terminal_growth": terminal_growth,
-            "n_periods": len(cash_flows),
-            "terminal_value_pct": tv_pct,
-            **result,
-        })
+            return _sanitize_for_json(
+                {
+                    "tool": "dcf_valuation",
+                    "discount_rate": discount_rate,
+                    "terminal_growth": terminal_growth,
+                    "n_periods": len(cash_flows),
+                    "terminal_value_pct": tv_pct,
+                    **result,
+                }
+            )
+        except Exception as e:
+            return {"error": str(e), "tool": "dcf_valuation"}
 
     @mcp.tool()
     def quality_screen(
@@ -162,35 +177,46 @@ def register_fundamental_tools(mcp, ctx: AnalysisContext) -> None:
                 (e.g., '["roe", "operating_margin"]').  If None, defaults
                 to ["roe", "operating_margin", "current_ratio"].
         """
-        from wraquant.fundamental.valuation import quality_screen as _screen
+        try:
+            from wraquant.fundamental.valuation import quality_screen as _screen
 
-        df = ctx.get_dataset(dataset)
+            df = ctx.get_dataset(dataset)
 
-        metrics = json.loads(metrics_json) if metrics_json is not None else None
+            metrics = json.loads(metrics_json) if metrics_json is not None else None
 
-        result_df = _screen(df, metrics=metrics)
+            result_df = _screen(df, metrics=metrics)
 
-        # Store the screened result
-        result_name = f"{dataset}_quality"
-        stored = ctx.store_dataset(
-            result_name, result_df,
-            source_op="quality_screen",
-            parent=dataset,
-        )
+            # Store the screened result
+            result_name = f"{dataset}_quality"
+            stored = ctx.store_dataset(
+                result_name,
+                result_df,
+                source_op="quality_screen",
+                parent=dataset,
+            )
 
-        # Top 5 and bottom 5
-        top = result_df.head(5)
-        bottom = result_df.tail(5)
+            # Top 5 and bottom 5
+            top = result_df.head(5)
+            bottom = result_df.tail(5)
 
-        return _sanitize_for_json({
-            "tool": "quality_screen",
-            "dataset": dataset,
-            "n_stocks": len(result_df),
-            "metrics_used": metrics or ["roe", "operating_margin", "current_ratio"],
-            "top_5": top[["quality_score", "quality_rank"]].to_dict(orient="index"),
-            "bottom_5": bottom[["quality_score", "quality_rank"]].to_dict(orient="index"),
-            **stored,
-        })
+            return _sanitize_for_json(
+                {
+                    "tool": "quality_screen",
+                    "dataset": dataset,
+                    "n_stocks": len(result_df),
+                    "metrics_used": metrics
+                    or ["roe", "operating_margin", "current_ratio"],
+                    "top_5": top[["quality_score", "quality_rank"]].to_dict(
+                        orient="index"
+                    ),
+                    "bottom_5": bottom[["quality_score", "quality_rank"]].to_dict(
+                        orient="index"
+                    ),
+                    **stored,
+                }
+            )
+        except Exception as e:
+            return {"error": str(e), "tool": "quality_screen"}
 
     @mcp.tool()
     def altman_z(
@@ -217,36 +243,41 @@ def register_fundamental_tools(mcp, ctx: AnalysisContext) -> None:
             total_liabilities: Total liabilities.
             sales: Total sales / revenue.
         """
-        from wraquant.risk.credit import altman_z_score
+        try:
+            from wraquant.risk.credit import altman_z_score
 
-        z = altman_z_score(
-            working_capital=working_capital,
-            retained_earnings=retained_earnings,
-            ebit=ebit,
-            market_cap=market_equity,
-            total_liabilities=total_liabilities,
-            total_assets=total_assets,
-            sales=sales,
-        )
+            z = altman_z_score(
+                working_capital=working_capital,
+                retained_earnings=retained_earnings,
+                ebit=ebit,
+                market_cap=market_equity,
+                total_liabilities=total_liabilities,
+                total_assets=total_assets,
+                sales=sales,
+            )
 
-        # Interpret
-        if isinstance(z, dict):
-            score = z.get("z_score", z.get("score", 0.0))
-            result = z
-        else:
-            score = float(z)
-            result = {"z_score": score}
+            # Interpret
+            if isinstance(z, dict):
+                score = z.get("z_score", z.get("score", 0.0))
+                result = z
+            else:
+                score = float(z)
+                result = {"z_score": score}
 
-        if score > 2.99:
-            zone = "safe"
-        elif score > 1.81:
-            zone = "gray"
-        else:
-            zone = "distress"
+            if score > 2.99:
+                zone = "safe"
+            elif score > 1.81:
+                zone = "gray"
+            else:
+                zone = "distress"
 
-        return _sanitize_for_json({
-            "tool": "altman_z",
-            "z_score": score,
-            "zone": zone,
-            **result,
-        })
+            return _sanitize_for_json(
+                {
+                    "tool": "altman_z",
+                    "z_score": score,
+                    "zone": zone,
+                    **result,
+                }
+            )
+        except Exception as e:
+            return {"error": str(e), "tool": "altman_z"}

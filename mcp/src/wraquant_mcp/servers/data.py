@@ -33,38 +33,43 @@ def register_data_tools(mcp, ctx: AnalysisContext) -> None:
             name: Dataset name for referencing later.  If None, derived
                 from the filename (e.g., "prices.csv" -> "prices").
         """
-        from pathlib import Path
+        try:
+            from pathlib import Path
 
-        import pandas as pd
+            import pandas as pd
 
-        filepath = Path(file_path).expanduser().resolve()
-        if not filepath.exists():
-            return {"error": f"File not found: {filepath}"}
+            filepath = Path(file_path).expanduser().resolve()
+            if not filepath.exists():
+                return {"error": f"File not found: {filepath}"}
 
-        df = pd.read_csv(filepath, parse_dates=True)
+            df = pd.read_csv(filepath, parse_dates=True)
 
-        # Try to set a datetime index if there's an obvious date column
-        for col in df.columns:
-            if col.lower() in ("date", "datetime", "timestamp", "time"):
-                try:
-                    df[col] = pd.to_datetime(df[col])
-                    df = df.set_index(col)
-                except Exception:
-                    pass
-                break
+            # Try to set a datetime index if there's an obvious date column
+            for col in df.columns:
+                if col.lower() in ("date", "datetime", "timestamp", "time"):
+                    try:
+                        df[col] = pd.to_datetime(df[col])
+                        df = df.set_index(col)
+                    except Exception:
+                        pass
+                    break
 
-        if name is None:
-            name = filepath.stem
+            if name is None:
+                name = filepath.stem
 
-        stored = ctx.store_dataset(name, df, source_op="load_csv")
+            stored = ctx.store_dataset(name, df, source_op="load_csv")
 
-        ctx._log("load_csv", name, file_path=str(filepath))
+            ctx._log("load_csv", name, file_path=str(filepath))
 
-        return _sanitize_for_json({
-            "tool": "load_csv",
-            "file_path": str(filepath),
-            **stored,
-        })
+            return _sanitize_for_json(
+                {
+                    "tool": "load_csv",
+                    "file_path": str(filepath),
+                    **stored,
+                }
+            )
+        except Exception as e:
+            return {"error": str(e), "tool": "load_csv"}
 
     @mcp.tool()
     def load_json(
@@ -83,25 +88,30 @@ def register_data_tools(mcp, ctx: AnalysisContext) -> None:
                 - Dict of arrays: '{"col1": [1, 2], "col2": [3, 4]}'
             name: Dataset name for referencing later.
         """
-        import pandas as pd
+        try:
+            import pandas as pd
 
-        data = json.loads(data_json)
+            data = json.loads(data_json)
 
-        if isinstance(data, list):
-            df = pd.DataFrame(data)
-        elif isinstance(data, dict):
-            df = pd.DataFrame(data)
-        else:
-            return {"error": "JSON must be an array of objects or a dict of arrays"}
+            if isinstance(data, list):
+                df = pd.DataFrame(data)
+            elif isinstance(data, dict):
+                df = pd.DataFrame(data)
+            else:
+                return {"error": "JSON must be an array of objects or a dict of arrays"}
 
-        stored = ctx.store_dataset(name, df, source_op="load_json")
+            stored = ctx.store_dataset(name, df, source_op="load_json")
 
-        ctx._log("load_json", name)
+            ctx._log("load_json", name)
 
-        return _sanitize_for_json({
-            "tool": "load_json",
-            **stored,
-        })
+            return _sanitize_for_json(
+                {
+                    "tool": "load_json",
+                    **stored,
+                }
+            )
+        except Exception as e:
+            return {"error": str(e), "tool": "load_json"}
 
     @mcp.tool()
     def export_dataset(
@@ -116,37 +126,46 @@ def register_data_tools(mcp, ctx: AnalysisContext) -> None:
             format: Output format ('csv', 'parquet', 'json').
             path: Output file path.  If None, saves to workspace dir.
         """
-        from pathlib import Path as _Path
+        try:
+            from pathlib import Path as _Path
 
-        df = ctx.get_dataset(dataset)
+            df = ctx.get_dataset(dataset)
 
-        if path is None:
-            ext = {"csv": ".csv", "parquet": ".parquet", "json": ".json"}
-            out_path = _Path(ctx.workspace_dir) / f"{dataset}{ext.get(format, '.csv')}"
-        else:
-            out_path = _Path(path).expanduser().resolve()
+            if path is None:
+                ext = {"csv": ".csv", "parquet": ".parquet", "json": ".json"}
+                out_path = (
+                    _Path(ctx.workspace_dir) / f"{dataset}{ext.get(format, '.csv')}"
+                )
+            else:
+                out_path = _Path(path).expanduser().resolve()
 
-        out_path.parent.mkdir(parents=True, exist_ok=True)
+            out_path.parent.mkdir(parents=True, exist_ok=True)
 
-        if format == "csv":
-            df.to_csv(out_path)
-        elif format == "parquet":
-            df.to_parquet(out_path)
-        elif format == "json":
-            df.to_json(out_path, orient="records", indent=2)
-        else:
-            return {"error": f"Unknown format '{format}'. Options: csv, parquet, json"}
+            if format == "csv":
+                df.to_csv(out_path)
+            elif format == "parquet":
+                df.to_parquet(out_path)
+            elif format == "json":
+                df.to_json(out_path, orient="records", indent=2)
+            else:
+                return {
+                    "error": f"Unknown format '{format}'. Options: csv, parquet, json"
+                }
 
-        ctx._log("export_dataset", dataset, path=str(out_path), format=format)
+            ctx._log("export_dataset", dataset, path=str(out_path), format=format)
 
-        return _sanitize_for_json({
-            "tool": "export_dataset",
-            "dataset": dataset,
-            "format": format,
-            "path": str(out_path),
-            "rows": len(df),
-            "columns": list(df.columns),
-        })
+            return _sanitize_for_json(
+                {
+                    "tool": "export_dataset",
+                    "dataset": dataset,
+                    "format": format,
+                    "path": str(out_path),
+                    "rows": len(df),
+                    "columns": list(df.columns),
+                }
+            )
+        except Exception as e:
+            return {"error": str(e), "tool": "export_dataset"}
 
     @mcp.tool()
     def merge_datasets(
@@ -166,38 +185,50 @@ def register_data_tools(mcp, ctx: AnalysisContext) -> None:
             on: Column name to join on.  If None, joins on the index.
             how: Join type ('inner', 'outer', 'left', 'right').
         """
-        df_a = ctx.get_dataset(dataset_a)
-        df_b = ctx.get_dataset(dataset_b)
+        try:
+            df_a = ctx.get_dataset(dataset_a)
+            df_b = ctx.get_dataset(dataset_b)
 
-        if on is not None:
-            merged = df_a.merge(df_b, on=on, how=how, suffixes=("_a", "_b"))
-        else:
-            merged = df_a.merge(
-                df_b, left_index=True, right_index=True,
-                how=how, suffixes=("_a", "_b"),
+            if on is not None:
+                merged = df_a.merge(df_b, on=on, how=how, suffixes=("_a", "_b"))
+            else:
+                merged = df_a.merge(
+                    df_b,
+                    left_index=True,
+                    right_index=True,
+                    how=how,
+                    suffixes=("_a", "_b"),
+                )
+
+            result_name = f"{dataset_a}_{dataset_b}_merged"
+            stored = ctx.store_dataset(
+                result_name,
+                merged,
+                source_op="merge_datasets",
+                parent=dataset_a,
             )
 
-        result_name = f"{dataset_a}_{dataset_b}_merged"
-        stored = ctx.store_dataset(
-            result_name, merged,
-            source_op="merge_datasets",
-            parent=dataset_a,
-        )
+            ctx._log(
+                "merge_datasets",
+                result_name,
+                dataset_a=dataset_a,
+                dataset_b=dataset_b,
+                on=on,
+                how=how,
+            )
 
-        ctx._log(
-            "merge_datasets", result_name,
-            dataset_a=dataset_a, dataset_b=dataset_b,
-            on=on, how=how,
-        )
-
-        return _sanitize_for_json({
-            "tool": "merge_datasets",
-            "dataset_a": dataset_a,
-            "dataset_b": dataset_b,
-            "join_type": how,
-            "join_key": on or "index",
-            **stored,
-        })
+            return _sanitize_for_json(
+                {
+                    "tool": "merge_datasets",
+                    "dataset_a": dataset_a,
+                    "dataset_b": dataset_b,
+                    "join_type": how,
+                    "join_key": on or "index",
+                    **stored,
+                }
+            )
+        except Exception as e:
+            return {"error": str(e), "tool": "merge_datasets"}
 
     @mcp.tool()
     def filter_dataset(
@@ -224,22 +255,27 @@ def register_data_tools(mcp, ctx: AnalysisContext) -> None:
 
         result_name = f"{dataset}_filtered"
         stored = ctx.store_dataset(
-            result_name, result_df,
+            result_name,
+            result_df,
             source_op="filter_dataset",
             parent=dataset,
         )
 
         ctx._log(
-            "filter_dataset", result_name,
-            source=dataset, condition=condition_sql,
+            "filter_dataset",
+            result_name,
+            source=dataset,
+            condition=condition_sql,
         )
 
-        return _sanitize_for_json({
-            "tool": "filter_dataset",
-            "source_dataset": dataset,
-            "condition": condition_sql,
-            **stored,
-        })
+        return _sanitize_for_json(
+            {
+                "tool": "filter_dataset",
+                "source_dataset": dataset,
+                "condition": condition_sql,
+                **stored,
+            }
+        )
 
     @mcp.tool()
     def rename_columns(
@@ -256,26 +292,32 @@ def register_data_tools(mcp, ctx: AnalysisContext) -> None:
             mapping_json: JSON string mapping old names to new names
                 (e.g., '{"close": "price", "vol": "volume"}').
         """
-        mapping = json.loads(mapping_json)
+        try:
+            mapping = json.loads(mapping_json)
 
-        df = ctx.get_dataset(dataset)
-        renamed = df.rename(columns=mapping)
+            df = ctx.get_dataset(dataset)
+            renamed = df.rename(columns=mapping)
 
-        result_name = f"{dataset}_renamed"
-        stored = ctx.store_dataset(
-            result_name, renamed,
-            source_op="rename_columns",
-            parent=dataset,
-        )
+            result_name = f"{dataset}_renamed"
+            stored = ctx.store_dataset(
+                result_name,
+                renamed,
+                source_op="rename_columns",
+                parent=dataset,
+            )
 
-        ctx._log("rename_columns", result_name, mapping=str(mapping))
+            ctx._log("rename_columns", result_name, mapping=str(mapping))
 
-        return _sanitize_for_json({
-            "tool": "rename_columns",
-            "source_dataset": dataset,
-            "mapping": mapping,
-            **stored,
-        })
+            return _sanitize_for_json(
+                {
+                    "tool": "rename_columns",
+                    "source_dataset": dataset,
+                    "mapping": mapping,
+                    **stored,
+                }
+            )
+        except Exception as e:
+            return {"error": str(e), "tool": "rename_columns"}
 
     @mcp.tool()
     def resample_dataset(
@@ -295,61 +337,74 @@ def register_data_tools(mcp, ctx: AnalysisContext) -> None:
             method: Aggregation method ('last', 'first', 'mean', 'sum',
                 'ohlc').
         """
-        import numpy as np
-        import pandas as pd
+        try:
+            import numpy as np
+            import pandas as pd
 
-        df = ctx.get_dataset(dataset)
+            df = ctx.get_dataset(dataset)
 
-        # Ensure datetime index
-        if not isinstance(df.index, pd.DatetimeIndex):
-            for col in df.columns:
-                if col.lower() in ("date", "datetime", "timestamp", "time"):
-                    try:
-                        df[col] = pd.to_datetime(df[col])
-                        df = df.set_index(col)
-                        break
-                    except Exception:
-                        pass
+            # Ensure datetime index
+            if not isinstance(df.index, pd.DatetimeIndex):
+                for col in df.columns:
+                    if col.lower() in ("date", "datetime", "timestamp", "time"):
+                        try:
+                            df[col] = pd.to_datetime(df[col])
+                            df = df.set_index(col)
+                            break
+                        except Exception:
+                            pass
 
-        if not isinstance(df.index, pd.DatetimeIndex):
-            return {"error": "Dataset does not have a DatetimeIndex. Cannot resample."}
+            if not isinstance(df.index, pd.DatetimeIndex):
+                return {
+                    "error": "Dataset does not have a DatetimeIndex. Cannot resample."
+                }
 
-        if method == "last":
-            resampled = df.resample(freq).last()
-        elif method == "first":
-            resampled = df.resample(freq).first()
-        elif method == "mean":
-            resampled = df.resample(freq).mean()
-        elif method == "sum":
-            resampled = df.resample(freq).sum()
-        elif method == "ohlc":
-            numeric = df.select_dtypes(include=[np.number])
-            resampled = numeric.resample(freq).ohlc()
-            resampled.columns = ["_".join(c) for c in resampled.columns]
-        else:
-            return {"error": f"Unknown method: {method}. Use 'last', 'first', 'mean', 'sum', or 'ohlc'."}
+            if method == "last":
+                resampled = df.resample(freq).last()
+            elif method == "first":
+                resampled = df.resample(freq).first()
+            elif method == "mean":
+                resampled = df.resample(freq).mean()
+            elif method == "sum":
+                resampled = df.resample(freq).sum()
+            elif method == "ohlc":
+                numeric = df.select_dtypes(include=[np.number])
+                resampled = numeric.resample(freq).ohlc()
+                resampled.columns = ["_".join(c) for c in resampled.columns]
+            else:
+                return {
+                    "error": f"Unknown method: {method}. Use 'last', 'first', 'mean', 'sum', or 'ohlc'."
+                }
 
-        resampled = resampled.dropna(how="all")
+            resampled = resampled.dropna(how="all")
 
-        result_name = f"{dataset}_{freq}"
-        stored = ctx.store_dataset(
-            result_name, resampled,
-            source_op="resample_dataset",
-            parent=dataset,
-        )
+            result_name = f"{dataset}_{freq}"
+            stored = ctx.store_dataset(
+                result_name,
+                resampled,
+                source_op="resample_dataset",
+                parent=dataset,
+            )
 
-        ctx._log(
-            "resample_dataset", result_name,
-            source=dataset, freq=freq, method=method,
-        )
+            ctx._log(
+                "resample_dataset",
+                result_name,
+                source=dataset,
+                freq=freq,
+                method=method,
+            )
 
-        return _sanitize_for_json({
-            "tool": "resample_dataset",
-            "source_dataset": dataset,
-            "freq": freq,
-            "method": method,
-            **stored,
-        })
+            return _sanitize_for_json(
+                {
+                    "tool": "resample_dataset",
+                    "source_dataset": dataset,
+                    "freq": freq,
+                    "method": method,
+                    **stored,
+                }
+            )
+        except Exception as e:
+            return {"error": str(e), "tool": "resample_dataset"}
 
     # ------------------------------------------------------------------
     # Data fetching tools (wraquant.data)
@@ -386,13 +441,15 @@ def register_data_tools(mcp, ctx: AnalysisContext) -> None:
 
         ctx._log("fetch_yahoo", name, ticker=ticker, start=start, end=end)
 
-        return _sanitize_for_json({
-            "tool": "fetch_yahoo",
-            "ticker": ticker,
-            "start": start,
-            "end": end,
-            **stored,
-        })
+        return _sanitize_for_json(
+            {
+                "tool": "fetch_yahoo",
+                "ticker": ticker,
+                "start": start,
+                "end": end,
+                **stored,
+            }
+        )
 
     @mcp.tool()
     def fetch_ohlcv(
@@ -423,13 +480,15 @@ def register_data_tools(mcp, ctx: AnalysisContext) -> None:
 
         ctx._log("fetch_ohlcv", name, ticker=ticker, start=start, end=end)
 
-        return _sanitize_for_json({
-            "tool": "fetch_ohlcv",
-            "ticker": ticker,
-            "start": start,
-            "end": end,
-            **stored,
-        })
+        return _sanitize_for_json(
+            {
+                "tool": "fetch_ohlcv",
+                "ticker": ticker,
+                "start": start,
+                "end": end,
+                **stored,
+            }
+        )
 
     # ------------------------------------------------------------------
     # Data cleaning / validation tools
@@ -456,51 +515,60 @@ def register_data_tools(mcp, ctx: AnalysisContext) -> None:
                 - 'outliers_iqr' — remove outliers via IQR method
                 - 'winsorize' — clip extreme values at 1st/99th percentile
         """
-        from wraquant.data.cleaning import (
-            fill_missing,
-            remove_outliers,
-            winsorize as _winsorize,
-        )
+        try:
+            from wraquant.data.cleaning import (
+                fill_missing,
+                remove_outliers,
+            )
+            from wraquant.data.cleaning import winsorize as _winsorize
 
-        df = ctx.get_dataset(dataset)
-        original_rows = len(df)
+            df = ctx.get_dataset(dataset)
+            original_rows = len(df)
 
-        if method == "dropna":
-            cleaned = df.dropna()
-        elif method in ("ffill", "bfill", "interpolate"):
-            cleaned = fill_missing(df, method=method)
-        elif method == "outliers_zscore":
-            cleaned = remove_outliers(df, method="zscore", threshold=3.0)
-        elif method == "outliers_iqr":
-            cleaned = remove_outliers(df, method="iqr", threshold=1.5)
-        elif method == "winsorize":
-            cleaned = _winsorize(df, limits=(0.01, 0.01))
-        else:
-            return {
-                "error": f"Unknown method '{method}'. Options: dropna, ffill, "
-                "bfill, interpolate, outliers_zscore, outliers_iqr, winsorize",
-            }
+            if method == "dropna":
+                cleaned = df.dropna()
+            elif method in ("ffill", "bfill", "interpolate"):
+                cleaned = fill_missing(df, method=method)
+            elif method == "outliers_zscore":
+                cleaned = remove_outliers(df, method="zscore", threshold=3.0)
+            elif method == "outliers_iqr":
+                cleaned = remove_outliers(df, method="iqr", threshold=1.5)
+            elif method == "winsorize":
+                cleaned = _winsorize(df, limits=(0.01, 0.01))
+            else:
+                return {
+                    "error": f"Unknown method '{method}'. Options: dropna, ffill, "
+                    "bfill, interpolate, outliers_zscore, outliers_iqr, winsorize",
+                }
 
-        result_name = f"{dataset}_cleaned"
-        stored = ctx.store_dataset(
-            result_name, cleaned,
-            source_op="clean_dataset", parent=dataset,
-        )
+            result_name = f"{dataset}_cleaned"
+            stored = ctx.store_dataset(
+                result_name,
+                cleaned,
+                source_op="clean_dataset",
+                parent=dataset,
+            )
 
-        ctx._log(
-            "clean_dataset", result_name,
-            source=dataset, method=method,
-        )
+            ctx._log(
+                "clean_dataset",
+                result_name,
+                source=dataset,
+                method=method,
+            )
 
-        return _sanitize_for_json({
-            "tool": "clean_dataset",
-            "source_dataset": dataset,
-            "method": method,
-            "rows_before": original_rows,
-            "rows_after": len(cleaned),
-            "rows_removed": original_rows - len(cleaned),
-            **stored,
-        })
+            return _sanitize_for_json(
+                {
+                    "tool": "clean_dataset",
+                    "source_dataset": dataset,
+                    "method": method,
+                    "rows_before": original_rows,
+                    "rows_after": len(cleaned),
+                    "rows_removed": original_rows - len(cleaned),
+                    **stored,
+                }
+            )
+        except Exception as e:
+            return {"error": str(e), "tool": "clean_dataset"}
 
     @mcp.tool()
     def validate_returns_tool(
@@ -516,28 +584,36 @@ def register_data_tools(mcp, ctx: AnalysisContext) -> None:
             dataset: Name of the dataset containing the returns.
             column: Column name with the return series to validate.
         """
-        from wraquant.data.validation import validate_returns as _validate_returns
+        try:
+            from wraquant.data.validation import validate_returns as _validate_returns
 
-        df = ctx.get_dataset(dataset)
+            df = ctx.get_dataset(dataset)
 
-        if column not in df.columns:
-            return {"error": f"Column '{column}' not found. Available: {list(df.columns)}"}
+            if column not in df.columns:
+                return {
+                    "error": f"Column '{column}' not found. Available: {list(df.columns)}"
+                }
 
-        returns = df[column].dropna()
-        result = _validate_returns(returns, max_abs=0.5)
+            returns = df[column].dropna()
+            result = _validate_returns(returns, max_abs=0.5)
 
-        ctx._log(
-            "validate_returns", dataset,
-            column=column,
-        )
+            ctx._log(
+                "validate_returns",
+                dataset,
+                column=column,
+            )
 
-        return _sanitize_for_json({
-            "tool": "validate_returns",
-            "dataset": dataset,
-            "column": column,
-            "observations": len(returns),
-            **result,
-        })
+            return _sanitize_for_json(
+                {
+                    "tool": "validate_returns",
+                    "dataset": dataset,
+                    "column": column,
+                    "observations": len(returns),
+                    **result,
+                }
+            )
+        except Exception as e:
+            return {"error": str(e), "tool": "validate_returns_tool"}
 
     @mcp.tool()
     def resample_ohlcv(
@@ -576,25 +652,33 @@ def register_data_tools(mcp, ctx: AnalysisContext) -> None:
         try:
             resampled = _resample_ohlcv(df, freq=freq)
         except Exception as e:
-            return {"error": f"Resample failed: {e}. Ensure dataset has open/high/low/close/volume columns."}
+            return {
+                "error": f"Resample failed: {e}. Ensure dataset has open/high/low/close/volume columns."
+            }
 
         result_name = f"{dataset}_ohlcv_{freq}"
         stored = ctx.store_dataset(
-            result_name, resampled,
-            source_op="resample_ohlcv", parent=dataset,
+            result_name,
+            resampled,
+            source_op="resample_ohlcv",
+            parent=dataset,
         )
 
         ctx._log(
-            "resample_ohlcv", result_name,
-            source=dataset, freq=freq,
+            "resample_ohlcv",
+            result_name,
+            source=dataset,
+            freq=freq,
         )
 
-        return _sanitize_for_json({
-            "tool": "resample_ohlcv",
-            "source_dataset": dataset,
-            "freq": freq,
-            **stored,
-        })
+        return _sanitize_for_json(
+            {
+                "tool": "resample_ohlcv",
+                "source_dataset": dataset,
+                "freq": freq,
+                **stored,
+            }
+        )
 
     @mcp.tool()
     def align_datasets(
@@ -609,57 +693,67 @@ def register_data_tools(mcp, ctx: AnalysisContext) -> None:
             datasets_json: JSON array of dataset names to align
                 (e.g., '["aapl_prices", "msft_prices", "spy_prices"]').
         """
-        import pandas as pd
+        try:
+            import pandas as pd
 
-        dataset_names = json.loads(datasets_json)
+            dataset_names = json.loads(datasets_json)
 
-        if len(dataset_names) < 2:
-            return {"error": "At least two datasets are required for alignment."}
+            if len(dataset_names) < 2:
+                return {"error": "At least two datasets are required for alignment."}
 
-        dfs = {}
-        for name in dataset_names:
-            try:
-                dfs[name] = ctx.get_dataset(name)
-            except KeyError:
-                return {"error": f"Dataset '{name}' not found."}
+            dfs = {}
+            for name in dataset_names:
+                try:
+                    dfs[name] = ctx.get_dataset(name)
+                except KeyError:
+                    return {"error": f"Dataset '{name}' not found."}
 
-        # Find common date range via inner join
-        combined = pd.concat(
-            [df.add_suffix(f"_{name}") for name, df in dfs.items()],
-            axis=1, join="inner",
-        )
-
-        # Store individual aligned datasets and the combined one
-        results = {}
-        for name, df in dfs.items():
-            aligned = df.reindex(combined.index).dropna(how="all")
-            aligned_name = f"{name}_aligned"
-            stored = ctx.store_dataset(
-                aligned_name, aligned,
-                source_op="align_datasets", parent=name,
+            # Find common date range via inner join
+            combined = pd.concat(
+                [df.add_suffix(f"_{name}") for name, df in dfs.items()],
+                axis=1,
+                join="inner",
             )
-            results[aligned_name] = stored
 
-        # Also store the combined dataset
-        combined_name = "_".join(dataset_names[:3]) + "_aligned"
-        combined_stored = ctx.store_dataset(
-            combined_name, combined,
-            source_op="align_datasets",
-        )
+            # Store individual aligned datasets and the combined one
+            results = {}
+            for name, df in dfs.items():
+                aligned = df.reindex(combined.index).dropna(how="all")
+                aligned_name = f"{name}_aligned"
+                stored = ctx.store_dataset(
+                    aligned_name,
+                    aligned,
+                    source_op="align_datasets",
+                    parent=name,
+                )
+                results[aligned_name] = stored
 
-        ctx._log(
-            "align_datasets", combined_name,
-            sources=str(dataset_names),
-        )
+            # Also store the combined dataset
+            combined_name = "_".join(dataset_names[:3]) + "_aligned"
+            combined_stored = ctx.store_dataset(
+                combined_name,
+                combined,
+                source_op="align_datasets",
+            )
 
-        return _sanitize_for_json({
-            "tool": "align_datasets",
-            "source_datasets": dataset_names,
-            "combined_dataset": combined_name,
-            "aligned_datasets": list(results.keys()),
-            "common_rows": len(combined),
-            **combined_stored,
-        })
+            ctx._log(
+                "align_datasets",
+                combined_name,
+                sources=str(dataset_names),
+            )
+
+            return _sanitize_for_json(
+                {
+                    "tool": "align_datasets",
+                    "source_datasets": dataset_names,
+                    "combined_dataset": combined_name,
+                    "aligned_datasets": list(results.keys()),
+                    "common_rows": len(combined),
+                    **combined_stored,
+                }
+            )
+        except Exception as e:
+            return {"error": str(e), "tool": "align_datasets"}
 
     @mcp.tool()
     def compute_log_returns(
@@ -676,41 +770,54 @@ def register_data_tools(mcp, ctx: AnalysisContext) -> None:
             dataset: Name of the dataset containing prices.
             column: Price column name to compute returns from.
         """
-        import pandas as pd
+        try:
+            import pandas as pd
 
-        from wraquant.data.transforms import to_returns
+            from wraquant.data.transforms import to_returns
 
-        df = ctx.get_dataset(dataset)
+            df = ctx.get_dataset(dataset)
 
-        if column not in df.columns:
-            return {"error": f"Column '{column}' not found. Available: {list(df.columns)}"}
+            if column not in df.columns:
+                return {
+                    "error": f"Column '{column}' not found. Available: {list(df.columns)}"
+                }
 
-        prices = df[column]
-        log_returns = to_returns(prices, method="log")
+            prices = df[column]
+            log_returns = to_returns(prices, method="log")
 
-        result_df = pd.DataFrame({"log_returns": log_returns})
-        result_name = f"{dataset}_log_returns"
-        stored = ctx.store_dataset(
-            result_name, result_df,
-            source_op="compute_log_returns", parent=dataset,
-        )
+            result_df = pd.DataFrame({"log_returns": log_returns})
+            result_name = f"{dataset}_log_returns"
+            stored = ctx.store_dataset(
+                result_name,
+                result_df,
+                source_op="compute_log_returns",
+                parent=dataset,
+            )
 
-        clean = log_returns.dropna()
+            clean = log_returns.dropna()
 
-        ctx._log(
-            "compute_log_returns", result_name,
-            source=dataset, column=column,
-        )
+            ctx._log(
+                "compute_log_returns",
+                result_name,
+                source=dataset,
+                column=column,
+            )
 
-        return _sanitize_for_json({
-            "tool": "compute_log_returns",
-            "source_dataset": dataset,
-            "column": column,
-            "mean_log_return": float(clean.mean()) if len(clean) > 0 else None,
-            "std_log_return": float(clean.std()) if len(clean) > 0 else None,
-            "annualized_vol": float(clean.std() * (252 ** 0.5)) if len(clean) > 0 else None,
-            **stored,
-        })
+            return _sanitize_for_json(
+                {
+                    "tool": "compute_log_returns",
+                    "source_dataset": dataset,
+                    "column": column,
+                    "mean_log_return": float(clean.mean()) if len(clean) > 0 else None,
+                    "std_log_return": float(clean.std()) if len(clean) > 0 else None,
+                    "annualized_vol": (
+                        float(clean.std() * (252**0.5)) if len(clean) > 0 else None
+                    ),
+                    **stored,
+                }
+            )
+        except Exception as e:
+            return {"error": str(e), "tool": "compute_log_returns"}
 
     @mcp.tool()
     def add_column(
@@ -738,23 +845,29 @@ def register_data_tools(mcp, ctx: AnalysisContext) -> None:
 
         result_name = f"{dataset}_ext"
         stored = ctx.store_dataset(
-            result_name, result_df,
-            source_op="add_column", parent=dataset,
+            result_name,
+            result_df,
+            source_op="add_column",
+            parent=dataset,
         )
 
         ctx._log(
-            "add_column", result_name,
-            source=dataset, column_name=column_name,
+            "add_column",
+            result_name,
+            source=dataset,
+            column_name=column_name,
             expression=expression,
         )
 
-        return _sanitize_for_json({
-            "tool": "add_column",
-            "source_dataset": dataset,
-            "column_name": column_name,
-            "expression": expression,
-            **stored,
-        })
+        return _sanitize_for_json(
+            {
+                "tool": "add_column",
+                "source_dataset": dataset,
+                "column_name": column_name,
+                "expression": expression,
+                **stored,
+            }
+        )
 
     @mcp.tool()
     def describe_dataset(
@@ -768,55 +881,60 @@ def register_data_tools(mcp, ctx: AnalysisContext) -> None:
         Parameters:
             dataset: Name of the dataset to describe.
         """
-        import numpy as np
-        import pandas as pd
+        try:
+            import numpy as np
+            import pandas as pd
 
-        from wraquant.data.cleaning import detect_outliers
+            from wraquant.data.cleaning import detect_outliers
 
-        df = ctx.get_dataset(dataset)
+            df = ctx.get_dataset(dataset)
 
-        # Basic shape info
-        info: dict[str, Any] = {
-            "tool": "describe_dataset",
-            "dataset": dataset,
-            "rows": len(df),
-            "columns": list(df.columns),
-            "dtypes": {c: str(df[c].dtype) for c in df.columns},
-        }
-
-        # Missing values
-        missing = {c: int(df[c].isna().sum()) for c in df.columns}
-        info["missing_values"] = missing
-        info["total_missing"] = sum(missing.values())
-
-        # Date range and frequency
-        if isinstance(df.index, pd.DatetimeIndex) and len(df) > 1:
-            info["date_range"] = {
-                "start": df.index.min().isoformat(),
-                "end": df.index.max().isoformat(),
+            # Basic shape info
+            info: dict[str, Any] = {
+                "tool": "describe_dataset",
+                "dataset": dataset,
+                "rows": len(df),
+                "columns": list(df.columns),
+                "dtypes": {c: str(df[c].dtype) for c in df.columns},
             }
-            freq = pd.infer_freq(df.index)
-            info["inferred_frequency"] = freq or "irregular"
-        else:
-            info["date_range"] = None
-            info["inferred_frequency"] = None
 
-        # Summary statistics for numeric columns
-        numeric = df.select_dtypes(include=[np.number])
-        if len(numeric.columns) > 0 and len(numeric) > 0:
-            desc = numeric.describe()
-            info["statistics"] = desc.to_dict()
+            # Missing values
+            missing = {c: int(df[c].isna().sum()) for c in df.columns}
+            info["missing_values"] = missing
+            info["total_missing"] = sum(missing.values())
 
-            # Outlier detection
-            try:
-                outlier_mask = detect_outliers(numeric, method="zscore", threshold=3.0)
-                info["outlier_rows_zscore_3sigma"] = int(outlier_mask.sum())
-            except Exception:
-                info["outlier_rows_zscore_3sigma"] = None
+            # Date range and frequency
+            if isinstance(df.index, pd.DatetimeIndex) and len(df) > 1:
+                info["date_range"] = {
+                    "start": df.index.min().isoformat(),
+                    "end": df.index.max().isoformat(),
+                }
+                freq = pd.infer_freq(df.index)
+                info["inferred_frequency"] = freq or "irregular"
+            else:
+                info["date_range"] = None
+                info["inferred_frequency"] = None
 
-        ctx._log("describe_dataset", dataset)
+            # Summary statistics for numeric columns
+            numeric = df.select_dtypes(include=[np.number])
+            if len(numeric.columns) > 0 and len(numeric) > 0:
+                desc = numeric.describe()
+                info["statistics"] = desc.to_dict()
 
-        return _sanitize_for_json(info)
+                # Outlier detection
+                try:
+                    outlier_mask = detect_outliers(
+                        numeric, method="zscore", threshold=3.0
+                    )
+                    info["outlier_rows_zscore_3sigma"] = int(outlier_mask.sum())
+                except Exception:
+                    info["outlier_rows_zscore_3sigma"] = None
+
+            ctx._log("describe_dataset", dataset)
+
+            return _sanitize_for_json(info)
+        except Exception as e:
+            return {"error": str(e), "tool": "describe_dataset"}
 
     @mcp.tool()
     def split_dataset(
@@ -835,54 +953,67 @@ def register_data_tools(mcp, ctx: AnalysisContext) -> None:
                 Rows before this date go to train; rows on or after go
                 to test.
         """
-        import pandas as pd
+        try:
+            import pandas as pd
 
-        df = ctx.get_dataset(dataset)
+            df = ctx.get_dataset(dataset)
 
-        # Ensure datetime index
-        if not isinstance(df.index, pd.DatetimeIndex):
-            for col in df.columns:
-                if col.lower() in ("date", "datetime", "timestamp", "time"):
-                    try:
-                        df[col] = pd.to_datetime(df[col])
-                        df = df.set_index(col)
-                        break
-                    except Exception:
-                        pass
+            # Ensure datetime index
+            if not isinstance(df.index, pd.DatetimeIndex):
+                for col in df.columns:
+                    if col.lower() in ("date", "datetime", "timestamp", "time"):
+                        try:
+                            df[col] = pd.to_datetime(df[col])
+                            df = df.set_index(col)
+                            break
+                        except Exception:
+                            pass
 
-        if not isinstance(df.index, pd.DatetimeIndex):
-            return {"error": "Dataset does not have a DatetimeIndex. Cannot split by date."}
+            if not isinstance(df.index, pd.DatetimeIndex):
+                return {
+                    "error": "Dataset does not have a DatetimeIndex. Cannot split by date."
+                }
 
-        cutoff = pd.Timestamp(split_date)
-        train = df[df.index < cutoff]
-        test = df[df.index >= cutoff]
+            cutoff = pd.Timestamp(split_date)
+            train = df[df.index < cutoff]
+            test = df[df.index >= cutoff]
 
-        train_name = f"{dataset}_train"
-        test_name = f"{dataset}_test"
+            train_name = f"{dataset}_train"
+            test_name = f"{dataset}_test"
 
-        train_stored = ctx.store_dataset(
-            train_name, train,
-            source_op="split_dataset", parent=dataset,
-        )
-        test_stored = ctx.store_dataset(
-            test_name, test,
-            source_op="split_dataset", parent=dataset,
-        )
+            train_stored = ctx.store_dataset(
+                train_name,
+                train,
+                source_op="split_dataset",
+                parent=dataset,
+            )
+            test_stored = ctx.store_dataset(
+                test_name,
+                test,
+                source_op="split_dataset",
+                parent=dataset,
+            )
 
-        ctx._log(
-            "split_dataset", dataset,
-            split_date=split_date,
-            train_rows=len(train), test_rows=len(test),
-        )
+            ctx._log(
+                "split_dataset",
+                dataset,
+                split_date=split_date,
+                train_rows=len(train),
+                test_rows=len(test),
+            )
 
-        return _sanitize_for_json({
-            "tool": "split_dataset",
-            "source_dataset": dataset,
-            "split_date": split_date,
-            "train_dataset": train_name,
-            "train_rows": len(train),
-            "test_dataset": test_name,
-            "test_rows": len(test),
-            "train_pct": round(len(train) / max(len(df), 1) * 100, 1),
-            "test_pct": round(len(test) / max(len(df), 1) * 100, 1),
-        })
+            return _sanitize_for_json(
+                {
+                    "tool": "split_dataset",
+                    "source_dataset": dataset,
+                    "split_date": split_date,
+                    "train_dataset": train_name,
+                    "train_rows": len(train),
+                    "test_dataset": test_name,
+                    "test_rows": len(test),
+                    "train_pct": round(len(train) / max(len(df), 1) * 100, 1),
+                    "test_pct": round(len(test) / max(len(df), 1) * 100, 1),
+                }
+            )
+        except Exception as e:
+            return {"error": str(e), "tool": "split_dataset"}

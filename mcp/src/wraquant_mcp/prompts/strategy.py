@@ -1,5 +1,7 @@
 """Trading strategy prompt templates."""
+
 from __future__ import annotations
+
 from typing import Any
 
 
@@ -8,7 +10,12 @@ def register_strategy_prompts(mcp: Any) -> None:
     @mcp.prompt()
     def pairs_trading(ticker_a: str = "GLD", ticker_b: str = "GDX") -> list[dict]:
         """Pairs trading: cointegration, spread, signals, backtest."""
-        return [{"role": "user", "content": {"type": "text", "text": f"""
+        return [
+            {
+                "role": "user",
+                "content": {
+                    "type": "text",
+                    "text": f"""
 First load the wraquant_system_context prompt for full module context.
 
 Comprehensive pairs trading analysis for {ticker_a} vs {ticker_b}. This is a full
@@ -93,7 +100,7 @@ build the trading signals, and validate with a rigorous out-of-sample backtest.
      (This can happen with short samples or structural breaks in the relationship.)
 
 10. **Half-life of mean reversion**: Fit an AR(1) to the spread:
-    spread_t = c + phi * spread_{t-1} + epsilon.
+    spread_t = c + phi * spread_{{t-1}} + epsilon.
     Half-life = -log(2) / log(phi) trading days.
 
     **Interpretation**:
@@ -253,12 +260,20 @@ build the trading signals, and validate with a rigorous out-of-sample backtest.
 **Related prompts**: Use statistical_arbitrage for a multi-asset PCA-based extension,
 mean_reversion for single-asset mean reversion, regime_detection for deeper regime analysis,
 cointegration analysis in equity_deep_dive for individual stock assessment.
-"""}}]
+""",
+                },
+            }
+        ]
 
     @mcp.prompt()
     def momentum_strategy(dataset: str = "prices") -> list[dict]:
         """Momentum strategy: signals, regime filter, backtest."""
-        return [{"role": "user", "content": {"type": "text", "text": f"""
+        return [
+            {
+                "role": "user",
+                "content": {
+                    "type": "text",
+                    "text": f"""
 First load the wraquant_system_context prompt for full module context.
 
 Momentum strategy on {dataset}:
@@ -271,12 +286,20 @@ Momentum strategy on {dataset}:
 6. Compare to buy-and-hold.
 7. walk_forward — does it work out-of-sample?
 8. Summary: Sharpe improvement? Drawdown reduction? Regime filtering help?
-"""}}]
+""",
+                },
+            }
+        ]
 
     @mcp.prompt()
     def mean_reversion(dataset: str = "prices") -> list[dict]:
         """Mean reversion strategy: stationarity, OU fit, signals, backtest."""
-        return [{"role": "user", "content": {"type": "text", "text": f"""
+        return [
+            {
+                "role": "user",
+                "content": {
+                    "type": "text",
+                    "text": f"""
 First load the wraquant_system_context prompt for full module context.
 
 Mean reversion strategy on {dataset}:
@@ -290,12 +313,20 @@ Mean reversion strategy on {dataset}:
 7. run_backtest with the signals.
 8. detect_regimes — does mean reversion work in all regimes?
 9. Summary: is mean reversion present? Profitable? Regime-dependent?
-"""}}]
+""",
+                },
+            }
+        ]
 
     @mcp.prompt()
     def trend_following(dataset: str = "prices") -> list[dict]:
         """Trend following: MA crossover, ADX filter, PSAR stops."""
-        return [{"role": "user", "content": {"type": "text", "text": f"""
+        return [
+            {
+                "role": "user",
+                "content": {
+                    "type": "text",
+                    "text": f"""
 First load the wraquant_system_context prompt for full module context.
 
 Trend following strategy on {dataset}:
@@ -309,12 +340,20 @@ Trend following strategy on {dataset}:
 7. Compare to buy-and-hold.
 8. Regime analysis — does trend following work better in trending regimes?
 9. Summary: captures trends? Avoids whipsaws? Drawdown profile?
-"""}}]
+""",
+                },
+            }
+        ]
 
     @mcp.prompt()
     def statistical_arbitrage(dataset: str = "universe_returns") -> list[dict]:
         """Stat arb: PCA factors, residual alpha, signals, capacity."""
-        return [{"role": "user", "content": {"type": "text", "text": f"""
+        return [
+            {
+                "role": "user",
+                "content": {
+                    "type": "text",
+                    "text": f"""
 First load the wraquant_system_context prompt for full module context.
 
 Statistical arbitrage on {dataset}:
@@ -328,12 +367,22 @@ Statistical arbitrage on {dataset}:
 7. Estimate capacity: how much capital before impact kills the alpha?
 8. walk_forward — is it robust out-of-sample?
 9. Summary: alpha significant? Capacity adequate? Transaction costs?
-"""}}]
+""",
+                },
+            }
+        ]
 
     @mcp.prompt()
-    def carry_trade(rates_json: str = '{"USD":5.25,"EUR":4.50,"JPY":0.10,"AUD":4.35,"GBP":5.25}') -> list[dict]:
+    def carry_trade(
+        rates_json: str = '{"USD":5.25,"EUR":4.50,"JPY":0.10,"AUD":4.35,"GBP":5.25}',
+    ) -> list[dict]:
         """FX carry trade: portfolio construction and backtest."""
-        return [{"role": "user", "content": {"type": "text", "text": f"""
+        return [
+            {
+                "role": "user",
+                "content": {
+                    "type": "text",
+                    "text": f"""
 First load the wraquant_system_context prompt for full module context.
 
 FX carry trade analysis with rates: {rates_json}:
@@ -364,12 +413,20 @@ FX carry trade analysis with rates: {rates_json}:
    carry. backtest_metrics — Sharpe, Sortino, max drawdown, hit rate.
 9. **Summary**: Current carry ranking. Expected annual carry (in bps).
    Crash risk profile. Regime dependence. Recommended position sizing.
-"""}}]
+""",
+                },
+            }
+        ]
 
     @mcp.prompt()
     def volatility_selling(dataset: str = "prices") -> list[dict]:
         """Short volatility strategy: put selling, straddle selling, and risk management."""
-        return [{"role": "user", "content": {"type": "text", "text": f"""
+        return [
+            {
+                "role": "user",
+                "content": {
+                    "type": "text",
+                    "text": f"""
 First load the wraquant_system_context prompt for full module context.
 
 Volatility selling strategy on {dataset}:
@@ -403,12 +460,20 @@ Volatility selling strategy on {dataset}:
    backtest_metrics — Sharpe, Sortino, max drawdown, worst month.
 10. **Summary**: VRP magnitude. Strategy comparison. Regime filtering value.
     Tail risk profile. Recommended approach and sizing.
-"""}}]
+""",
+                },
+            }
+        ]
 
     @mcp.prompt()
     def market_making(dataset: str = "tick_data") -> list[dict]:
         """Market making strategy: spread capture, inventory management, adverse selection."""
-        return [{"role": "user", "content": {"type": "text", "text": f"""
+        return [
+            {
+                "role": "user",
+                "content": {
+                    "type": "text",
+                    "text": f"""
 First load the wraquant_system_context prompt for full module context.
 
 Market making analysis on {dataset}:
@@ -417,12 +482,12 @@ Market making analysis on {dataset}:
    bid-ask information (or proxied). compute_returns at appropriate frequency.
 2. **Spread estimation**: Compute quoted spread (ask - bid) and effective spread
    (2 × |trade_price - midpoint|). If no bid-ask data, use Roll's estimator:
-   effective_spread ≈ 2 × sqrt(-cov(Δp_t, Δp_{t-1})). Average spread in bps?
+   effective_spread ≈ 2 × sqrt(-cov(Δp_t, Δp_{{t-1}})). Average spread in bps?
 3. **Gross revenue estimate**: A market maker earns ~0.5 × spread per round trip.
    Estimate daily gross revenue = 0.5 × spread × daily_volume × participation_rate.
    Assume 5% participation rate. Is the gross revenue meaningful?
 4. **Adverse selection cost**: Estimate using the realized spread:
-   realized_spread = 2 × sign × (trade_price - midpoint_{t+5min}).
+   realized_spread = 2 * sign * (trade_price - midpoint at t+5min).
    If realized spread < effective spread, the difference is adverse selection cost.
    What fraction of the spread is lost to informed traders?
 5. **Inventory risk**: Simulate inventory accumulation with a symmetric quoting strategy.
@@ -442,12 +507,20 @@ Market making analysis on {dataset}:
 9. **Summary**: Average spread captured. Adverse selection fraction.
    Inventory risk quantification. VPIN toxicity assessment.
    Net profitability estimate. Recommended spread width and participation.
-"""}}]
+""",
+                },
+            }
+        ]
 
     @mcp.prompt()
     def sector_rotation(sectors_dataset: str = "sector_returns") -> list[dict]:
         """Sector rotation: momentum + fundamentals-based sector selection."""
-        return [{"role": "user", "content": {"type": "text", "text": f"""
+        return [
+            {
+                "role": "user",
+                "content": {
+                    "type": "text",
+                    "text": f"""
 First load the wraquant_system_context prompt for full module context.
 
 Sector rotation strategy on {sectors_dataset}:
@@ -482,4 +555,7 @@ Sector rotation strategy on {sectors_dataset}:
    Estimate transaction cost drag. Is the alpha net of costs?
 9. **Summary**: Current sector ranking. Top picks and rationale (momentum + regime + fundamentals).
    Backtest results. Turnover and cost. Recommended sector allocation.
-"""}}]
+""",
+                },
+            }
+        ]

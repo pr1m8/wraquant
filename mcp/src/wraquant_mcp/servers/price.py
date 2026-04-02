@@ -43,31 +43,54 @@ def register_price_tools(mcp, ctx: AnalysisContext) -> None:
             n_steps: Steps for binomial tree.
             n_paths: Paths for Monte Carlo.
         """
-        from wraquant.price.options import binomial_tree, black_scholes, monte_carlo_option
-
-        if method == "binomial":
-            price = binomial_tree(
-                S=S, K=K, T=T, r=r, sigma=sigma,
-                option_type=option_type, n_steps=n_steps,
-            )
-        elif method == "monte_carlo":
-            price = monte_carlo_option(
-                S=S, K=K, T=T, r=r, sigma=sigma,
-                option_type=option_type, n_paths=n_paths,
-            )
-        else:
-            price = black_scholes(
-                S=S, K=K, T=T, r=r, sigma=sigma,
-                option_type=option_type,
+        try:
+            from wraquant.price.options import (
+                binomial_tree,
+                black_scholes,
+                monte_carlo_option,
             )
 
-        return _sanitize_for_json({
-            "tool": "price_option",
-            "method": method,
-            "option_type": option_type,
-            "price": float(price) if not isinstance(price, dict) else price,
-            "inputs": {"S": S, "K": K, "T": T, "r": r, "sigma": sigma},
-        })
+            if method == "binomial":
+                price = binomial_tree(
+                    S=S,
+                    K=K,
+                    T=T,
+                    r=r,
+                    sigma=sigma,
+                    option_type=option_type,
+                    n_steps=n_steps,
+                )
+            elif method == "monte_carlo":
+                price = monte_carlo_option(
+                    S=S,
+                    K=K,
+                    T=T,
+                    r=r,
+                    sigma=sigma,
+                    option_type=option_type,
+                    n_paths=n_paths,
+                )
+            else:
+                price = black_scholes(
+                    S=S,
+                    K=K,
+                    T=T,
+                    r=r,
+                    sigma=sigma,
+                    option_type=option_type,
+                )
+
+            return _sanitize_for_json(
+                {
+                    "tool": "price_option",
+                    "method": method,
+                    "option_type": option_type,
+                    "price": float(price) if not isinstance(price, dict) else price,
+                    "inputs": {"S": S, "K": K, "T": T, "r": r, "sigma": sigma},
+                }
+            )
+        except Exception as e:
+            return {"error": str(e), "tool": "price_option"}
 
     @mcp.tool()
     def compute_greeks(
@@ -88,19 +111,28 @@ def register_price_tools(mcp, ctx: AnalysisContext) -> None:
             sigma: Volatility.
             option_type: 'call' or 'put'.
         """
-        from wraquant.price.greeks import all_greeks
+        try:
+            from wraquant.price.greeks import all_greeks
 
-        greeks = all_greeks(
-            S=S, K=K, T=T, r=r, sigma=sigma,
-            option_type=option_type,
-        )
+            greeks = all_greeks(
+                S=S,
+                K=K,
+                T=T,
+                r=r,
+                sigma=sigma,
+                option_type=option_type,
+            )
 
-        return _sanitize_for_json({
-            "tool": "compute_greeks",
-            "option_type": option_type,
-            "greeks": greeks,
-            "inputs": {"S": S, "K": K, "T": T, "r": r, "sigma": sigma},
-        })
+            return _sanitize_for_json(
+                {
+                    "tool": "compute_greeks",
+                    "option_type": option_type,
+                    "greeks": greeks,
+                    "inputs": {"S": S, "K": K, "T": T, "r": r, "sigma": sigma},
+                }
+            )
+        except Exception as e:
+            return {"error": str(e), "tool": "compute_greeks"}
 
     @mcp.tool()
     def simulate_process(
@@ -142,84 +174,119 @@ def register_price_tools(mcp, ctx: AnalysisContext) -> None:
             jump_mean: Mean jump size.
             jump_vol: Jump size volatility.
         """
-        import numpy as np
+        try:
+            import numpy as np
 
-        from wraquant.price.stochastic import (
-            geometric_brownian_motion,
-            heston,
-            jump_diffusion,
-            ornstein_uhlenbeck,
-            simulate_vasicek,
-        )
+            from wraquant.price.stochastic import (
+                geometric_brownian_motion,
+                heston,
+                jump_diffusion,
+                ornstein_uhlenbeck,
+                simulate_vasicek,
+            )
 
-        simulators = {
-            "gbm": lambda: geometric_brownian_motion(
-                S0=S0, mu=mu, sigma=sigma, T=T,
-                n_steps=n_steps, n_paths=n_paths,
-            ),
-            "heston": lambda: heston(
-                S0=S0, v0=sigma**2, mu=mu, kappa=kappa,
-                theta=theta, xi=xi, rho=rho,
-                T=T, n_steps=n_steps, n_paths=n_paths,
-            ),
-            "jump_diffusion": lambda: jump_diffusion(
-                S0=S0, mu=mu, sigma=sigma, lam=lam,
-                jump_mean=jump_mean, jump_vol=jump_vol,
-                T=T, n_steps=n_steps, n_paths=n_paths,
-            ),
-            "ou": lambda: ornstein_uhlenbeck(
-                x0=S0, kappa=kappa, theta=theta, sigma=sigma,
-                T=T, n_steps=n_steps, n_paths=n_paths,
-            ),
-            "vasicek": lambda: simulate_vasicek(
-                r0=S0, kappa=kappa, theta=theta, sigma=sigma,
-                T=T, n_steps=n_steps, n_paths=n_paths,
-            ),
-        }
-
-        func = simulators.get(process)
-        if func is None:
-            return {"error": f"Unknown process '{process}'. Options: {list(simulators)}"}
-
-        paths = func()
-
-        # Store summary statistics
-        if isinstance(paths, np.ndarray):
-            final_values = paths[-1] if paths.ndim == 2 else paths
-            summary = {
-                "mean_final": float(np.mean(final_values)),
-                "std_final": float(np.std(final_values)),
-                "min_final": float(np.min(final_values)),
-                "max_final": float(np.max(final_values)),
-                "median_final": float(np.median(final_values)),
+            simulators = {
+                "gbm": lambda: geometric_brownian_motion(
+                    S0=S0,
+                    mu=mu,
+                    sigma=sigma,
+                    T=T,
+                    n_steps=n_steps,
+                    n_paths=n_paths,
+                ),
+                "heston": lambda: heston(
+                    S0=S0,
+                    v0=sigma**2,
+                    mu=mu,
+                    kappa=kappa,
+                    theta=theta,
+                    xi=xi,
+                    rho=rho,
+                    T=T,
+                    n_steps=n_steps,
+                    n_paths=n_paths,
+                ),
+                "jump_diffusion": lambda: jump_diffusion(
+                    S0=S0,
+                    mu=mu,
+                    sigma=sigma,
+                    lam=lam,
+                    jump_mean=jump_mean,
+                    jump_vol=jump_vol,
+                    T=T,
+                    n_steps=n_steps,
+                    n_paths=n_paths,
+                ),
+                "ou": lambda: ornstein_uhlenbeck(
+                    x0=S0,
+                    kappa=kappa,
+                    theta=theta,
+                    sigma=sigma,
+                    T=T,
+                    n_steps=n_steps,
+                    n_paths=n_paths,
+                ),
+                "vasicek": lambda: simulate_vasicek(
+                    r0=S0,
+                    kappa=kappa,
+                    theta=theta,
+                    sigma=sigma,
+                    T=T,
+                    n_steps=n_steps,
+                    n_paths=n_paths,
+                ),
             }
-        else:
-            summary = {}
 
-        import pandas as pd
+            func = simulators.get(process)
+            if func is None:
+                return {
+                    "error": f"Unknown process '{process}'. Options: {list(simulators)}"
+                }
 
-        # Store mean path as dataset
-        if isinstance(paths, np.ndarray) and paths.ndim == 2:
-            mean_path = paths.mean(axis=1)
-            path_df = pd.DataFrame({"mean_path": mean_path})
-        elif isinstance(paths, np.ndarray):
-            path_df = pd.DataFrame({"path": paths})
-        else:
-            path_df = pd.DataFrame({"path": [float(paths)]})
+            paths = func()
 
-        stored = ctx.store_dataset(
-            f"sim_{process}", path_df,
-            source_op="simulate_process",
-        )
+            # Store summary statistics
+            if isinstance(paths, np.ndarray):
+                final_values = paths[-1] if paths.ndim == 2 else paths
+                summary = {
+                    "mean_final": float(np.mean(final_values)),
+                    "std_final": float(np.std(final_values)),
+                    "min_final": float(np.min(final_values)),
+                    "max_final": float(np.max(final_values)),
+                    "median_final": float(np.median(final_values)),
+                }
+            else:
+                summary = {}
 
-        return _sanitize_for_json({
-            "tool": "simulate_process",
-            "process": process,
-            "n_steps": n_steps,
-            "n_paths": n_paths,
-            "summary": summary,
-            **stored,
-        })
+            import pandas as pd
+
+            # Store mean path as dataset
+            if isinstance(paths, np.ndarray) and paths.ndim == 2:
+                mean_path = paths.mean(axis=1)
+                path_df = pd.DataFrame({"mean_path": mean_path})
+            elif isinstance(paths, np.ndarray):
+                path_df = pd.DataFrame({"path": paths})
+            else:
+                path_df = pd.DataFrame({"path": [float(paths)]})
+
+            stored = ctx.store_dataset(
+                f"sim_{process}",
+                path_df,
+                source_op="simulate_process",
+            )
+
+            return _sanitize_for_json(
+                {
+                    "tool": "simulate_process",
+                    "process": process,
+                    "n_steps": n_steps,
+                    "n_paths": n_paths,
+                    "summary": summary,
+                    **stored,
+                }
+            )
+        except Exception as e:
+            return {"error": str(e), "tool": "simulate_process"}
 
     @mcp.tool()
     def yield_curve_analysis(
@@ -235,45 +302,60 @@ def register_price_tools(mcp, ctx: AnalysisContext) -> None:
             method: Interpolation method. Options:
                 'linear', 'cubic', 'nelson_siegel'.
         """
-        import numpy as np
+        try:
+            import numpy as np
 
-        from wraquant.price.curves import bootstrap_zero_curve, forward_rate, interpolate_curve
+            from wraquant.price.curves import (
+                bootstrap_zero_curve,
+                forward_rate,
+                interpolate_curve,
+            )
 
-        mats = np.array(maturities)
-        ylds = np.array(yields)
+            mats = np.array(maturities)
+            ylds = np.array(yields)
 
-        curve = interpolate_curve(mats, ylds, method=method)
+            curve = interpolate_curve(mats, ylds, method=method)
 
-        # Compute forward rates
-        forwards = []
-        for i in range(len(mats) - 1):
-            fwd = forward_rate(mats[i], mats[i + 1], ylds[i], ylds[i + 1])
-            forwards.append({
-                "from": float(mats[i]),
-                "to": float(mats[i + 1]),
-                "forward_rate": float(fwd),
-            })
+            # Compute forward rates
+            forwards = []
+            for i in range(len(mats) - 1):
+                fwd = forward_rate(mats[i], mats[i + 1], ylds[i], ylds[i + 1])
+                forwards.append(
+                    {
+                        "from": float(mats[i]),
+                        "to": float(mats[i + 1]),
+                        "forward_rate": float(fwd),
+                    }
+                )
 
-        import pandas as pd
+            import pandas as pd
 
-        curve_df = pd.DataFrame({
-            "maturity": maturities,
-            "yield": yields,
-        })
-        stored = ctx.store_dataset(
-            "yield_curve", curve_df,
-            source_op="yield_curve_analysis",
-        )
+            curve_df = pd.DataFrame(
+                {
+                    "maturity": maturities,
+                    "yield": yields,
+                }
+            )
+            stored = ctx.store_dataset(
+                "yield_curve",
+                curve_df,
+                source_op="yield_curve_analysis",
+            )
 
-        return _sanitize_for_json({
-            "tool": "yield_curve_analysis",
-            "method": method,
-            "curve": curve,
-            "forward_rates": forwards,
-            "spread_2y10y": float(ylds[-1] - ylds[0])
-            if len(ylds) >= 2 else None,
-            **stored,
-        })
+            return _sanitize_for_json(
+                {
+                    "tool": "yield_curve_analysis",
+                    "method": method,
+                    "curve": curve,
+                    "forward_rates": forwards,
+                    "spread_2y10y": (
+                        float(ylds[-1] - ylds[0]) if len(ylds) >= 2 else None
+                    ),
+                    **stored,
+                }
+            )
+        except Exception as e:
+            return {"error": str(e), "tool": "yield_curve_analysis"}
 
     @mcp.tool()
     def implied_volatility(
@@ -297,30 +379,35 @@ def register_price_tools(mcp, ctx: AnalysisContext) -> None:
             maturity: Time to expiration in years.
             option_type: 'call' or 'put'.
         """
-        from wraquant.price.volatility import implied_volatility as _iv
+        try:
+            from wraquant.price.volatility import implied_volatility as _iv
 
-        iv = _iv(
-            market_price=market_price,
-            S=spot,
-            K=strike,
-            T=maturity,
-            r=rf,
-            option_type=option_type,
-        )
+            iv = _iv(
+                market_price=market_price,
+                S=spot,
+                K=strike,
+                T=maturity,
+                r=rf,
+                option_type=option_type,
+            )
 
-        return _sanitize_for_json({
-            "tool": "implied_volatility",
-            "implied_vol": float(iv),
-            "implied_vol_pct": float(iv * 100),
-            "inputs": {
-                "market_price": market_price,
-                "spot": spot,
-                "strike": strike,
-                "rf": rf,
-                "maturity": maturity,
-                "option_type": option_type,
-            },
-        })
+            return _sanitize_for_json(
+                {
+                    "tool": "implied_volatility",
+                    "implied_vol": float(iv),
+                    "implied_vol_pct": float(iv * 100),
+                    "inputs": {
+                        "market_price": market_price,
+                        "spot": spot,
+                        "strike": strike,
+                        "rf": rf,
+                        "maturity": maturity,
+                        "option_type": option_type,
+                    },
+                }
+            )
+        except Exception as e:
+            return {"error": str(e), "tool": "implied_volatility"}
 
     @mcp.tool()
     def sabr_calibrate(
@@ -341,39 +428,53 @@ def register_price_tools(mcp, ctx: AnalysisContext) -> None:
             vols_json: JSON list of market implied volatilities.
             maturity: Time to expiration in years.
         """
-        import json
+        try:
+            import json
 
-        import numpy as np
+            import numpy as np
 
-        from wraquant.price.stochastic import simulate_sabr
+            from wraquant.price.stochastic import simulate_sabr
 
-        strikes = np.array(json.loads(strikes_json))
-        market_vols = np.array(json.loads(vols_json))
+            strikes = np.array(json.loads(strikes_json))
+            market_vols = np.array(json.loads(vols_json))
 
-        # Simulate SABR with default params and return vol smile
-        # for calibration reference
-        result = simulate_sabr(
-            f0=forward,
-            sigma0=float(market_vols.mean()),
-            alpha=0.4,
-            beta=0.5,
-            rho=-0.3,
-            T=maturity,
-            n_steps=100,
-            n_paths=5000,
-        )
+            # Simulate SABR with default params and return vol smile
+            # for calibration reference
+            result = simulate_sabr(
+                f0=forward,
+                sigma0=float(market_vols.mean()),
+                alpha=0.4,
+                beta=0.5,
+                rho=-0.3,
+                T=maturity,
+                n_steps=100,
+                n_paths=5000,
+            )
 
-        return _sanitize_for_json({
-            "tool": "sabr_calibrate",
-            "forward": forward,
-            "maturity": maturity,
-            "n_strikes": len(strikes),
-            "atm_vol": float(market_vols[len(market_vols) // 2])
-            if len(market_vols) > 0 else None,
-            "result": {k: v for k, v in result.items()
-                       if not hasattr(v, "__len__") or isinstance(v, str)}
-            if isinstance(result, dict) else str(result),
-        })
+            return _sanitize_for_json(
+                {
+                    "tool": "sabr_calibrate",
+                    "forward": forward,
+                    "maturity": maturity,
+                    "n_strikes": len(strikes),
+                    "atm_vol": (
+                        float(market_vols[len(market_vols) // 2])
+                        if len(market_vols) > 0
+                        else None
+                    ),
+                    "result": (
+                        {
+                            k: v
+                            for k, v in result.items()
+                            if not hasattr(v, "__len__") or isinstance(v, str)
+                        }
+                        if isinstance(result, dict)
+                        else str(result)
+                    ),
+                }
+            )
+        except Exception as e:
+            return {"error": str(e), "tool": "sabr_calibrate"}
 
     @mcp.tool()
     def simulate_heston(
@@ -401,51 +502,71 @@ def register_price_tools(mcp, ctx: AnalysisContext) -> None:
             T: Time horizon in years.
             n_paths: Number of simulation paths.
         """
-        import numpy as np
-        import pandas as pd
+        try:
+            import numpy as np
+            import pandas as pd
 
-        from wraquant.price.stochastic import heston as _heston
+            from wraquant.price.stochastic import heston as _heston
 
-        n_steps = max(int(252 * T), 10)
-        paths, vol_paths = _heston(
-            S0=spot, v0=v0, mu=0.0, kappa=kappa,
-            theta=theta, sigma_v=sigma_v, rho=rho,
-            T=T, n_steps=n_steps, n_paths=n_paths,
-        )
+            n_steps = max(int(252 * T), 10)
+            paths, vol_paths = _heston(
+                S0=spot,
+                v0=v0,
+                mu=0.0,
+                kappa=kappa,
+                theta=theta,
+                sigma_v=sigma_v,
+                rho=rho,
+                T=T,
+                n_steps=n_steps,
+                n_paths=n_paths,
+            )
 
-        final_prices = paths[-1] if paths.ndim == 2 else paths
-        mean_path = paths.mean(axis=1) if paths.ndim == 2 else paths
+            final_prices = paths[-1] if paths.ndim == 2 else paths
+            mean_path = paths.mean(axis=1) if paths.ndim == 2 else paths
 
-        summary = {
-            "mean_final": float(np.mean(final_prices)),
-            "std_final": float(np.std(final_prices)),
-            "min_final": float(np.min(final_prices)),
-            "max_final": float(np.max(final_prices)),
-            "median_final": float(np.median(final_prices)),
-        }
+            summary = {
+                "mean_final": float(np.mean(final_prices)),
+                "std_final": float(np.std(final_prices)),
+                "min_final": float(np.min(final_prices)),
+                "max_final": float(np.max(final_prices)),
+                "median_final": float(np.median(final_prices)),
+            }
 
-        path_df = pd.DataFrame({
-            "mean_price_path": mean_path,
-            "mean_vol_path": vol_paths.mean(axis=1)
-            if vol_paths.ndim == 2 else vol_paths,
-        })
-        stored = ctx.store_dataset(
-            "heston_sim", path_df,
-            source_op="simulate_heston",
-        )
+            path_df = pd.DataFrame(
+                {
+                    "mean_price_path": mean_path,
+                    "mean_vol_path": (
+                        vol_paths.mean(axis=1) if vol_paths.ndim == 2 else vol_paths
+                    ),
+                }
+            )
+            stored = ctx.store_dataset(
+                "heston_sim",
+                path_df,
+                source_op="simulate_heston",
+            )
 
-        return _sanitize_for_json({
-            "tool": "simulate_heston",
-            "n_paths": n_paths,
-            "n_steps": n_steps,
-            "T": T,
-            "summary": summary,
-            "inputs": {
-                "spot": spot, "v0": v0, "kappa": kappa,
-                "theta": theta, "sigma_v": sigma_v, "rho": rho,
-            },
-            **stored,
-        })
+            return _sanitize_for_json(
+                {
+                    "tool": "simulate_heston",
+                    "n_paths": n_paths,
+                    "n_steps": n_steps,
+                    "T": T,
+                    "summary": summary,
+                    "inputs": {
+                        "spot": spot,
+                        "v0": v0,
+                        "kappa": kappa,
+                        "theta": theta,
+                        "sigma_v": sigma_v,
+                        "rho": rho,
+                    },
+                    **stored,
+                }
+            )
+        except Exception as e:
+            return {"error": str(e), "tool": "simulate_heston"}
 
     @mcp.tool()
     def bond_duration(
@@ -466,31 +587,36 @@ def register_price_tools(mcp, ctx: AnalysisContext) -> None:
             ytm: Yield to maturity (e.g., 0.04 for 4%).
             periods: Number of coupon periods remaining.
         """
-        from wraquant.price.fixed_income import (
-            bond_price,
-            convexity,
-            duration,
-            modified_duration,
-        )
+        try:
+            from wraquant.price.fixed_income import (
+                bond_price,
+                convexity,
+                duration,
+                modified_duration,
+            )
 
-        mac = duration(face_value, coupon_rate, ytm, periods)
-        mod = modified_duration(face_value, coupon_rate, ytm, periods)
-        px = bond_price(face_value, coupon_rate, ytm, periods)
-        conv = convexity(face_value, coupon_rate, ytm, periods)
+            mac = duration(face_value, coupon_rate, ytm, periods)
+            mod = modified_duration(face_value, coupon_rate, ytm, periods)
+            px = bond_price(face_value, coupon_rate, ytm, periods)
+            conv = convexity(face_value, coupon_rate, ytm, periods)
 
-        return _sanitize_for_json({
-            "tool": "bond_duration",
-            "macaulay_duration": float(mac),
-            "modified_duration": float(mod),
-            "bond_price": float(px),
-            "convexity": float(conv),
-            "inputs": {
-                "face_value": face_value,
-                "coupon_rate": coupon_rate,
-                "ytm": ytm,
-                "periods": periods,
-            },
-        })
+            return _sanitize_for_json(
+                {
+                    "tool": "bond_duration",
+                    "macaulay_duration": float(mac),
+                    "modified_duration": float(mod),
+                    "bond_price": float(px),
+                    "convexity": float(conv),
+                    "inputs": {
+                        "face_value": face_value,
+                        "coupon_rate": coupon_rate,
+                        "ytm": ytm,
+                        "periods": periods,
+                    },
+                }
+            )
+        except Exception as e:
+            return {"error": str(e), "tool": "bond_duration"}
 
     @mcp.tool()
     def fbsde_price(
@@ -515,39 +641,44 @@ def register_price_tools(mcp, ctx: AnalysisContext) -> None:
             T: Time to expiration in years.
             n_paths: Number of simulation paths.
         """
-        import numpy as np
+        try:
+            import numpy as np
 
-        from wraquant.price.fbsde import fbsde_european
+            from wraquant.price.fbsde import fbsde_european
 
-        # Define payoff and dynamics for European call
-        def payoff_fn(S):
-            return np.maximum(S - strike, 0.0)
+            # Define payoff and dynamics for European call
+            def payoff_fn(S):
+                return np.maximum(S - strike, 0.0)
 
-        def drift_fn(S):
-            return rf * S
+            def drift_fn(S):
+                return rf * S
 
-        def vol_fn(S):
-            return vol * S
+            def vol_fn(S):
+                return vol * S
 
-        result = fbsde_european(
-            spot=spot,
-            payoff_fn=payoff_fn,
-            drift_fn=drift_fn,
-            vol_fn=vol_fn,
-            rf=rf,
-            T=T,
-            n_paths=n_paths,
-        )
+            result = fbsde_european(
+                spot=spot,
+                payoff_fn=payoff_fn,
+                drift_fn=drift_fn,
+                vol_fn=vol_fn,
+                rf=rf,
+                T=T,
+                n_paths=n_paths,
+            )
 
-        return _sanitize_for_json({
-            "tool": "fbsde_price",
-            "result": result,
-            "inputs": {
-                "spot": spot,
-                "strike": strike,
-                "rf": rf,
-                "vol": vol,
-                "T": T,
-                "n_paths": n_paths,
-            },
-        })
+            return _sanitize_for_json(
+                {
+                    "tool": "fbsde_price",
+                    "result": result,
+                    "inputs": {
+                        "spot": spot,
+                        "strike": strike,
+                        "rf": rf,
+                        "vol": vol,
+                        "T": T,
+                        "n_paths": n_paths,
+                    },
+                }
+            )
+        except Exception as e:
+            return {"error": str(e), "tool": "fbsde_price"}

@@ -22,15 +22,19 @@ lint:
     - git-diff-check
     - isort@8.0.1
     - markdownlint@0.48.0
-    - osv-scanner@2.3.3
+    - osv-scanner@2.3.5
     - prettier@3.8.1
-    - ruff@0.15.6
+    - ruff@0.15.8
     - taplo@0.10.0
-    - trufflehog@3.93.8
+    - trufflehog@3.94.2
+  threshold:
+    - linters: [bandit]
+      level: medium
   ignore:
     - linters: [bandit]
       paths:
         - tests/**
+        - mcp/tests/**
         - src/wraquant/experiment/tracker.py
 actions:
   disabled:

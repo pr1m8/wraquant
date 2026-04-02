@@ -36,31 +36,36 @@ def register_causal_tools(mcp, ctx: AnalysisContext) -> None:
             col_b: Column name in dataset_b.
             max_lag: Maximum lag order to test.
         """
-        from wraquant.causal.treatment import granger_causality as _granger
+        try:
+            from wraquant.causal.treatment import granger_causality as _granger
 
-        df_a = ctx.get_dataset(dataset_a)
-        df_b = ctx.get_dataset(dataset_b)
-        x = df_a[col_a].dropna().values
-        y = df_b[col_b].dropna().values
+            df_a = ctx.get_dataset(dataset_a)
+            df_b = ctx.get_dataset(dataset_b)
+            x = df_a[col_a].dropna().values
+            y = df_b[col_b].dropna().values
 
-        n = min(len(x), len(y))
-        x = x[-n:]
-        y = y[-n:]
+            n = min(len(x), len(y))
+            x = x[-n:]
+            y = y[-n:]
 
-        result = _granger(x, y, max_lag=max_lag)
+            result = _granger(x, y, max_lag=max_lag)
 
-        return _sanitize_for_json({
-            "tool": "granger_causality",
-            "dataset_a": dataset_a,
-            "dataset_b": dataset_b,
-            "max_lag": max_lag,
-            "optimal_lag": result.optimal_lag,
-            "f_statistic": result.f_statistic,
-            "p_value": result.p_value,
-            "reject": result.reject,
-            "direction": result.direction,
-            "all_lags": result.all_lags,
-        })
+            return _sanitize_for_json(
+                {
+                    "tool": "granger_causality",
+                    "dataset_a": dataset_a,
+                    "dataset_b": dataset_b,
+                    "max_lag": max_lag,
+                    "optimal_lag": result.optimal_lag,
+                    "f_statistic": result.f_statistic,
+                    "p_value": result.p_value,
+                    "reject": result.reject,
+                    "direction": result.direction,
+                    "all_lags": result.all_lags,
+                }
+            )
+        except Exception as e:
+            return {"error": str(e), "tool": "granger_causality"}
 
     @mcp.tool()
     def event_study(
@@ -85,76 +90,88 @@ def register_causal_tools(mcp, ctx: AnalysisContext) -> None:
             event_window: Number of trading days around the event
                 (symmetric pre/post window).
         """
-        import numpy as np
-        import pandas as pd
+        try:
+            import numpy as np
+            import pandas as pd
 
-        from wraquant.causal.treatment import event_study as _es
+            from wraquant.causal.treatment import event_study as _es
 
-        df = ctx.get_dataset(dataset)
-        returns = df[column].dropna()
+            df = ctx.get_dataset(dataset)
+            returns = df[column].dropna()
 
-        event_dates = json.loads(event_dates_json)
-        if not event_dates:
-            return {"tool": "event_study", "error": "No event dates provided."}
+            event_dates = json.loads(event_dates_json)
+            if not event_dates:
+                return {"tool": "event_study", "error": "No event dates provided."}
 
-        # Convert returns to numpy array
-        returns_arr = returns.values
+            # Convert returns to numpy array
+            returns_arr = returns.values
 
-        # Build a simple market-returns proxy (mean-return model)
-        # using the returns themselves as market if no separate benchmark
-        market_arr = returns_arr.copy()
+            # Build a simple market-returns proxy (mean-return model)
+            # using the returns themselves as market if no separate benchmark
+            market_arr = returns_arr.copy()
 
-        # Map event date strings to integer indices
-        if isinstance(returns.index, pd.DatetimeIndex):
-            event_indices = []
-            for d in event_dates:
-                dt = pd.Timestamp(d)
-                idx_positions = returns.index.get_indexer([dt], method="nearest")
-                event_indices.append(int(idx_positions[0]))
-        else:
-            # Try parsing as integer indices
-            event_indices = []
-            for d in event_dates:
-                try:
-                    event_indices.append(int(d))
-                except (ValueError, TypeError):
-                    # Fallback: evenly spaced
-                    event_indices = list(range(
-                        0, len(returns),
-                        max(1, len(returns) // len(event_dates)),
-                    ))[:len(event_dates)]
-                    break
+            # Map event date strings to integer indices
+            if isinstance(returns.index, pd.DatetimeIndex):
+                event_indices = []
+                for d in event_dates:
+                    dt = pd.Timestamp(d)
+                    idx_positions = returns.index.get_indexer([dt], method="nearest")
+                    event_indices.append(int(idx_positions[0]))
+            else:
+                # Try parsing as integer indices
+                event_indices = []
+                for d in event_dates:
+                    try:
+                        event_indices.append(int(d))
+                    except (ValueError, TypeError):
+                        # Fallback: evenly spaced
+                        event_indices = list(
+                            range(
+                                0,
+                                len(returns),
+                                max(1, len(returns) // len(event_dates)),
+                            )
+                        )[: len(event_dates)]
+                        break
 
-        result = _es(
-            returns_arr,
-            market_arr,
-            event_indices=event_indices,
-            estimation_window=estimation_window,
-            event_window_pre=event_window,
-            event_window_post=event_window,
-        )
+            result = _es(
+                returns_arr,
+                market_arr,
+                event_indices=event_indices,
+                estimation_window=estimation_window,
+                event_window_pre=event_window,
+                event_window_post=event_window,
+            )
 
-        car_df = pd.DataFrame({
-            "abnormal_returns": result.abnormal_returns,
-            "cumulative_ar": result.cumulative_ar,
-        })
-        stored = ctx.store_dataset(
-            f"event_study_{dataset}", car_df,
-            source_op="event_study", parent=dataset,
-        )
+            car_df = pd.DataFrame(
+                {
+                    "abnormal_returns": result.abnormal_returns,
+                    "cumulative_ar": result.cumulative_ar,
+                }
+            )
+            stored = ctx.store_dataset(
+                f"event_study_{dataset}",
+                car_df,
+                source_op="event_study",
+                parent=dataset,
+            )
 
-        return _sanitize_for_json({
-            "tool": "event_study",
-            "dataset": dataset,
-            "n_events": result.n_events,
-            "car": float(result.car),
-            "car_t_stat": float(result.car_t_stat),
-            "car_p_value": float(result.car_p_value),
-            "estimation_alpha": float(result.estimation_alpha),
-            "estimation_beta": float(result.estimation_beta),
-            "event_dates": event_dates,
-            **stored,
-        })
+            return _sanitize_for_json(
+                {
+                    "tool": "event_study",
+                    "dataset": dataset,
+                    "n_events": result.n_events,
+                    "car": float(result.car),
+                    "car_t_stat": float(result.car_t_stat),
+                    "car_p_value": float(result.car_p_value),
+                    "estimation_alpha": float(result.estimation_alpha),
+                    "estimation_beta": float(result.estimation_beta),
+                    "event_dates": event_dates,
+                    **stored,
+                }
+            )
+        except Exception as e:
+            return {"error": str(e), "tool": "event_study"}
 
     @mcp.tool()
     def diff_in_diff(
@@ -174,32 +191,37 @@ def register_causal_tools(mcp, ctx: AnalysisContext) -> None:
             post_col: Binary column (1 = post-treatment period).
             outcome_col: Outcome variable column.
         """
-        from wraquant.causal.treatment import diff_in_diff as _did
+        try:
+            from wraquant.causal.treatment import diff_in_diff as _did
 
-        df = ctx.get_dataset(dataset)
-        outcome = df[outcome_col].values
-        treatment = df[treatment_col].values
-        post = df[post_col].values
+            df = ctx.get_dataset(dataset)
+            outcome = df[outcome_col].values
+            treatment = df[treatment_col].values
+            post = df[post_col].values
 
-        result = _did(outcome, treatment, post)
+            result = _did(outcome, treatment, post)
 
-        from scipy import stats as sp_stats
+            from scipy import stats as sp_stats
 
-        t_stat = result.ate / result.se if result.se > 0 else 0.0
-        p_value = float(2.0 * (1.0 - sp_stats.norm.cdf(abs(t_stat))))
+            t_stat = result.ate / result.se if result.se > 0 else 0.0
+            p_value = float(2.0 * (1.0 - sp_stats.norm.cdf(abs(t_stat))))
 
-        return _sanitize_for_json({
-            "tool": "diff_in_diff",
-            "dataset": dataset,
-            "ate": result.ate,
-            "se": result.se,
-            "t_stat": t_stat,
-            "p_value": p_value,
-            "pre_treatment_mean": result.pre_treatment_mean,
-            "post_treatment_mean": result.post_treatment_mean,
-            "pre_control_mean": result.pre_control_mean,
-            "post_control_mean": result.post_control_mean,
-        })
+            return _sanitize_for_json(
+                {
+                    "tool": "diff_in_diff",
+                    "dataset": dataset,
+                    "ate": result.ate,
+                    "se": result.se,
+                    "t_stat": t_stat,
+                    "p_value": p_value,
+                    "pre_treatment_mean": result.pre_treatment_mean,
+                    "post_treatment_mean": result.post_treatment_mean,
+                    "pre_control_mean": result.pre_control_mean,
+                    "post_control_mean": result.post_control_mean,
+                }
+            )
+        except Exception as e:
+            return {"error": str(e), "tool": "diff_in_diff"}
 
     @mcp.tool()
     def synthetic_control(
@@ -223,43 +245,57 @@ def register_causal_tools(mcp, ctx: AnalysisContext) -> None:
                 (used for validation, total series should be at least
                 pre_period + post_period).
         """
-        import numpy as np
+        try:
+            import numpy as np
 
-        from wraquant.causal.treatment import synthetic_control as _sc
+            from wraquant.causal.treatment import synthetic_control as _sc
 
-        df_treated = ctx.get_dataset(treated_dataset)
+            df_treated = ctx.get_dataset(treated_dataset)
 
-        # Use the first numeric column as the outcome
-        treated = df_treated.select_dtypes(include=[np.number]).iloc[:, 0].dropna().values
+            # Use the first numeric column as the outcome
+            treated = (
+                df_treated.select_dtypes(include=[np.number]).iloc[:, 0].dropna().values
+            )
 
-        donor_names = json.loads(donor_datasets_json)
-        if not donor_names:
-            return {"tool": "synthetic_control", "error": "No donor datasets provided."}
+            donor_names = json.loads(donor_datasets_json)
+            if not donor_names:
+                return {
+                    "tool": "synthetic_control",
+                    "error": "No donor datasets provided.",
+                }
 
-        # Stack donor series as columns
-        donor_cols = []
-        for name in donor_names:
-            ddf = ctx.get_dataset(name)
-            col = ddf.select_dtypes(include=[np.number]).iloc[:, 0].dropna().values
-            donor_cols.append(col)
+            # Stack donor series as columns
+            donor_cols = []
+            for name in donor_names:
+                ddf = ctx.get_dataset(name)
+                col = ddf.select_dtypes(include=[np.number]).iloc[:, 0].dropna().values
+                donor_cols.append(col)
 
-        # Align lengths
-        min_len = min(len(treated), *(len(c) for c in donor_cols))
-        treated = treated[:min_len]
-        donors = np.column_stack([c[:min_len] for c in donor_cols])
+            # Align lengths
+            min_len = min(len(treated), *(len(c) for c in donor_cols))
+            treated = treated[:min_len]
+            donors = np.column_stack([c[:min_len] for c in donor_cols])
 
-        result = _sc(treated, donors, pre_period=pre_period)
+            result = _sc(treated, donors, pre_period=pre_period)
 
-        return _sanitize_for_json({
-            "tool": "synthetic_control",
-            "treated_dataset": treated_dataset,
-            "donor_datasets": donor_names,
-            "pre_period": pre_period,
-            "post_period": post_period,
-            "ate": result.ate,
-            "weights": result.weights.tolist() if hasattr(result.weights, "tolist") else result.weights,
-            "pre_rmse": result.pre_rmse,
-        })
+            return _sanitize_for_json(
+                {
+                    "tool": "synthetic_control",
+                    "treated_dataset": treated_dataset,
+                    "donor_datasets": donor_names,
+                    "pre_period": pre_period,
+                    "post_period": post_period,
+                    "ate": result.ate,
+                    "weights": (
+                        result.weights.tolist()
+                        if hasattr(result.weights, "tolist")
+                        else result.weights
+                    ),
+                    "pre_rmse": result.pre_rmse,
+                }
+            )
+        except Exception as e:
+            return {"error": str(e), "tool": "synthetic_control"}
 
     @mcp.tool()
     def instrumental_variable(
@@ -280,38 +316,43 @@ def register_causal_tools(mcp, ctx: AnalysisContext) -> None:
             x_col: Endogenous regressor column.
             instrument_col: Instrument variable column.
         """
-        from wraquant.causal.treatment import instrumental_variable as _iv
+        try:
+            from wraquant.causal.treatment import instrumental_variable as _iv
 
-        df = ctx.get_dataset(dataset)
-        y = df[y_col].dropna().values
-        x = df[x_col].dropna().values
-        z = df[instrument_col].dropna().values
+            df = ctx.get_dataset(dataset)
+            y = df[y_col].dropna().values
+            x = df[x_col].dropna().values
+            z = df[instrument_col].dropna().values
 
-        # Align lengths
-        n = min(len(y), len(x), len(z))
-        y = y[:n]
-        x = x[:n]
-        z = z[:n].reshape(-1, 1)
+            # Align lengths
+            n = min(len(y), len(x), len(z))
+            y = y[:n]
+            x = x[:n]
+            z = z[:n].reshape(-1, 1)
 
-        result = _iv(y, x, z)
+            result = _iv(y, x, z)
 
-        return _sanitize_for_json({
-            "tool": "instrumental_variable",
-            "dataset": dataset,
-            "y_col": y_col,
-            "x_col": x_col,
-            "instrument_col": instrument_col,
-            "coefficient": result.coefficient,
-            "se": result.se,
-            "ci_lower": result.ci_lower,
-            "ci_upper": result.ci_upper,
-            "first_stage_f": result.first_stage_f,
-            "hausman_stat": result.hausman_stat,
-            "hausman_p": result.hausman_p,
-            "sargan_stat": result.sargan_stat,
-            "sargan_p": result.sargan_p,
-            "n_obs": result.n_obs,
-        })
+            return _sanitize_for_json(
+                {
+                    "tool": "instrumental_variable",
+                    "dataset": dataset,
+                    "y_col": y_col,
+                    "x_col": x_col,
+                    "instrument_col": instrument_col,
+                    "coefficient": result.coefficient,
+                    "se": result.se,
+                    "ci_lower": result.ci_lower,
+                    "ci_upper": result.ci_upper,
+                    "first_stage_f": result.first_stage_f,
+                    "hausman_stat": result.hausman_stat,
+                    "hausman_p": result.hausman_p,
+                    "sargan_stat": result.sargan_stat,
+                    "sargan_p": result.sargan_p,
+                    "n_obs": result.n_obs,
+                }
+            )
+        except Exception as e:
+            return {"error": str(e), "tool": "instrumental_variable"}
 
     @mcp.tool()
     def regression_discontinuity(
@@ -332,36 +373,41 @@ def register_causal_tools(mcp, ctx: AnalysisContext) -> None:
             outcome_col: Outcome variable column.
             cutoff: Cutoff value in the running variable.
         """
-        from wraquant.causal.treatment import regression_discontinuity as _rd
+        try:
+            from wraquant.causal.treatment import regression_discontinuity as _rd
 
-        df = ctx.get_dataset(dataset)
-        running = df[running_col].dropna().values
-        outcome = df[outcome_col].dropna().values
+            df = ctx.get_dataset(dataset)
+            running = df[running_col].dropna().values
+            outcome = df[outcome_col].dropna().values
 
-        n = min(len(running), len(outcome))
-        running = running[:n]
-        outcome = outcome[:n]
+            n = min(len(running), len(outcome))
+            running = running[:n]
+            outcome = outcome[:n]
 
-        result = _rd(outcome, running, cutoff=cutoff)
+            result = _rd(outcome, running, cutoff=cutoff)
 
-        from scipy import stats as sp_stats
+            from scipy import stats as sp_stats
 
-        t_stat = result.ate / result.se if result.se > 0 else 0.0
-        p_value = float(2.0 * (1.0 - sp_stats.norm.cdf(abs(t_stat))))
+            t_stat = result.ate / result.se if result.se > 0 else 0.0
+            p_value = float(2.0 * (1.0 - sp_stats.norm.cdf(abs(t_stat))))
 
-        return _sanitize_for_json({
-            "tool": "regression_discontinuity",
-            "dataset": dataset,
-            "running_col": running_col,
-            "outcome_col": outcome_col,
-            "cutoff": cutoff,
-            "ate": result.ate,
-            "se": result.se,
-            "t_stat": t_stat,
-            "p_value": p_value,
-            "n_treated": result.n_right,
-            "n_control": result.n_left,
-        })
+            return _sanitize_for_json(
+                {
+                    "tool": "regression_discontinuity",
+                    "dataset": dataset,
+                    "running_col": running_col,
+                    "outcome_col": outcome_col,
+                    "cutoff": cutoff,
+                    "ate": result.ate,
+                    "se": result.se,
+                    "t_stat": t_stat,
+                    "p_value": p_value,
+                    "n_treated": result.n_right,
+                    "n_control": result.n_left,
+                }
+            )
+        except Exception as e:
+            return {"error": str(e), "tool": "regression_discontinuity"}
 
     @mcp.tool()
     def mediation_analysis(
@@ -381,32 +427,37 @@ def register_causal_tools(mcp, ctx: AnalysisContext) -> None:
             mediator_col: Mediator variable column.
             outcome_col: Outcome variable column.
         """
-        from wraquant.causal.treatment import mediation_analysis as _mediation
+        try:
+            from wraquant.causal.treatment import mediation_analysis as _mediation
 
-        df = ctx.get_dataset(dataset)
-        treatment = df[treatment_col].dropna().values
-        mediator = df[mediator_col].dropna().values
-        outcome = df[outcome_col].dropna().values
+            df = ctx.get_dataset(dataset)
+            treatment = df[treatment_col].dropna().values
+            mediator = df[mediator_col].dropna().values
+            outcome = df[outcome_col].dropna().values
 
-        n = min(len(treatment), len(mediator), len(outcome))
-        treatment = treatment[:n]
-        mediator = mediator[:n]
-        outcome = outcome[:n]
+            n = min(len(treatment), len(mediator), len(outcome))
+            treatment = treatment[:n]
+            mediator = mediator[:n]
+            outcome = outcome[:n]
 
-        result = _mediation(outcome, treatment, mediator)
+            result = _mediation(outcome, treatment, mediator)
 
-        return _sanitize_for_json({
-            "tool": "mediation_analysis",
-            "dataset": dataset,
-            "treatment_col": treatment_col,
-            "mediator_col": mediator_col,
-            "outcome_col": outcome_col,
-            "total_effect": result.total_effect,
-            "direct_effect": result.direct_effect,
-            "indirect_effect": result.indirect_effect,
-            "sobel_stat": result.sobel_stat,
-            "sobel_p": result.sobel_p,
-            "proportion_mediated": result.proportion_mediated,
-            "path_a": result.path_a,
-            "path_b": result.path_b,
-        })
+            return _sanitize_for_json(
+                {
+                    "tool": "mediation_analysis",
+                    "dataset": dataset,
+                    "treatment_col": treatment_col,
+                    "mediator_col": mediator_col,
+                    "outcome_col": outcome_col,
+                    "total_effect": result.total_effect,
+                    "direct_effect": result.direct_effect,
+                    "indirect_effect": result.indirect_effect,
+                    "sobel_stat": result.sobel_stat,
+                    "sobel_p": result.sobel_p,
+                    "proportion_mediated": result.proportion_mediated,
+                    "path_a": result.path_a,
+                    "path_b": result.path_b,
+                }
+            )
+        except Exception as e:
+            return {"error": str(e), "tool": "mediation_analysis"}
