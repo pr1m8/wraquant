@@ -39,7 +39,7 @@ Quick Example
    print(f"Implied vol: {iv:.2%}")
 
 Stochastic Models
-^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^
 
 .. code-block:: python
 
@@ -55,7 +55,7 @@ Stochastic Models
                               rho=-0.3, vol_vol=0.4, T=1.0)
 
 Characteristic Function Pricing
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. code-block:: python
 
@@ -68,7 +68,7 @@ Characteristic Function Pricing
    print(f"Heston price: ${price:.4f}")
 
 Fixed Income
-^^^^^^^^^^^^^
+^^^^^^^^^^^^
 
 .. code-block:: python
 
@@ -96,61 +96,61 @@ API Reference
    :show-inheritance:
 
 Options Pricing
-~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^
 
 .. automodule:: wraquant.price.options
    :members:
 
 Greeks
-~~~~~~
+^^^^^^
 
 .. automodule:: wraquant.price.greeks
    :members:
 
 Volatility Surfaces
-~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^
 
 .. automodule:: wraquant.price.volatility
    :members:
 
 Fixed Income
-~~~~~~~~~~~~
+^^^^^^^^^^^^
 
 .. automodule:: wraquant.price.fixed_income
    :members:
 
 Yield Curves
-~~~~~~~~~~~~
+^^^^^^^^^^^^
 
 .. automodule:: wraquant.price.curves
    :members:
 
 Stochastic Processes
-~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^
 
 .. automodule:: wraquant.price.stochastic
    :members:
 
 Levy Process Pricing
-~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^
 
 .. automodule:: wraquant.price.levy_pricing
    :members:
 
 Characteristic Functions
-~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. automodule:: wraquant.price.characteristic
    :members:
 
 FBSDE Methods
-~~~~~~~~~~~~~
+^^^^^^^^^^^^^
 
 .. automodule:: wraquant.price.fbsde
    :members:
 
 Integrations
-~~~~~~~~~~~~
+^^^^^^^^^^^^
 
 .. automodule:: wraquant.price.integrations
    :members:

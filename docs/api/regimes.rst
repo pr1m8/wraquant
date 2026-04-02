@@ -41,7 +41,7 @@ Quick Example
        print(f"Regime {regime}: Sharpe={s['sharpe']:.3f}, vol={s['vol']:.4f}")
 
 Regime-Aware Portfolio
-^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^
 
 .. code-block:: python
 
@@ -55,7 +55,7 @@ Regime-Aware Portfolio
    print(f"Regime Sharpe: {portfolio['sharpe']:.4f}")
 
 Kalman Filter
-^^^^^^^^^^^^^^
+^^^^^^^^^^^^^
 
 .. code-block:: python
 
@@ -81,43 +81,43 @@ API Reference
    :show-inheritance:
 
 Base Detection
-~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^
 
 .. automodule:: wraquant.regimes.base
    :members:
 
 Hidden Markov Models
-~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^
 
 .. automodule:: wraquant.regimes.hmm
    :members:
 
 Kalman Filtering
-~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^
 
 .. automodule:: wraquant.regimes.kalman
    :members:
 
 Changepoint Detection
-~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^
 
 .. automodule:: wraquant.regimes.changepoint
    :members:
 
 Regime Scoring
-~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^
 
 .. automodule:: wraquant.regimes.scoring
    :members:
 
 Regime Labels
-~~~~~~~~~~~~~
+^^^^^^^^^^^^^
 
 .. automodule:: wraquant.regimes.labels
    :members:
 
 Integrations
-~~~~~~~~~~~~
+^^^^^^^^^^^^
 
 .. automodule:: wraquant.regimes.integrations
    :members:

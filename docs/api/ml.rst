@@ -52,7 +52,7 @@ Quick Example
    print(f"Sharpe: {fin['sharpe_ratio']:.4f}")
 
 Feature Importance
-^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^
 
 .. code-block:: python
 
@@ -63,7 +63,7 @@ Feature Importance
    print(mda['importance'].head(10))
 
 Deep Learning
-^^^^^^^^^^^^^^
+^^^^^^^^^^^^^
 
 .. code-block:: python
 
@@ -87,7 +87,7 @@ API Reference
    :show-inheritance:
 
 Features
-~~~~~~~~
+^^^^^^^^
 
 Feature engineering functions for transforming raw market data into
 predictive signals.
@@ -96,7 +96,7 @@ predictive signals.
    :members:
 
 Preprocessing
-~~~~~~~~~~~~~
+^^^^^^^^^^^^^
 
 Purged CV, fractional differentiation, and correlation matrix denoising.
 
@@ -104,7 +104,7 @@ Purged CV, fractional differentiation, and correlation matrix denoising.
    :members:
 
 Models
-~~~~~~
+^^^^^^
 
 Walk-forward training, ensembles, and feature importance.
 
@@ -112,7 +112,7 @@ Walk-forward training, ensembles, and feature importance.
    :members:
 
 Deep Learning
-~~~~~~~~~~~~~
+^^^^^^^^^^^^^
 
 LSTM, GRU, Transformer, and autoencoder architectures for time-series
 forecasting. Requires PyTorch.
@@ -121,7 +121,7 @@ forecasting. Requires PyTorch.
    :members:
 
 Advanced Models
-~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^
 
 SVM, Random Forest, Gradient Boosting, Gaussian Process, Isolation Forest,
 PCA factor models.
@@ -130,7 +130,7 @@ PCA factor models.
    :members:
 
 Clustering
-~~~~~~~~~~
+^^^^^^^^^^
 
 Correlation-based clustering, regime clustering, optimal cluster selection.
 
@@ -138,7 +138,7 @@ Correlation-based clustering, regime clustering, optimal cluster selection.
    :members:
 
 Evaluation
-~~~~~~~~~~
+^^^^^^^^^^
 
 Classification metrics, financial metrics, learning curves, and backtest
 evaluation of predictions.
@@ -147,7 +147,7 @@ evaluation of predictions.
    :members:
 
 Online Learning
-~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^
 
 Incrementally updating models for streaming data.
 
@@ -155,7 +155,7 @@ Incrementally updating models for streaming data.
    :members:
 
 Pipeline
-~~~~~~~~
+^^^^^^^^
 
 ``FinancialPipeline``, walk-forward backtest, and SHAP integration.
 

@@ -44,13 +44,13 @@ API Reference
    :show-inheritance:
 
 Treatment Effects
-~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^
 
 .. automodule:: wraquant.causal.treatment
    :members:
 
 Integrations
-~~~~~~~~~~~~
+^^^^^^^^^^^^
 
 .. automodule:: wraquant.causal.integrations
    :members:

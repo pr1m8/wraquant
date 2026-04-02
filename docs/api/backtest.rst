@@ -37,7 +37,7 @@ Quick Example
    print(f"Win rate: {perf['win_rate']:.2%}")
 
 Tearsheet
-^^^^^^^^^^
+^^^^^^^^^
 
 .. code-block:: python
 
@@ -48,7 +48,7 @@ Tearsheet
    print(monthly)   # year x month heatmap of returns
 
 Walk-Forward Validation
-^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^
 
 .. code-block:: python
 
@@ -63,7 +63,7 @@ Walk-Forward Validation
    print(f"Walk-forward Sharpe: {wf['sharpe_ratio']:.4f}")
 
 Regime-Conditional Sizing
-^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. code-block:: python
 
@@ -90,43 +90,43 @@ API Reference
    :show-inheritance:
 
 Engine
-~~~~~~
+^^^^^^
 
 .. automodule:: wraquant.backtest.engine
    :members:
 
 Strategy
-~~~~~~~~
+^^^^^^^^
 
 .. automodule:: wraquant.backtest.strategy
    :members:
 
 Position Sizing
-~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^
 
 .. automodule:: wraquant.backtest.position
    :members:
 
 Events
-~~~~~~
+^^^^^^
 
 .. automodule:: wraquant.backtest.events
    :members:
 
 Metrics
-~~~~~~~
+^^^^^^^
 
 .. automodule:: wraquant.backtest.metrics
    :members:
 
 Tearsheet
-~~~~~~~~~
+^^^^^^^^^
 
 .. automodule:: wraquant.backtest.tearsheet
    :members:
 
 Integrations
-~~~~~~~~~~~~
+^^^^^^^^^^^^
 
 .. automodule:: wraquant.backtest.integrations
    :members:

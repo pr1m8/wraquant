@@ -43,7 +43,7 @@ Quick Example
    print(f"Order: {forecast['order']}")
 
 Ensemble Forecasting
-^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^
 
 .. code-block:: python
 
@@ -60,7 +60,7 @@ Ensemble Forecasting
    print(f"MAPE: {eval_result['mape']:.2%}")
 
 Stochastic Process Forecasting
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. code-block:: python
 
@@ -90,55 +90,55 @@ API Reference
    :show-inheritance:
 
 Decomposition
-~~~~~~~~~~~~~
+^^^^^^^^^^^^^
 
 .. automodule:: wraquant.ts.decomposition
    :members:
 
 Forecasting
-~~~~~~~~~~~
+^^^^^^^^^^^
 
 .. automodule:: wraquant.ts.forecasting
    :members:
 
 Changepoint Detection
-~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^
 
 .. automodule:: wraquant.ts.changepoint
    :members:
 
 Stationarity Tests
-~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^
 
 .. automodule:: wraquant.ts.stationarity
    :members:
 
 Seasonality
-~~~~~~~~~~~
+^^^^^^^^^^^
 
 .. automodule:: wraquant.ts.seasonality
    :members:
 
 Feature Extraction
-~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^
 
 .. automodule:: wraquant.ts.features
    :members:
 
 Anomaly Detection
-~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^
 
 .. automodule:: wraquant.ts.anomaly
    :members:
 
 Stochastic Processes
-~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^
 
 .. automodule:: wraquant.ts.stochastic
    :members:
 
 Advanced Methods
-~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^
 
 .. automodule:: wraquant.ts.advanced
    :members:

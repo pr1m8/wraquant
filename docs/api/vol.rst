@@ -41,7 +41,7 @@ Quick Example
    print(f"1-day vol: {forecast['forecasts'][0]:.4f}")
 
 Model Selection
-^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^
 
 .. code-block:: python
 
@@ -54,7 +54,7 @@ Model Selection
        print(f"  {m['name']:<12} BIC={m['bic']:.2f}")
 
 Multivariate Volatility (DCC)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. code-block:: python
 
@@ -78,13 +78,13 @@ API Reference
    :show-inheritance:
 
 GARCH Models
-~~~~~~~~~~~~
+^^^^^^^^^^^^
 
 .. automodule:: wraquant.vol.models
    :members:
 
 Realized Volatility
-~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^
 
 .. automodule:: wraquant.vol.realized
    :members:

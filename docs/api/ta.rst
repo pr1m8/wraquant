@@ -35,7 +35,7 @@ Quick Example
    buy_signal = crossover(fast, slow)
 
 Candlestick Patterns
-^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^
 
 .. code-block:: python
 
@@ -50,7 +50,7 @@ Candlestick Patterns
    print(f"Engulfing days: {engulfings.sum()}")
 
 Advanced Smoothing
-^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^
 
 .. code-block:: python
 
@@ -66,7 +66,7 @@ Advanced Smoothing
    ss = supersmoother(close, period=10)
 
 Support & Resistance Detection
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. code-block:: python
 
@@ -95,7 +95,7 @@ API Reference
    :show-inheritance:
 
 Overlap Studies
-~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^
 
 Moving averages, bands, and channel studies drawn on the price chart.
 
@@ -103,7 +103,7 @@ Moving averages, bands, and channel studies drawn on the price chart.
    :members:
 
 Momentum Indicators
-~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^
 
 Oscillators measuring speed and magnitude of price changes.
 
@@ -111,7 +111,7 @@ Oscillators measuring speed and magnitude of price changes.
    :members:
 
 Volume Indicators
-~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^
 
 Volume-confirmed signals and accumulation/distribution studies.
 
@@ -119,7 +119,7 @@ Volume-confirmed signals and accumulation/distribution studies.
    :members:
 
 Trend Indicators
-~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^
 
 Trend direction, strength, and adaptive moving averages.
 
@@ -127,7 +127,7 @@ Trend direction, strength, and adaptive moving averages.
    :members:
 
 Volatility Indicators
-~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^
 
 ATR, Bollinger Width, and OHLC-based volatility estimators.
 
@@ -135,7 +135,7 @@ ATR, Bollinger Width, and OHLC-based volatility estimators.
    :members:
 
 Pattern Recognition
-~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^
 
 38 candlestick patterns returning boolean match Series.
 
@@ -143,7 +143,7 @@ Pattern Recognition
    :members:
 
 Signal Generation
-~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^
 
 Utility functions for combining indicators: crossover, crossunder,
 above, below, rising, falling.
@@ -152,7 +152,7 @@ above, below, rising, falling.
    :members:
 
 Statistical Functions
-~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^
 
 Z-score, percentile rank, skewness, kurtosis, Hurst exponent,
 rolling beta, R-squared.
@@ -161,7 +161,7 @@ rolling beta, R-squared.
    :members:
 
 Cycles
-~~~~~~
+^^^^^^
 
 Hilbert Transform, sine wave indicators, bandpass and roofing filters.
 
@@ -169,7 +169,7 @@ Hilbert Transform, sine wave indicators, bandpass and roofing filters.
    :members:
 
 Custom Indicators
-~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^
 
 Squeeze Momentum, Anchored VWAP, Adaptive RSI, Linear Regression Channel,
 Market Structure, Volume-Weighted MACD.
@@ -178,7 +178,7 @@ Market Structure, Volume-Weighted MACD.
    :members:
 
 Fibonacci
-~~~~~~~~~
+^^^^^^^^^
 
 Retracements, extensions, fans, time zones, pivot points, auto-Fibonacci.
 
@@ -186,7 +186,7 @@ Retracements, extensions, fans, time zones, pivot points, auto-Fibonacci.
    :members:
 
 Support & Resistance
-~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^
 
 Algorithmic detection of support/resistance levels, fractal levels,
 supply/demand zones, trendlines.
@@ -195,7 +195,7 @@ supply/demand zones, trendlines.
    :members:
 
 Market Breadth
-~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^
 
 Advance/Decline, McClellan, Arms Index, percent above MA -- for indices
 and baskets.
@@ -204,7 +204,7 @@ and baskets.
    :members:
 
 Performance
-~~~~~~~~~~~
+^^^^^^^^^^^
 
 Relative performance, alpha, tracking error, up/down capture, drawdown
 analytics.
@@ -213,7 +213,7 @@ analytics.
    :members:
 
 Smoothing
-~~~~~~~~~
+^^^^^^^^^
 
 ALMA, JMA, Butterworth, Super Smoother, Gaussian, windowed MAs.
 
@@ -221,7 +221,7 @@ ALMA, JMA, Butterworth, Super Smoother, Gaussian, windowed MAs.
    :members:
 
 Exotic Indicators
-~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^
 
 Choppiness Index, Random Walk Index, Polarized Fractal Efficiency,
 Elder Thermometer, Connors TPS, and more.
@@ -230,7 +230,7 @@ Elder Thermometer, Connors TPS, and more.
    :members:
 
 Candlestick Analytics
-~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^
 
 Structural candlestick measures: body size, shadow ratios, inside/outside
 bars, pin bars.
@@ -239,7 +239,7 @@ bars, pin bars.
    :members:
 
 Price Action
-~~~~~~~~~~~~
+^^^^^^^^^^^^
 
 Higher highs/lows, swing points, gap analysis, narrow range, key reversals.
 
