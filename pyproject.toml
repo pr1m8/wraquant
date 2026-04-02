@@ -297,7 +297,7 @@ all = [
 ]
 
 [tool.uv]
-extra-build-dependencies = { copulae = ["numpy"] }
+extra-build-dependencies = { copulae = ["numpy"], sktime = ["setuptools"] }
 
 [build-system]
 requires = ["pdm-backend"]
