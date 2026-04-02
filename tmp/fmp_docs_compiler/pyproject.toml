@@ -1,0 +1,33 @@
+[project]
+name = "fmp-docs-compiler"
+version = "0.4.0"
+description = "Docs-first compiler for Financial Modeling Prep with Rich CLI, caching, verification, and wrapper generation."
+authors = [{ name = "Will", email = "you@example.com" }]
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+  "beautifulsoup4>=4.12.3",
+  "fastapi>=0.116.1",
+  "fastmcp>=2.0.0",
+  "httpx>=0.28.1",
+  "lxml>=6.0.0",
+  "pydantic>=2.11.7",
+  "rich>=14.1.0",
+  "typer>=0.16.1",
+  "uvicorn>=0.35.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.4.1"]
+
+[project.scripts]
+fmp-docs = "fmp_docs_compiler.cli:app"
+
+[build-system]
+requires = ["pdm-backend>=2.4.3"]
+build-backend = "pdm.backend"
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["tests"]
+pythonpath = ["src"]

@@ -1,0 +1,16 @@
+{
+  "source": "fixture_docs",
+  "source_urls": [
+    "file:///mnt/data/fmp_work/fmp_docs_compiler_better/tests/fixtures/site/index.html"
+  ],
+  "generated_at": "2026-04-01T00:40:44.621343Z",
+  "parser_version": "0.4.0",
+  "stats": {
+    "discovered_pages": 4,
+    "parsed_pages": 4,
+    "cached_pages": 0,
+    "premium_flagged_pages": 1,
+    "warning_count": 1
+  },
+  "warnings": []
+}

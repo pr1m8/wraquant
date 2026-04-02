@@ -1,0 +1,247 @@
+{
+  "source": "fixture_docs",
+  "source_urls": [
+    "file:///mnt/data/fmp_work/fmp_docs_compiler_better/tests/fixtures/site/index.html"
+  ],
+  "generated_at": "2026-04-01T00:40:44.626592Z",
+  "endpoints": [
+    {
+      "operation_name": "get_available_countries",
+      "docs_url": "/mnt/data/fmp_work/fmp_docs_compiler_better/tests/fixtures/site/available-countries.html",
+      "category": "reference-data",
+      "title": "Available Countries API",
+      "summary": "Access country-based data for supported companies and markets.",
+      "about": "The API allows filtering companies by country and supports localized research workflows.",
+      "example_use_case": "An investor can focus on securities in a specific region. Endpoint: https://financialmodelingprep.com/stable/available-countries",
+      "upstream_method": "GET",
+      "upstream_host": "https://financialmodelingprep.com",
+      "upstream_path": "/stable/available-countries",
+      "wrapper_path": "/fmp/reference-data/get-available-countries",
+      "auth_mode": "apikey_query",
+      "parameters": [],
+      "response_examples": [
+        {
+          "source": "text",
+          "content_type": "text/uri-list",
+          "payload": "https://financialmodelingprep.com/stable/available-countries",
+          "description": "endpoint_url"
+        }
+      ],
+      "premium_signals": [],
+      "parse_warnings": [
+        "No structured parameters parsed from parameter section."
+      ],
+      "deprecated": false,
+      "docs_confidence": 0.8000000000000002,
+      "verification_status": "unverified",
+      "verification_notes": null
+    },
+    {
+      "operation_name": "get_available_sectors",
+      "docs_url": "/mnt/data/fmp_work/fmp_docs_compiler_better/tests/fixtures/site/available-sectors.html",
+      "category": "reference-data",
+      "title": "Available Sectors API",
+      "summary": "Access a complete list of industry sectors.",
+      "about": "This endpoint returns supported sectors. Endpoint: https://financialmodelingprep.com/stable/available-sectors",
+      "example_use_case": null,
+      "upstream_method": "GET",
+      "upstream_host": "https://financialmodelingprep.com",
+      "upstream_path": "/stable/available-sectors",
+      "wrapper_path": "/fmp/reference-data/get-available-sectors",
+      "auth_mode": "apikey_query",
+      "parameters": [],
+      "response_examples": [
+        {
+          "source": "text",
+          "content_type": "text/uri-list",
+          "payload": "https://financialmodelingprep.com/stable/available-sectors",
+          "description": "endpoint_url"
+        }
+      ],
+      "premium_signals": [
+        "unlock premium",
+        "upgrade to our premium",
+        "exclusive access",
+        "premium data"
+      ],
+      "parse_warnings": [],
+      "deprecated": false,
+      "docs_confidence": 0.7000000000000001,
+      "verification_status": "unverified",
+      "verification_notes": null
+    },
+    {
+      "operation_name": "get_latest_sec_filings",
+      "docs_url": "/mnt/data/fmp_work/fmp_docs_compiler_better/tests/fixtures/site/latest-sec-filings.html",
+      "category": "sec",
+      "title": "Latest SEC Filings API",
+      "summary": "Stay updated with the most recent SEC filings from publicly traded companies.",
+      "about": "Retrieve recent 8-K, 10-K, and 10-Q filings with date filters and pagination.",
+      "example_use_case": "An analyst can fetch the latest filings between two dates for compliance review. Endpoint: https://financialmodelingprep.com/stable/sec-filings-financials?from=2024-01-01&to=2024-03-01&page=0&limit=100",
+      "upstream_method": "GET",
+      "upstream_host": "https://financialmodelingprep.com",
+      "upstream_path": "/stable/sec-filings-financials",
+      "wrapper_path": "/fmp/sec/get-latest-sec-filings",
+      "auth_mode": "apikey_query",
+      "parameters": [
+        {
+          "name": "from",
+          "location": "query",
+          "required": false,
+          "type_hint": "string",
+          "description": "Start date.",
+          "default": null,
+          "example": "2024-01-01",
+          "enum_values": [],
+          "aliases": [],
+          "source": "table"
+        },
+        {
+          "name": "to",
+          "location": "query",
+          "required": false,
+          "type_hint": "string",
+          "description": "End date.",
+          "default": null,
+          "example": "2024-03-01",
+          "enum_values": [],
+          "aliases": [],
+          "source": "table"
+        },
+        {
+          "name": "page",
+          "location": "query",
+          "required": false,
+          "type_hint": "integer",
+          "description": "Page number.",
+          "default": null,
+          "example": "0",
+          "enum_values": [],
+          "aliases": [],
+          "source": "table"
+        },
+        {
+          "name": "limit",
+          "location": "query",
+          "required": false,
+          "type_hint": "integer",
+          "description": "Maximum number of results.",
+          "default": null,
+          "example": "100",
+          "enum_values": [],
+          "aliases": [],
+          "source": "table"
+        }
+      ],
+      "response_examples": [
+        {
+          "source": "text",
+          "content_type": "text/uri-list",
+          "payload": "https://financialmodelingprep.com/stable/sec-filings-financials?from=2024-01-01&to=2024-03-01&page=0&limit=100",
+          "description": "endpoint_url"
+        },
+        {
+          "source": "code",
+          "content_type": "application/json",
+          "payload": {
+            "data": [
+              {
+                "formType": "8-K",
+                "date": "2024-02-03"
+              }
+            ]
+          },
+          "description": "code_example"
+        }
+      ],
+      "premium_signals": [],
+      "parse_warnings": [],
+      "deprecated": false,
+      "docs_confidence": 0.9500000000000002,
+      "verification_status": "unverified",
+      "verification_notes": null
+    },
+    {
+      "operation_name": "get_symbol_search",
+      "docs_url": "/mnt/data/fmp_work/fmp_docs_compiler_better/tests/fixtures/site/symbol-search.html",
+      "category": "search",
+      "title": "Symbol Search API",
+      "summary": "Search symbols and company names.",
+      "about": "Find companies by partial ticker or company name. Endpoint: https://financialmodelingprep.com/stable/search-symbol?query=AAPL&exchange=NASDAQ&limit=10",
+      "example_use_case": null,
+      "upstream_method": "GET",
+      "upstream_host": "https://financialmodelingprep.com",
+      "upstream_path": "/stable/search-symbol",
+      "wrapper_path": "/fmp/search/get-symbol-search",
+      "auth_mode": "apikey_query",
+      "parameters": [
+        {
+          "name": "query",
+          "location": "query",
+          "required": true,
+          "type_hint": "string",
+          "description": "Search text. Required.",
+          "default": null,
+          "example": "AAPL",
+          "enum_values": [],
+          "aliases": [],
+          "source": "definition_list"
+        },
+        {
+          "name": "exchange",
+          "location": "query",
+          "required": false,
+          "type_hint": "string",
+          "description": "Exchange code such as NASDAQ or NYSE.",
+          "default": null,
+          "example": "NASDAQ",
+          "enum_values": [],
+          "aliases": [],
+          "source": "definition_list"
+        },
+        {
+          "name": "limit",
+          "location": "query",
+          "required": false,
+          "type_hint": "integer",
+          "description": "Maximum rows returned.",
+          "default": null,
+          "example": "10",
+          "enum_values": [],
+          "aliases": [],
+          "source": "list"
+        }
+      ],
+      "response_examples": [
+        {
+          "source": "text",
+          "content_type": "text/uri-list",
+          "payload": "https://financialmodelingprep.com/stable/search-symbol?query=AAPL&exchange=NASDAQ&limit=10",
+          "description": "endpoint_url"
+        }
+      ],
+      "premium_signals": [],
+      "parse_warnings": [],
+      "deprecated": false,
+      "docs_confidence": 0.9000000000000001,
+      "verification_status": "unverified",
+      "verification_notes": null
+    }
+  ],
+  "manifest": {
+    "source": "fixture_docs",
+    "source_urls": [
+      "file:///mnt/data/fmp_work/fmp_docs_compiler_better/tests/fixtures/site/index.html"
+    ],
+    "generated_at": "2026-04-01T00:40:44.621343Z",
+    "parser_version": "0.4.0",
+    "stats": {
+      "discovered_pages": 4,
+      "parsed_pages": 4,
+      "cached_pages": 0,
+      "premium_flagged_pages": 1,
+      "warning_count": 1
+    },
+    "warnings": []
+  }
+}

@@ -31,6 +31,9 @@ lint:
     - linters: [bandit]
       level: medium
   ignore:
+    - linters: [ALL]
+      paths:
+        - tmp/**
     - linters: [bandit]
       paths:
         - tests/**

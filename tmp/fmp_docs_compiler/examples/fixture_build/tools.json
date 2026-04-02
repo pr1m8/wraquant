@@ -1,0 +1,111 @@
+[
+  {
+    "type": "function",
+    "function": {
+      "name": "get_available_countries",
+      "description": "The API allows filtering companies by country and supports localized research workflows.",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "x-wrapper-path": "/fmp/reference-data/get-available-countries",
+      "x-upstream-path": "/stable/available-countries",
+      "x-upstream-host": "https://financialmodelingprep.com",
+      "x-docs-url": "/mnt/data/fmp_work/fmp_docs_compiler_better/tests/fixtures/site/available-countries.html",
+      "x-verification-status": "unverified",
+      "x-docs-confidence": 0.8000000000000002
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "get_available_sectors",
+      "description": "This endpoint returns supported sectors. Endpoint: https://financialmodelingprep.com/stable/available-sectors",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "x-wrapper-path": "/fmp/reference-data/get-available-sectors",
+      "x-upstream-path": "/stable/available-sectors",
+      "x-upstream-host": "https://financialmodelingprep.com",
+      "x-docs-url": "/mnt/data/fmp_work/fmp_docs_compiler_better/tests/fixtures/site/available-sectors.html",
+      "x-verification-status": "unverified",
+      "x-docs-confidence": 0.7000000000000001
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "get_latest_sec_filings",
+      "description": "Retrieve recent 8-K, 10-K, and 10-Q filings with date filters and pagination.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string",
+            "description": "Start date.",
+            "examples": ["2024-01-01"]
+          },
+          "to": {
+            "type": "string",
+            "description": "End date.",
+            "examples": ["2024-03-01"]
+          },
+          "page": {
+            "type": "integer",
+            "description": "Page number.",
+            "examples": ["0"]
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum number of results.",
+            "examples": ["100"]
+          }
+        },
+        "required": []
+      },
+      "x-wrapper-path": "/fmp/sec/get-latest-sec-filings",
+      "x-upstream-path": "/stable/sec-filings-financials",
+      "x-upstream-host": "https://financialmodelingprep.com",
+      "x-docs-url": "/mnt/data/fmp_work/fmp_docs_compiler_better/tests/fixtures/site/latest-sec-filings.html",
+      "x-verification-status": "unverified",
+      "x-docs-confidence": 0.9500000000000002
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "get_symbol_search",
+      "description": "Find companies by partial ticker or company name. Endpoint: https://financialmodelingprep.com/stable/search-symbol?query=AAPL&exchange=NASDAQ&limit=10",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Search text. Required.",
+            "examples": ["AAPL"]
+          },
+          "exchange": {
+            "type": "string",
+            "description": "Exchange code such as NASDAQ or NYSE.",
+            "examples": ["NASDAQ"]
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum rows returned.",
+            "examples": ["10"]
+          }
+        },
+        "required": ["query"]
+      },
+      "x-wrapper-path": "/fmp/search/get-symbol-search",
+      "x-upstream-path": "/stable/search-symbol",
+      "x-upstream-host": "https://financialmodelingprep.com",
+      "x-docs-url": "/mnt/data/fmp_work/fmp_docs_compiler_better/tests/fixtures/site/symbol-search.html",
+      "x-verification-status": "unverified",
+      "x-docs-confidence": 0.9000000000000001
+    }
+  }
+]
