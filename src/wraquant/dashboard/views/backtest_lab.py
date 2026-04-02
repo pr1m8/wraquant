@@ -451,7 +451,7 @@ def render() -> None:
                         y=[str(y) for y in monthly.index],
                         colorscale=[[0, "#ef4444"], [0.5, "#1e1e28"], [1, "#22c55e"]],
                         zmid=0,
-                        text=monthly.applymap(
+                        text=monthly.map(
                             lambda v: f"{v:.1%}" if pd.notna(v) else ""
                         ).values,
                         texttemplate="%{text}",
