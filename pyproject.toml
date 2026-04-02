@@ -307,10 +307,13 @@ distribution = true
 [tool.pdm.scripts]
 test = "pytest tests/ -v"
 test-cov = "pytest tests/ --cov=wraquant --cov-report=term-missing"
+test-mcp = { cmd = "pytest mcp/tests/ -v", env = { PYTHONPATH = "mcp/src:src" } }
 lint = "trunk check"
 fmt = "trunk fmt"
 changelog = "git-cliff -o CHANGELOG.md"
 docs = "sphinx-build docs docs/_build/html"
+dashboard = "streamlit run src/wraquant/dashboard/app.py"
+mcp-server = { cmd = "python -m wraquant_mcp", env = { PYTHONPATH = "mcp/src:src" } }
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

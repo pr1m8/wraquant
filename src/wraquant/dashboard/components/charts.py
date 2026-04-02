@@ -26,15 +26,69 @@ def _try_import_plotly():
         return None, False
 
 
-def _dark_layout(**overrides: Any) -> dict[str, Any]:
+# -- Colour palette --------------------------------------------------------
+
+COLORS = {
+    "primary": "#6366f1",  # Indigo
+    "secondary": "#8b5cf6",  # Violet
+    "success": "#22c55e",  # Green
+    "danger": "#ef4444",  # Red
+    "warning": "#f59e0b",  # Amber
+    "info": "#06b6d4",  # Cyan
+    "neutral": "#94a3b8",  # Slate
+    "bg": "#0f0f14",  # Near-black
+    "card_bg": "#16161d",  # Card background
+    "surface": "#1e1e28",  # Surface
+    "text": "#e2e8f0",  # Light grey
+    "text_muted": "#64748b",  # Muted text
+    "accent1": "#f472b6",  # Pink
+    "accent2": "#38bdf8",  # Sky
+    "accent3": "#a78bfa",  # Purple
+    "accent4": "#34d399",  # Emerald
+}
+
+SERIES_COLORS = [
+    COLORS["primary"],
+    COLORS["accent2"],
+    COLORS["accent4"],
+    COLORS["accent1"],
+    COLORS["warning"],
+    COLORS["accent3"],
+    COLORS["info"],
+    COLORS["success"],
+]
+
+
+def dark_layout(**overrides: Any) -> dict[str, Any]:
     """Base dark-theme layout kwargs."""
     defaults: dict[str, Any] = {
         "template": "plotly_dark",
-        "font": {"family": "sans-serif", "size": 11, "color": "#e0e0e0"},
-        "plot_bgcolor": "#1e1e1e",
-        "paper_bgcolor": "#111111",
+        "font": {
+            "family": "Inter, system-ui, sans-serif",
+            "size": 12,
+            "color": COLORS["text"],
+        },
+        "plot_bgcolor": COLORS["bg"],
+        "paper_bgcolor": COLORS["bg"],
         "hovermode": "x unified",
-        "margin": {"l": 60, "r": 30, "t": 60, "b": 50},
+        "margin": {"l": 50, "r": 20, "t": 50, "b": 40},
+        "legend": {
+            "bgcolor": "rgba(0,0,0,0)",
+            "font": {"size": 11},
+            "orientation": "h",
+            "yanchor": "bottom",
+            "y": 1.02,
+            "xanchor": "right",
+            "x": 1,
+        },
+        "xaxis": {
+            "gridcolor": "rgba(255,255,255,0.06)",
+            "zerolinecolor": "rgba(255,255,255,0.08)",
+        },
+        "yaxis": {
+            "gridcolor": "rgba(255,255,255,0.06)",
+            "zerolinecolor": "rgba(255,255,255,0.08)",
+        },
     }
     defaults.update(overrides)
     return defaults
@@ -45,24 +99,22 @@ def line_chart(
     title: str = "",
     yaxis_title: str = "",
 ) -> Any | None:
-    """Create a dark-themed Plotly line chart.
-
-    Parameters:
-        series: Data to plot (index = x, values = y).
-        title: Chart title.
-        yaxis_title: Y-axis label.
-
-    Returns:
-        ``plotly.graph_objects.Figure`` or ``None`` if Plotly is missing.
-    """
+    """Create a dark-themed Plotly line chart."""
     go, ok = _try_import_plotly()
     if not ok:
         return None
 
     fig = go.Figure(
-        data=[go.Scatter(x=series.index, y=series.values, mode="lines")],
+        data=[
+            go.Scatter(
+                x=series.index,
+                y=series.values,
+                mode="lines",
+                line={"color": COLORS["primary"], "width": 2},
+            )
+        ],
     )
-    fig.update_layout(**_dark_layout(title=title, yaxis_title=yaxis_title))
+    fig.update_layout(**dark_layout(title=title, yaxis_title=yaxis_title))
     return fig
 
 
@@ -70,15 +122,7 @@ def equity_curve_chart(
     returns: pd.Series,
     title: str = "Equity Curve",
 ) -> Any | None:
-    """Create an equity curve from a return series.
-
-    Parameters:
-        returns: Simple return series.
-        title: Chart title.
-
-    Returns:
-        ``plotly.graph_objects.Figure`` or ``None`` if Plotly is missing.
-    """
+    """Create an equity curve from a return series."""
     eq = (1 + returns).cumprod()
     return line_chart(eq, title=title, yaxis_title="Cumulative Return")
 
@@ -88,22 +132,21 @@ def histogram_chart(
     title: str = "Distribution",
     nbins: int = 50,
 ) -> Any | None:
-    """Create a dark-themed Plotly histogram.
-
-    Parameters:
-        series: Data values to bin.
-        title: Chart title.
-        nbins: Number of histogram bins.
-
-    Returns:
-        ``plotly.graph_objects.Figure`` or ``None`` if Plotly is missing.
-    """
+    """Create a dark-themed Plotly histogram."""
     go, ok = _try_import_plotly()
     if not ok:
         return None
 
-    fig = go.Figure(data=[go.Histogram(x=series.values, nbinsx=nbins)])
+    fig = go.Figure(
+        data=[
+            go.Histogram(
+                x=series.values,
+                nbinsx=nbins,
+                marker_color=COLORS["primary"],
+            )
+        ]
+    )
     fig.update_layout(
-        **_dark_layout(title=title, xaxis_title="Value", yaxis_title="Count"),
+        **dark_layout(title=title, xaxis_title="Value", yaxis_title="Count"),
     )
     return fig

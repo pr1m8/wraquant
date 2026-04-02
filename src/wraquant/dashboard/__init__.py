@@ -2,25 +2,25 @@
 
 Provides a multi-page Streamlit web application for interactive
 exploration of wraquant's analytical capabilities.  The dashboard
-offers point-and-click access to experiment browsing, strategy
-analysis, risk monitoring, regime detection, portfolio optimization,
-and technical analysis screening -- without writing any code.
+offers point-and-click access to fundamental analysis, valuation
+models, technical analysis, risk monitoring, news sentiment,
+and stock screening -- without writing any code.
 
 Key features:
 
-- **Experiment browser** -- Browse and compare results from
-  ``wraquant.experiment`` runs, with parameter sensitivity heatmaps
-  and performance comparison tables.
-- **Strategy analysis** -- Run backtests interactively, view equity
-  curves, drawdown charts, and performance metrics.
-- **Risk monitoring** -- Real-time VaR, CVaR, and stress test
-  dashboards for portfolio surveillance.
-- **Regime detection** -- Fit HMM/GMM models to market data and
-  visualize regime probabilities and transition matrices.
-- **Portfolio optimization** -- Interactive efficient frontier, risk
-  parity, and Black-Litterman allocation with constraint sliders.
-- **Technical analysis** -- Screen assets with configurable indicator
-  overlays and signal detection.
+- **Company overview** -- Profile, key metrics, and sentiment snapshot.
+- **Fundamental analysis** -- Income, balance sheet, and cash flow
+  trends with financial health scoring and DuPont decomposition.
+- **Valuation** -- DCF with adjustable inputs, Graham Number, Peter
+  Lynch value, relative valuation vs peers, margin of safety.
+- **Technical analysis** -- Interactive candlestick charts with SMA,
+  EMA, Bollinger Bands overlays, RSI and MACD subplots, TA summary.
+- **Risk & regimes** -- Risk metrics (Sharpe, Sortino, VaR, CVaR),
+  drawdown analysis, regime detection, rolling volatility.
+- **News & events** -- Sentiment-scored headlines, earnings surprise
+  history, insider trading activity, institutional ownership.
+- **Screener** -- Value, Growth, Quality, Piotroski, and Magic Formula
+  preset screens with custom criteria builder.
 
 Launch with:
 
@@ -30,6 +30,7 @@ Launch with:
 Or from the command line::
 
     $ python -m wraquant.dashboard
+    $ streamlit run src/wraquant/dashboard/app.py
 
 Use ``wraquant.dashboard`` for interactive exploration and presentation.
 For programmatic visualization (embedding charts in notebooks or
@@ -46,8 +47,8 @@ def launch(port: int = 8501, **kwargs: object) -> None:
 
     Starts a local Streamlit server serving the wraquant dashboard
     application.  The dashboard provides interactive pages for
-    experiment browsing, strategy analysis, risk monitoring, regime
-    detection, portfolio optimization, and technical analysis screening.
+    fundamental analysis, valuation, technical analysis, risk
+    monitoring, news sentiment, and stock screening.
 
     Parameters:
         port: Port to run on (default 8501).
@@ -60,7 +61,14 @@ def launch(port: int = 8501, **kwargs: object) -> None:
 
     app_path = str(Path(__file__).parent / "app.py")
     subprocess.run(
-        [sys.executable, "-m", "streamlit", "run", app_path,
-         "--server.port", str(port)],
+        [
+            sys.executable,
+            "-m",
+            "streamlit",
+            "run",
+            app_path,
+            "--server.port",
+            str(port),
+        ],
         **kwargs,  # type: ignore[arg-type]
     )
