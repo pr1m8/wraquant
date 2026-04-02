@@ -68,10 +68,17 @@ def render():
         return
 
     df.columns = [c.lower() for c in df.columns]
+    if "date" in df.columns:
+        df["date"] = pd.to_datetime(df["date"])
+        df = df.set_index("date").sort_index()
+    elif not isinstance(df.index, pd.DatetimeIndex):
+        try:
+            df.index = pd.to_datetime(df.index)
+        except (ValueError, TypeError):
+            pass
     close = df["close"] if "close" in df.columns else df.iloc[:, -1]
     if hasattr(close, "columns"):
         close = close.iloc[:, 0]
-    dates = df["date"] if "date" in df.columns else df.index
     returns = close.pct_change().dropna()
 
     last_rate = float(close.iloc[-1])
@@ -91,12 +98,12 @@ def render():
         try:
             import plotly.graph_objects as go
             fig = go.Figure()
-            fig.add_trace(go.Scatter(x=dates, y=close, mode="lines", name="Close", line={"color": COLORS["primary"], "width": 2}))
+            fig.add_trace(go.Scatter(x=close.index, y=close, mode="lines", name="Close", line={"color": COLORS["primary"], "width": 2}))
             if len(close) >= 50:
                 sma20 = close.rolling(20).mean()
                 sma50 = close.rolling(50).mean()
-                fig.add_trace(go.Scatter(x=dates, y=sma20, mode="lines", name="SMA(20)", line={"color": COLORS["accent2"], "width": 1, "dash": "dot"}))
-                fig.add_trace(go.Scatter(x=dates, y=sma50, mode="lines", name="SMA(50)", line={"color": COLORS["accent4"], "width": 1, "dash": "dot"}))
+                fig.add_trace(go.Scatter(x=sma20.index, y=sma20, mode="lines", name="SMA(20)", line={"color": COLORS["accent2"], "width": 1, "dash": "dot"}))
+                fig.add_trace(go.Scatter(x=sma50.index, y=sma50, mode="lines", name="SMA(50)", line={"color": COLORS["accent4"], "width": 1, "dash": "dot"}))
             fig.update_layout(**dark_layout(title=f"{PAIR_DISPLAY.get(selected_pair, selected_pair)} Daily Chart", yaxis_title="Exchange Rate", height=500))
             st.plotly_chart(fig, use_container_width=True)
         except ImportError:

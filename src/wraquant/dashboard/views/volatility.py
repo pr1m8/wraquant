@@ -363,7 +363,7 @@ def render() -> None:
 
             fc = garch_forecast(returns, horizon=forecast_horizon)
             if isinstance(fc, dict):
-                fc_vol = fc.get("forecast_vol", fc.get("forecasts"))
+                fc_vol = fc.get("forecast_volatility", fc.get("forecast_vol", fc.get("forecasts")))
             elif hasattr(fc, "variance"):
                 fc_vol = np.sqrt(fc.variance.values[-1]) * np.sqrt(252)
             else:

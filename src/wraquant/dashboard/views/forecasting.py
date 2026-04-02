@@ -34,6 +34,14 @@ def _fetch_returns(ticker, period="3y"):
         df = client.historical_price(ticker, start=start.strftime("%Y-%m-%d"), end=end.strftime("%Y-%m-%d"), interval="daily")
         if df is not None and not df.empty:
             df.columns = [c.lower() for c in df.columns]
+            if "date" in df.columns:
+                df["date"] = pd.to_datetime(df["date"])
+                df = df.set_index("date").sort_index()
+            elif not isinstance(df.index, pd.DatetimeIndex):
+                try:
+                    df.index = pd.to_datetime(df.index)
+                except (ValueError, TypeError):
+                    pass
             close = df["close"]
             return close, close.pct_change().dropna()
     except Exception:
@@ -104,7 +112,7 @@ def render():
                 try:
                     fc = garch_forecast(returns, horizon=horizon)
                     if isinstance(fc, dict):
-                        fc_vol = fc.get("forecast_vol", fc.get("forecasts"))
+                        fc_vol = fc.get("forecast_volatility", fc.get("forecast_vol", fc.get("forecasts")))
                     elif hasattr(fc, "variance"):
                         fc_vol = np.sqrt(fc.variance.values[-1]) * np.sqrt(252)
                 except Exception:
@@ -155,7 +163,9 @@ def render():
                     forecast_result = auto_forecast(returns, h=horizon)
                 elif ts_model == "Exponential Smoothing":
                     from wraquant.ts.forecasting import exponential_smoothing
-                    forecast_result = exponential_smoothing(returns, h=horizon)
+                    es_result = exponential_smoothing(returns)
+                    fc_vals = es_result.forecast(horizon)
+                    forecast_result = {"forecast": fc_vals.values.tolist(), "model": "ExponentialSmoothing"}
                 else:
                     from wraquant.ts.forecasting import theta_forecast
                     forecast_result = theta_forecast(returns, h=horizon)
@@ -169,14 +179,24 @@ def render():
             recent = returns.iloc[-hist_window:]
             fig.add_trace(go.Scatter(x=recent.index, y=recent.values, mode="lines", name="Historical", line={"color": COLORS["primary"], "width": 1.5}))
             fc_idx = pd.bdate_range(start=returns.index[-1] + pd.Timedelta(days=1), periods=horizon)
-            if forecast_result is not None and isinstance(forecast_result, dict):
+            if forecast_result is not None and hasattr(forecast_result, "get"):
                 fc_values = forecast_result.get("forecast", forecast_result.get("predictions", forecast_result.get("mean")))
                 if fc_values is not None:
-                    fc_arr = np.array(fc_values)[:horizon]
+                    if isinstance(fc_values, pd.Series):
+                        fc_arr = fc_values.values[:horizon]
+                    else:
+                        fc_arr = np.array(fc_values)[:horizon]
                     fig.add_trace(go.Scatter(x=fc_idx[:len(fc_arr)], y=fc_arr, mode="lines", name="Forecast", line={"color": COLORS["accent4"], "width": 2.5}))
                 else:
                     drift = float(returns.mean())
                     fig.add_trace(go.Scatter(x=fc_idx, y=np.full(horizon, drift), mode="lines", name="Naive (drift)", line={"color": COLORS["accent4"], "width": 2, "dash": "dash"}))
+            elif forecast_result is not None and hasattr(forecast_result, "forecast"):
+                fc_vals = forecast_result.forecast
+                if isinstance(fc_vals, pd.Series):
+                    fc_arr = fc_vals.values[:horizon]
+                else:
+                    fc_arr = np.array(fc_vals)[:horizon]
+                fig.add_trace(go.Scatter(x=fc_idx[:len(fc_arr)], y=fc_arr, mode="lines", name="Forecast", line={"color": COLORS["accent4"], "width": 2.5}))
             else:
                 drift = float(returns.mean())
                 fig.add_trace(go.Scatter(x=fc_idx, y=np.full(horizon, drift), mode="lines", name="Naive (drift)", line={"color": COLORS["accent4"], "width": 2, "dash": "dash"}))

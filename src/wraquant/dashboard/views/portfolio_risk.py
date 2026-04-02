@@ -59,6 +59,14 @@ def _fetch_prices(tickers: list, period: str = "2y"):
                 )
                 if df is not None and not df.empty:
                     df.columns = [c.lower() for c in df.columns]
+                    if "date" in df.columns:
+                        df["date"] = pd.to_datetime(df["date"])
+                        df = df.set_index("date").sort_index()
+                    elif not isinstance(df.index, pd.DatetimeIndex):
+                        try:
+                            df.index = pd.to_datetime(df.index)
+                        except (ValueError, TypeError):
+                            pass
                     frames[t] = df["close"]
             except Exception:
                 pass

@@ -398,100 +398,113 @@ def render() -> None:
             with st.spinner("Running auto_forecast..."):
                 fc = auto_forecast(returns, h=horizon)
 
-            if isinstance(fc, dict):
+            # Handle both dict and ForecastResult dataclass
+            if hasattr(fc, "get"):
                 forecast_vals = fc.get("forecast", fc.get("predictions", None))
-                lower = fc.get("lower", fc.get("conf_lower", None))
-                upper = fc.get("upper", fc.get("conf_upper", None))
-                model_name = fc.get("model", fc.get("best_model", "auto"))
+                lower = fc.get("confidence_lower", fc.get("lower", fc.get("conf_lower", None)))
+                upper = fc.get("confidence_upper", fc.get("upper", fc.get("conf_upper", None)))
+                method_name = fc.get("method", fc.get("model", fc.get("best_model", "auto")))
+                metrics = fc.get("metrics", {})
+                model_table = fc.get("model", None)
+            elif hasattr(fc, "forecast"):
+                forecast_vals = fc.forecast
+                lower = getattr(fc, "confidence_lower", None)
+                upper = getattr(fc, "confidence_upper", None)
+                method_name = getattr(fc, "method", "auto")
+                metrics = getattr(fc, "metrics", {})
+                model_table = getattr(fc, "model", None)
+            else:
+                forecast_vals = None
+                lower = upper = None
+                method_name = "unknown"
+                metrics = {}
+                model_table = None
 
-                st.info(f"Best model: **{model_name}**")
+            if forecast_vals is not None:
+                st.info(f"Best model: **{method_name}**")
 
                 # Metrics
-                metrics = fc.get("metrics", {})
-                if metrics:
+                if isinstance(metrics, dict) and metrics:
                     mc = st.columns(min(len(metrics), 4))
                     for i, (k, v) in enumerate(list(metrics.items())[:4]):
                         mc[i].metric(k.upper(), f"{v:.4f}" if isinstance(v, float) else str(v))
 
-                if forecast_vals is not None:
-                    try:
-                        import plotly.graph_objects as go
+                try:
+                    import plotly.graph_objects as go
 
-                        last_date = returns.index[-1]
-                        fc_idx = pd.bdate_range(start=last_date, periods=horizon + 1)[1:]
-                        fc_series = pd.Series(
-                            forecast_vals[:horizon] if hasattr(forecast_vals, "__len__") else [forecast_vals] * horizon,
-                            index=fc_idx,
+                    last_date = returns.index[-1]
+                    fc_idx = pd.bdate_range(start=last_date, periods=horizon + 1)[1:]
+
+                    if isinstance(forecast_vals, pd.Series):
+                        fc_arr = forecast_vals.values[:horizon]
+                    elif hasattr(forecast_vals, "__len__"):
+                        fc_arr = np.array(forecast_vals)[:horizon]
+                    else:
+                        fc_arr = np.full(horizon, float(forecast_vals))
+
+                    fc_series = pd.Series(fc_arr, index=fc_idx[:len(fc_arr)])
+
+                    fig = go.Figure()
+                    # Historical
+                    hist_tail = returns.iloc[-120:]
+                    fig.add_trace(
+                        go.Scatter(
+                            x=hist_tail.index, y=hist_tail.values,
+                            mode="lines",
+                            line={"color": COLORS["primary"], "width": 1.5},
+                            name="Historical",
                         )
-
-                        fig = go.Figure()
-                        # Historical
-                        hist_tail = returns.iloc[-120:]
+                    )
+                    # Forecast
+                    fig.add_trace(
+                        go.Scatter(
+                            x=fc_series.index, y=fc_series.values,
+                            mode="lines",
+                            line={"color": COLORS["accent2"], "width": 2, "dash": "dash"},
+                            name="Forecast",
+                        )
+                    )
+                    # Confidence bands
+                    if lower is not None and upper is not None:
+                        lower_arr = np.array(lower)[:horizon] if hasattr(lower, "__len__") else np.full(horizon, float(lower))
+                        upper_arr = np.array(upper)[:horizon] if hasattr(upper, "__len__") else np.full(horizon, float(upper))
                         fig.add_trace(
                             go.Scatter(
-                                x=hist_tail.index, y=hist_tail.values,
-                                mode="lines",
-                                line={"color": COLORS["primary"], "width": 1.5},
-                                name="Historical",
+                                x=fc_idx[:len(upper_arr)], y=upper_arr,
+                                mode="lines", line={"width": 0},
+                                showlegend=False,
                             )
                         )
-                        # Forecast
                         fig.add_trace(
                             go.Scatter(
-                                x=fc_series.index, y=fc_series.values,
-                                mode="lines",
-                                line={"color": COLORS["accent2"], "width": 2, "dash": "dash"},
-                                name="Forecast",
+                                x=fc_idx[:len(lower_arr)], y=lower_arr,
+                                mode="lines", line={"width": 0},
+                                fill="tonexty",
+                                fillcolor="rgba(99,102,241,0.2)",
+                                name="95% CI",
                             )
                         )
-                        # Confidence bands
-                        if lower is not None and upper is not None:
-                            lower_s = pd.Series(
-                                lower[:horizon] if hasattr(lower, "__len__") else [lower] * horizon,
-                                index=fc_idx,
-                            )
-                            upper_s = pd.Series(
-                                upper[:horizon] if hasattr(upper, "__len__") else [upper] * horizon,
-                                index=fc_idx,
-                            )
-                            fig.add_trace(
-                                go.Scatter(
-                                    x=fc_idx, y=upper_s.values,
-                                    mode="lines", line={"width": 0},
-                                    showlegend=False,
-                                )
-                            )
-                            fig.add_trace(
-                                go.Scatter(
-                                    x=fc_idx, y=lower_s.values,
-                                    mode="lines", line={"width": 0},
-                                    fill="tonexty",
-                                    fillcolor="rgba(99,102,241,0.2)",
-                                    name="95% CI",
-                                )
-                            )
 
-                        fig.update_layout(
-                            **dark_layout(
-                                title=f"Return Forecast ({horizon}d ahead)",
-                                yaxis_title="Return", height=450,
-                            )
+                    fig.update_layout(
+                        **dark_layout(
+                            title=f"Return Forecast ({horizon}d ahead)",
+                            yaxis_title="Return", height=450,
                         )
-                        st.plotly_chart(fig, use_container_width=True)
+                    )
+                    st.plotly_chart(fig, use_container_width=True)
 
-                    except ImportError:
-                        st.line_chart(fc_series)
+                except ImportError:
+                    st.line_chart(fc_series)
 
                 # Model comparison table
-                comparison = fc.get("comparison", fc.get("model_comparison", None))
-                if comparison is not None:
+                if model_table is not None:
                     st.subheader("Model Comparison")
-                    if isinstance(comparison, pd.DataFrame):
-                        st.dataframe(comparison, use_container_width=True)
-                    elif isinstance(comparison, dict):
-                        st.dataframe(pd.DataFrame(comparison), use_container_width=True)
-                    elif isinstance(comparison, list):
-                        st.dataframe(pd.DataFrame(comparison), use_container_width=True)
+                    if isinstance(model_table, pd.DataFrame):
+                        st.dataframe(model_table, use_container_width=True)
+                    elif isinstance(model_table, dict):
+                        st.dataframe(pd.DataFrame(model_table), use_container_width=True)
+                    elif isinstance(model_table, list):
+                        st.dataframe(pd.DataFrame(model_table), use_container_width=True)
 
             else:
                 st.warning("Forecast returned unexpected format.")

@@ -60,7 +60,18 @@ def _fetch_historical(ticker: str) -> "pd.DataFrame":
             end=end.strftime("%Y-%m-%d"),
             interval="daily",
         )
-        return df if df is not None and not df.empty else pd.DataFrame()
+        if df is not None and not df.empty:
+            df.columns = [c.lower() for c in df.columns]
+            if "date" in df.columns:
+                df["date"] = pd.to_datetime(df["date"])
+                df = df.set_index("date").sort_index()
+            elif not isinstance(df.index, pd.DatetimeIndex):
+                try:
+                    df.index = pd.to_datetime(df.index)
+                except (ValueError, TypeError):
+                    pass
+            return df
+        return pd.DataFrame()
     except Exception:
         return pd.DataFrame()
 
@@ -168,9 +179,7 @@ def render() -> None:
             hist_df.columns = [c.lower() for c in hist_df.columns]
             close = hist_df.get("close")
             volume = hist_df.get("volume")
-            dates = (
-                hist_df["date"] if "date" in hist_df.columns else hist_df.index
-            )
+            dates = hist_df.index
 
             if close is not None and len(close) > 5:
                 spark_col1, spark_col2 = st.columns(2)
