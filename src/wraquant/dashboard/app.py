@@ -11,6 +11,18 @@ Launch:
 
 from __future__ import annotations
 
+import os
+from pathlib import Path
+
+# Auto-load .env file if it exists (before any other imports)
+_env_file = Path(__file__).resolve().parents[3] / ".env"
+if _env_file.exists():
+    for line in _env_file.read_text().splitlines():
+        line = line.strip()
+        if line and not line.startswith("#") and "=" in line:
+            key, _, value = line.partition("=")
+            os.environ.setdefault(key.strip(), value.strip())
+
 import streamlit as st
 
 # ---------------------------------------------------------------------------
