@@ -798,3 +798,521 @@ def comprehensive_ratios(
         "growth": growth_ratios(symbol, period=period, **kwargs),
         "dupont": dupont_decomposition(symbol, period=period, **kwargs),
     }
+
+
+# ---------------------------------------------------------------------------
+# Ratio Comparison (peer benchmarking)
+# ---------------------------------------------------------------------------
+
+
+@requires_extra("market-data")
+def ratio_comparison(
+    symbol: str,
+    *,
+    peers: list[str] | None = None,
+    fmp_client: Any | None = None,
+) -> dict[str, Any]:
+    """Compare a stock's key ratios to its peer group with percentile ranking.
+
+    Relative ratio analysis is the backbone of peer-group valuation and
+    factor-based stock selection.  Rather than asking "is this ratio good
+    in absolute terms?", this function asks "how does it rank against
+    comparable companies?"  A 20 % ROE might be outstanding in utilities
+    but mediocre in tech.
+
+    When to use:
+        - Building peer-relative factor scores for multi-factor models.
+        - Identifying companies that are outliers within their industry.
+        - Due-diligence: confirming whether a stock's ratios are truly
+          exceptional or merely in-line with its sector.
+
+    Mathematical formulation:
+        Percentile_i = (# peers with ratio <= target_ratio_i) / N_peers
+
+        A percentile of 0.80 means the stock ranks in the 80th
+        percentile among its peers on that metric.
+
+    Parameters:
+        symbol: Ticker symbol (e.g., ``"AAPL"``).
+        peers: List of peer ticker symbols.  If ``None``, peers are
+            auto-discovered via FMP's ``stock_peers()`` endpoint,
+            which returns companies in the same industry.
+        fmp_client: Optional pre-configured ``FMPProvider`` instance.
+
+    Returns:
+        Dictionary containing:
+        - **symbol** (*str*) -- The target ticker.
+        - **peers** (*list[str]*) -- Peers used for comparison.
+        - **target_ratios** (*dict*) -- The target's key ratios.
+        - **peer_averages** (*dict*) -- Mean of each ratio across peers.
+        - **peer_medians** (*dict*) -- Median of each ratio across peers.
+        - **percentile_rank** (*dict*) -- Percentile rank (0--1) of the
+          target vs. peers for each ratio.  Higher is better for
+          profitability/efficiency; lower is better for leverage.
+        - **peers_detail** (*list[dict]*) -- Individual peer ratios.
+
+    Example:
+        >>> from wraquant.fundamental.ratios import ratio_comparison
+        >>> comp = ratio_comparison("AAPL")
+        >>> print(f"ROE percentile: {comp['percentile_rank']['roe']:.0%}")
+        >>> print(f"D/E percentile: {comp['percentile_rank']['debt_to_equity']:.0%}")
+
+    See Also:
+        comprehensive_ratios: All ratios for a single company.
+        sector_comparison: Compare against sector-wide averages.
+    """
+    client = _get_fmp_client(fmp_client)
+
+    # Discover peers if not provided
+    if peers is None:
+        try:
+            peers = client.stock_peers(symbol)
+        except Exception:  # noqa: BLE001
+            logger.warning("Could not fetch peers for %s; using empty list", symbol)
+            peers = []
+    if not peers:
+        logger.warning("No peers found for %s", symbol)
+
+    # Ratios to compare
+    ratio_keys = [
+        "roe",
+        "roa",
+        "roic",
+        "gross_margin",
+        "operating_margin",
+        "net_margin",
+        "debt_to_equity",
+        "debt_ratio",
+        "current_ratio",
+        "asset_turnover",
+    ]
+
+    # Fetch target ratios
+    target_prof = profitability_ratios(symbol, fmp_client=client)
+    target_lev = leverage_ratios(symbol, fmp_client=client)
+    target_liq = liquidity_ratios(symbol, fmp_client=client)
+    target_eff = efficiency_ratios(symbol, fmp_client=client)
+
+    target_ratios = {
+        "roe": target_prof.get("roe", 0.0),
+        "roa": target_prof.get("roa", 0.0),
+        "roic": target_prof.get("roic", 0.0),
+        "gross_margin": target_prof.get("gross_margin", 0.0),
+        "operating_margin": target_prof.get("operating_margin", 0.0),
+        "net_margin": target_prof.get("net_margin", 0.0),
+        "debt_to_equity": target_lev.get("debt_to_equity", 0.0),
+        "debt_ratio": target_lev.get("debt_ratio", 0.0),
+        "current_ratio": target_liq.get("current_ratio", 0.0),
+        "asset_turnover": target_eff.get("asset_turnover", 0.0),
+    }
+
+    # Fetch peer ratios
+    peers_detail: list[dict[str, Any]] = []
+    for peer in peers:
+        try:
+            p_prof = profitability_ratios(peer, fmp_client=client)
+            p_lev = leverage_ratios(peer, fmp_client=client)
+            p_liq = liquidity_ratios(peer, fmp_client=client)
+            p_eff = efficiency_ratios(peer, fmp_client=client)
+            peer_data = {
+                "symbol": peer,
+                "roe": p_prof.get("roe", 0.0),
+                "roa": p_prof.get("roa", 0.0),
+                "roic": p_prof.get("roic", 0.0),
+                "gross_margin": p_prof.get("gross_margin", 0.0),
+                "operating_margin": p_prof.get("operating_margin", 0.0),
+                "net_margin": p_prof.get("net_margin", 0.0),
+                "debt_to_equity": p_lev.get("debt_to_equity", 0.0),
+                "debt_ratio": p_lev.get("debt_ratio", 0.0),
+                "current_ratio": p_liq.get("current_ratio", 0.0),
+                "asset_turnover": p_eff.get("asset_turnover", 0.0),
+            }
+            peers_detail.append(peer_data)
+        except Exception:  # noqa: BLE001
+            logger.warning("Failed to fetch ratios for peer %s", peer)
+
+    # Compute averages, medians, and percentile ranks
+    peer_averages: dict[str, float] = {}
+    peer_medians: dict[str, float] = {}
+    percentile_rank: dict[str, float] = {}
+
+    for key in ratio_keys:
+        values = [p[key] for p in peers_detail if p.get(key) is not None]
+        if values:
+            sorted_vals = sorted(values)
+            n = len(sorted_vals)
+            peer_averages[key] = sum(values) / n
+            peer_medians[key] = (
+                sorted_vals[n // 2]
+                if n % 2 == 1
+                else (sorted_vals[n // 2 - 1] + sorted_vals[n // 2]) / 2.0
+            )
+            # Percentile: fraction of peers the target beats
+            target_val = target_ratios[key]
+            count_below = sum(1 for v in values if v <= target_val)
+            percentile_rank[key] = count_below / n
+        else:
+            peer_averages[key] = 0.0
+            peer_medians[key] = 0.0
+            percentile_rank[key] = 0.5  # no data, assume median
+
+    return {
+        "symbol": symbol,
+        "peers": peers,
+        "target_ratios": target_ratios,
+        "peer_averages": peer_averages,
+        "peer_medians": peer_medians,
+        "percentile_rank": percentile_rank,
+        "peers_detail": peers_detail,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Ratio Trends (multi-year trajectory)
+# ---------------------------------------------------------------------------
+
+
+@requires_extra("market-data")
+def ratio_trends(
+    symbol: str,
+    *,
+    periods: int = 5,
+    fmp_client: Any | None = None,
+) -> dict[str, Any]:
+    """Analyse multi-year ratio trends to identify improving or deteriorating fundamentals.
+
+    Static ratios show where a company is *now*; trends show where it is
+    *going*.  A company with a 12 % ROE that has risen from 8 % is far more
+    attractive than one at 15 % declining from 20 %.  This function computes
+    trend direction and magnitude for every major ratio category.
+
+    When to use:
+        - Momentum-quality strategies: buy stocks with *improving*
+          fundamentals (rising margins, declining leverage).
+        - Turnaround detection: identify companies transitioning from
+          weak to strong.
+        - Risk monitoring: catch early signs of fundamental deterioration
+          in existing holdings.
+
+    Mathematical formulation:
+        Trend direction = sign(ratio_latest - ratio_oldest)
+        Trend magnitude = (ratio_latest - ratio_oldest) / |ratio_oldest|
+        Trend is classified as "improving", "deteriorating", or "stable"
+        based on a ±5% threshold.
+
+    Parameters:
+        symbol: Ticker symbol (e.g., ``"AAPL"``).
+        periods: Number of annual periods to analyse.  Default 5 gives
+            a full business-cycle view.  Use 3 for recent trajectory.
+        fmp_client: Optional pre-configured ``FMPProvider`` instance.
+
+    Returns:
+        Dictionary containing:
+        - **symbol** (*str*) -- The ticker analysed.
+        - **periods_analysed** (*int*) -- Actual number of periods with data.
+        - **roe** (*dict*) -- ``{"values": [...], "direction": str,
+          "magnitude": float}``.  Direction is ``"improving"``,
+          ``"deteriorating"``, or ``"stable"``.
+        - **roa** (*dict*) -- Same structure as ROE.
+        - **gross_margin** (*dict*) -- Margin trajectory.
+        - **operating_margin** (*dict*) -- Operating efficiency trend.
+        - **net_margin** (*dict*) -- Bottom-line margin trend.
+        - **debt_to_equity** (*dict*) -- Leverage trend.  "improving"
+          means leverage is *decreasing*.
+        - **current_ratio** (*dict*) -- Liquidity trend.
+        - **asset_turnover** (*dict*) -- Efficiency trend.
+        - **summary** (*str*) -- Overall assessment: ``"fundamentals
+          improving"``, ``"fundamentals deteriorating"``, or
+          ``"fundamentals mixed"``.
+
+    Example:
+        >>> from wraquant.fundamental.ratios import ratio_trends
+        >>> trends = ratio_trends("MSFT", periods=5)
+        >>> print(f"ROE trend: {trends['roe']['direction']}")
+        >>> print(f"Summary: {trends['summary']}")
+
+    See Also:
+        ratio_comparison: Cross-sectional peer comparison.
+        comprehensive_ratios: Point-in-time ratio snapshot.
+    """
+    client = _get_fmp_client(fmp_client)
+
+    # Fetch multi-period data
+    ratios_data = _safe_get_list(client.ratios(symbol, period="annual", limit=periods))
+    income_data = _safe_get_list(
+        client.income_statement(symbol, period="annual", limit=periods)
+    )
+    balance_data = _safe_get_list(
+        client.balance_sheet(symbol, period="annual", limit=periods)
+    )
+
+    n_periods = min(len(ratios_data), len(income_data), len(balance_data))
+    if n_periods == 0:
+        return {
+            "symbol": symbol,
+            "periods_analysed": 0,
+            "summary": "insufficient data",
+        }
+
+    def _extract_series(data_list: list[dict], key: str) -> list[float]:
+        return [_safe_get(d, key) for d in data_list[:n_periods]]
+
+    def _compute_trend(values: list[float], invert: bool = False) -> dict[str, Any]:
+        """Compute trend direction and magnitude from a time series.
+
+        *values* are most-recent-first.  When *invert* is True, a
+        *decrease* in the ratio is classified as ``"improving"`` (e.g.,
+        debt-to-equity: lower is better).
+        """
+        if len(values) < 2:
+            return {"values": values, "direction": "unknown", "magnitude": 0.0}
+
+        latest = values[0]
+        oldest = values[-1]
+        if abs(oldest) < 1e-12:
+            magnitude = 0.0
+        else:
+            magnitude = (latest - oldest) / abs(oldest)
+
+        threshold = 0.05
+        if abs(magnitude) < threshold:
+            direction = "stable"
+        elif magnitude > 0:
+            direction = "deteriorating" if invert else "improving"
+        else:
+            direction = "improving" if invert else "deteriorating"
+
+        return {"values": values, "direction": direction, "magnitude": float(magnitude)}
+
+    # Extract ratio time series
+    roe_vals = [
+        _safe_div(
+            _safe_get(income_data[i], "netIncome"),
+            _safe_get(balance_data[i], "totalStockholdersEquity"),
+        )
+        for i in range(n_periods)
+    ]
+    roa_vals = [
+        _safe_div(
+            _safe_get(income_data[i], "netIncome"),
+            _safe_get(balance_data[i], "totalAssets"),
+        )
+        for i in range(n_periods)
+    ]
+    gross_margins = [
+        _safe_div(
+            _safe_get(income_data[i], "grossProfit"),
+            _safe_get(income_data[i], "revenue"),
+        )
+        for i in range(n_periods)
+    ]
+    op_margins = [
+        _safe_div(
+            _safe_get(income_data[i], "operatingIncome"),
+            _safe_get(income_data[i], "revenue"),
+        )
+        for i in range(n_periods)
+    ]
+    net_margins = [
+        _safe_div(
+            _safe_get(income_data[i], "netIncome"),
+            _safe_get(income_data[i], "revenue"),
+        )
+        for i in range(n_periods)
+    ]
+    de_vals = [
+        _safe_div(
+            _safe_get(balance_data[i], "totalDebt"),
+            _safe_get(balance_data[i], "totalStockholdersEquity"),
+        )
+        for i in range(n_periods)
+    ]
+    cr_vals = [
+        _safe_div(
+            _safe_get(balance_data[i], "totalCurrentAssets"),
+            _safe_get(balance_data[i], "totalCurrentLiabilities"),
+        )
+        for i in range(n_periods)
+    ]
+    at_vals = [
+        _safe_div(
+            _safe_get(income_data[i], "revenue"),
+            _safe_get(balance_data[i], "totalAssets"),
+        )
+        for i in range(n_periods)
+    ]
+
+    trends = {
+        "roe": _compute_trend(roe_vals),
+        "roa": _compute_trend(roa_vals),
+        "gross_margin": _compute_trend(gross_margins),
+        "operating_margin": _compute_trend(op_margins),
+        "net_margin": _compute_trend(net_margins),
+        "debt_to_equity": _compute_trend(de_vals, invert=True),
+        "current_ratio": _compute_trend(cr_vals),
+        "asset_turnover": _compute_trend(at_vals),
+    }
+
+    # Summary: count improving vs deteriorating
+    improving = sum(1 for t in trends.values() if t.get("direction") == "improving")
+    deteriorating = sum(
+        1 for t in trends.values() if t.get("direction") == "deteriorating"
+    )
+
+    if improving >= 5:
+        summary = "fundamentals improving"
+    elif deteriorating >= 5:
+        summary = "fundamentals deteriorating"
+    else:
+        summary = "fundamentals mixed"
+
+    return {
+        "symbol": symbol,
+        "periods_analysed": n_periods,
+        **trends,
+        "summary": summary,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Sector Comparison
+# ---------------------------------------------------------------------------
+
+
+@requires_extra("market-data")
+def sector_comparison(
+    symbol: str,
+    *,
+    fmp_client: Any | None = None,
+) -> dict[str, Any]:
+    """Compare a stock's ratios to its sector and industry averages.
+
+    While :func:`ratio_comparison` benchmarks against specific peers, this
+    function compares against the broader sector using FMP sector PE data
+    and the company's own profile metadata.  This is useful for answering:
+    "Is this stock cheap *for its sector*?" and "Does this company's
+    profitability justify a sector-premium valuation?"
+
+    When to use:
+        - Sector rotation: compare company metrics to sector norms.
+        - Relative valuation: determine if a premium/discount to sector
+          is warranted by superior/inferior fundamentals.
+        - Factor construction: normalise ratios by sector before ranking.
+
+    Parameters:
+        symbol: Ticker symbol (e.g., ``"AAPL"``).
+        fmp_client: Optional pre-configured ``FMPProvider`` instance.
+
+    Returns:
+        Dictionary containing:
+        - **symbol** (*str*) -- The target ticker.
+        - **sector** (*str*) -- The company's GICS sector.
+        - **industry** (*str*) -- The company's industry classification.
+        - **company_ratios** (*dict*) -- The company's key ratios.
+        - **sector_pe** (*float*) -- Average P/E for the sector.
+        - **company_pe** (*float*) -- The company's P/E.
+        - **pe_premium_to_sector** (*float*) -- (company_PE - sector_PE)
+          / sector_PE.  Positive = premium; negative = discount.
+        - **sector_performance** (*float*) -- Current-day sector
+          performance (% change).
+        - **assessment** (*str*) -- ``"premium to sector"``,
+          ``"discount to sector"``, or ``"in-line with sector"``.
+
+    Example:
+        >>> from wraquant.fundamental.ratios import sector_comparison
+        >>> sc = sector_comparison("AAPL")
+        >>> print(f"Sector: {sc['sector']}")
+        >>> print(f"PE premium: {sc['pe_premium_to_sector']:+.1%}")
+        >>> print(f"Assessment: {sc['assessment']}")
+
+    See Also:
+        ratio_comparison: Peer-level comparison with percentile ranking.
+        relative_valuation: Full multi-metric peer comparison.
+    """
+    client = _get_fmp_client(fmp_client)
+
+    # Get company profile for sector/industry classification
+    profile = client.company_profile(symbol)
+    profile_data = profile[0] if isinstance(profile, list) and profile else profile
+    sector = profile_data.get("sector", "") if isinstance(profile_data, dict) else ""
+    industry = (
+        profile_data.get("industry", "") if isinstance(profile_data, dict) else ""
+    )
+
+    # Get company's own ratios
+    target_val = valuation_ratios(symbol, fmp_client=client)
+    target_prof = profitability_ratios(symbol, fmp_client=client)
+    target_lev = leverage_ratios(symbol, fmp_client=client)
+
+    company_pe = target_val.get("pe_ratio", 0.0)
+
+    company_ratios = {
+        "pe_ratio": company_pe,
+        "pb_ratio": target_val.get("pb_ratio", 0.0),
+        "ps_ratio": target_val.get("ps_ratio", 0.0),
+        "ev_to_ebitda": target_val.get("ev_to_ebitda", 0.0),
+        "roe": target_prof.get("roe", 0.0),
+        "operating_margin": target_prof.get("operating_margin", 0.0),
+        "debt_to_equity": target_lev.get("debt_to_equity", 0.0),
+    }
+
+    # Get sector performance data
+    sector_pe = 0.0
+    sector_perf = 0.0
+    try:
+        sector_data = client.sector_performance()
+        if isinstance(sector_data, list):
+            for item in sector_data:
+                if (
+                    isinstance(item, dict)
+                    and item.get("sector", "").lower() == sector.lower()
+                ):
+                    sector_perf = float(item.get("changesPercentage", 0) or 0)
+                    break
+    except Exception:  # noqa: BLE001
+        logger.warning("Could not fetch sector performance data")
+
+    # Estimate sector PE from peers as a fallback
+    try:
+        peers = client.stock_peers(symbol)
+        peer_pes: list[float] = []
+        for peer in peers[:10]:  # limit API calls
+            try:
+                pr = client.ratios_ttm(peer)
+                pe_val = float(pr.get("peRatioTTM", 0) or 0)
+                if 0 < pe_val < 200:  # filter outliers
+                    peer_pes.append(pe_val)
+            except Exception:  # noqa: BLE001
+                continue
+        if peer_pes:
+            sorted_pes = sorted(peer_pes)
+            n = len(sorted_pes)
+            sector_pe = (
+                sorted_pes[n // 2]
+                if n % 2 == 1
+                else (sorted_pes[n // 2 - 1] + sorted_pes[n // 2]) / 2.0
+            )
+    except Exception:  # noqa: BLE001
+        logger.warning("Could not compute sector PE for %s", symbol)
+
+    # PE premium/discount to sector
+    pe_premium = _safe_div(company_pe - sector_pe, sector_pe) if sector_pe > 0 else 0.0
+
+    if pe_premium > 0.15:
+        assessment = "premium to sector"
+    elif pe_premium < -0.15:
+        assessment = "discount to sector"
+    else:
+        assessment = "in-line with sector"
+
+    return {
+        "symbol": symbol,
+        "sector": sector,
+        "industry": industry,
+        "company_ratios": company_ratios,
+        "sector_pe": float(sector_pe),
+        "company_pe": float(company_pe),
+        "pe_premium_to_sector": float(pe_premium),
+        "sector_performance": float(sector_perf),
+        "assessment": assessment,
+    }

@@ -47,11 +47,15 @@ References:
 # --- Financial statement analysis ---
 from wraquant.fundamental.financials import (
     balance_sheet_analysis,
+    capex_analysis,
     cash_flow_analysis,
     common_size_analysis,
     earnings_quality,
     financial_health_score,
     income_analysis,
+    revenue_decomposition,
+    shareholder_returns,
+    working_capital_analysis,
 )
 
 # --- Ratios ---
@@ -63,18 +67,25 @@ from wraquant.fundamental.ratios import (
     leverage_ratios,
     liquidity_ratios,
     profitability_ratios,
+    ratio_comparison,
+    ratio_trends,
+    sector_comparison,
     valuation_ratios,
 )
 
 # --- Screening ---
 from wraquant.fundamental.screening import (
     custom_screen,
+    dividend_aristocrat_screen,
     growth_screen,
+    insider_buying_screen,
     magic_formula_screen,
+    momentum_value_screen,
     piotroski_screen,
 )
 from wraquant.fundamental.screening import quality_screen as quality_factor_screen
 from wraquant.fundamental.screening import (
+    turnaround_screen,
     value_screen,
 )
 
@@ -82,13 +93,17 @@ from wraquant.fundamental.screening import (
 from wraquant.fundamental.valuation import (
     dcf_valuation,
     dividend_discount_model,
+    ev_multiples_analysis,
     graham_number,
+    implied_growth_rate,
     margin_of_safety,
+    monte_carlo_dcf,
     peter_lynch_value,
     piotroski_f_score,
     quality_screen,
     relative_valuation,
     residual_income_model,
+    sum_of_parts_valuation,
 )
 
 __all__ = [
@@ -101,6 +116,9 @@ __all__ = [
     "growth_ratios",
     "dupont_decomposition",
     "comprehensive_ratios",
+    "ratio_comparison",
+    "ratio_trends",
+    "sector_comparison",
     # Valuation
     "dcf_valuation",
     "relative_valuation",
@@ -111,6 +129,10 @@ __all__ = [
     "margin_of_safety",
     "piotroski_f_score",
     "quality_screen",
+    "sum_of_parts_valuation",
+    "ev_multiples_analysis",
+    "implied_growth_rate",
+    "monte_carlo_dcf",
     # Financial statement analysis
     "income_analysis",
     "balance_sheet_analysis",
@@ -118,6 +140,10 @@ __all__ = [
     "financial_health_score",
     "earnings_quality",
     "common_size_analysis",
+    "revenue_decomposition",
+    "working_capital_analysis",
+    "capex_analysis",
+    "shareholder_returns",
     # Screening
     "value_screen",
     "growth_screen",
@@ -125,4 +151,8 @@ __all__ = [
     "piotroski_screen",
     "magic_formula_screen",
     "custom_screen",
+    "dividend_aristocrat_screen",
+    "turnaround_screen",
+    "insider_buying_screen",
+    "momentum_value_screen",
 ]
