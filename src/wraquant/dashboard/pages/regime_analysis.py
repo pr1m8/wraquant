@@ -357,7 +357,7 @@ def render() -> None:
                 n_days = int(np.sum(mask))
                 pct = n_days / len(states) if len(states) > 0 else 0
 
-            if reg_stats and isinstance(reg_stats, dict):
+            if isinstance(reg_stats, dict) and reg_stats:
                 stats_s = reg_stats.get(s, {})
                 mean_r = stats_s.get("annualized_mean", mean_r)
                 vol_r = stats_s.get("annualized_vol", vol_r)

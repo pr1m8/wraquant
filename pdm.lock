@@ -5,7 +5,7 @@
 groups = ["default", "accelerate", "all", "backtesting", "bayes", "causal", "cleaning", "conic-extra", "dashboard", "dev", "etl", "ingestion", "logging", "lp-extra", "market-data", "ml", "nlp-extra", "optimization", "pde", "pricing", "profiling", "quant-math", "regimes", "risk", "scale", "stochastic", "symbolic", "timeseries", "validation", "viz", "warehouse", "workflow"]
 strategy = []
 lock_version = "4.5.0"
-content_hash = "sha256:25f1e24d6d8637b1301330f56bd455e5fa042b167567699f9ef315026d5a8ead"
+content_hash = "sha256:4adc866371f297731c735d1eb9357aed9231216cdce502a9c6fc3a622be67115"
 
 [[metadata.targets]]
 requires_python = ">=3.13"
@@ -2604,27 +2604,6 @@ files = [
 ]
 
 [[package]]
-name = "econml"
-version = "0.12.0"
-summary = ""
-dependencies = [
-    "dowhy",
-    "joblib",
-    "lightgbm",
-    "numba",
-    "numpy",
-    "pandas",
-    "scikit-learn",
-    "scipy",
-    "shap",
-    "sparse",
-    "statsmodels",
-]
-files = [
-    {file = "econml-0.12.0.tar.gz", hash = "sha256:4a8196d6c785e9e0e42b2fa35dd058eb37166c75dcdb90ada953feea6fbb854b"},
-]
-
-[[package]]
 name = "ecos"
 version = "2.0.14"
 summary = ""
@@ -4764,23 +4743,6 @@ files = [
     {file = "librt-0.8.1-cp314-cp314t-win_amd64.whl", hash = "sha256:89815a22daf9c51884fb5dbe4f1ef65ee6a146e0b6a8df05f753e2e4a9359bf4"},
     {file = "librt-0.8.1-cp314-cp314t-win_arm64.whl", hash = "sha256:bf512a71a23504ed08103a13c941f763db13fb11177beb3d9244c98c29fb4a61"},
     {file = "librt-0.8.1.tar.gz", hash = "sha256:be46a14693955b3bd96014ccbdb8339ee8c9346fbe11c1b78901b55125f14c73"},
-]
-
-[[package]]
-name = "lightgbm"
-version = "4.6.0"
-summary = ""
-dependencies = [
-    "numpy",
-    "scipy",
-]
-files = [
-    {file = "lightgbm-4.6.0-py3-none-macosx_10_15_x86_64.whl", hash = "sha256:b7a393de8a334d5c8e490df91270f0763f83f959574d504c7ccb9eee4aef70ed"},
-    {file = "lightgbm-4.6.0-py3-none-macosx_12_0_arm64.whl", hash = "sha256:2dafd98d4e02b844ceb0b61450a660681076b1ea6c7adb8c566dfd66832aafad"},
-    {file = "lightgbm-4.6.0-py3-none-manylinux2014_aarch64.whl", hash = "sha256:4d68712bbd2b57a0b14390cbf9376c1d5ed773fa2e71e099cac588703b590336"},
-    {file = "lightgbm-4.6.0-py3-none-manylinux_2_28_x86_64.whl", hash = "sha256:cb19b5afea55b5b61cbb2131095f50538bd608a00655f23ad5d25ae3e3bf1c8d"},
-    {file = "lightgbm-4.6.0-py3-none-win_amd64.whl", hash = "sha256:37089ee95664b6550a7189d887dbf098e3eadab03537e411f52c63c121e3ba4b"},
-    {file = "lightgbm-4.6.0.tar.gz", hash = "sha256:cb1c59720eb569389c0ba74d14f52351b573af489f230032a1c9f314f8bab7fe"},
 ]
 
 [[package]]
@@ -9244,24 +9206,6 @@ files = [
 ]
 
 [[package]]
-name = "shap"
-version = "0.39.0"
-summary = ""
-dependencies = [
-    "cloudpickle",
-    "numba",
-    "numpy",
-    "pandas",
-    "scikit-learn",
-    "scipy",
-    "slicer",
-    "tqdm",
-]
-files = [
-    {file = "shap-0.39.0.tar.gz", hash = "sha256:0196a6c12cc98f8b48ce9c5968550902432b80290da6fa7be8655441a1c6251a"},
-]
-
-[[package]]
 name = "shellingham"
 version = "1.5.4"
 summary = ""
@@ -9359,15 +9303,6 @@ dependencies = [
 files = [
     {file = "skfolio-0.16.1-py3-none-any.whl", hash = "sha256:a71877f0ee7282d2f1615e01aad2f4bbd6a39fcbd5f4665253d085405c801e6b"},
     {file = "skfolio-0.16.1.tar.gz", hash = "sha256:52c2491869d4821181d84a6fe1a55f77b87cdac2e781799a19245a9df2172d81"},
-]
-
-[[package]]
-name = "slicer"
-version = "0.0.7"
-summary = ""
-files = [
-    {file = "slicer-0.0.7-py3-none-any.whl", hash = "sha256:0b94faa5251c0f23782c03f7b7eedda91d80144059645f452c4bc80fab875976"},
-    {file = "slicer-0.0.7.tar.gz", hash = "sha256:f5d5f7b45f98d155b9c0ba6554fa9770c6b26d5793a3e77a1030fb56910ebeec"},
 ]
 
 [[package]]

@@ -27,6 +27,13 @@ from wraquant.news.events import (
     institutional_ownership,
     upcoming_earnings,
 )
+from wraquant.news.filings import (
+    annual_reports,
+    filing_search,
+    material_events,
+    quarterly_reports,
+    recent_filings,
+)
 from wraquant.news.sentiment import (
     news_impact,
     news_sentiment,
@@ -50,4 +57,10 @@ __all__ = [
     "dividend_history",
     "insider_activity",
     "institutional_ownership",
+    # Filings
+    "recent_filings",
+    "annual_reports",
+    "quarterly_reports",
+    "material_events",
+    "filing_search",
 ]
