@@ -418,7 +418,7 @@ def register_vol_tools(mcp, ctx: AnalysisContext) -> None:
             "dataset": dataset,
             "column": column,
             "observations": len(returns),
-            **result if isinstance(result, dict) else {"result": str(result)},
+            **(result if isinstance(result, dict) else {"result": str(result)}),
         })
 
     @mcp.tool()

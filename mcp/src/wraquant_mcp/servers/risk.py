@@ -660,7 +660,7 @@ def register_risk_tools(mcp, ctx: AnalysisContext) -> None:
             "dataset": dataset,
             "alpha": alpha,
             "observations": len(returns),
-            **result if isinstance(result, dict) else {"var": float(result)},
+            **(result if isinstance(result, dict) else {"var": float(result)}),
         })
 
     @mcp.tool()
