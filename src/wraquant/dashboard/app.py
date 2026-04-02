@@ -3,9 +3,25 @@
 Main Streamlit application that wires together the page modules
 under ``wraquant.dashboard.pages``.  Each page is a self-contained
 render function that owns its own layout and state.
+
+Launch:
+    streamlit run src/wraquant/dashboard/app.py
+    python -m wraquant.dashboard
 """
 
 from __future__ import annotations
+
+import os
+from pathlib import Path
+
+# Auto-load .env file if it exists (before any other imports)
+_env_file = Path(__file__).resolve().parents[3] / ".env"
+if _env_file.exists():
+    for line in _env_file.read_text().splitlines():
+        line = line.strip()
+        if line and not line.startswith("#") and "=" in line:
+            key, _, value = line.partition("=")
+            os.environ.setdefault(key.strip(), value.strip())
 
 import streamlit as st
 
@@ -21,87 +37,149 @@ st.set_page_config(
 )
 
 # ---------------------------------------------------------------------------
+# Custom CSS for dark, polished look
+# ---------------------------------------------------------------------------
+
+st.markdown(
+    """
+    <style>
+    /* Main background */
+    .stApp {
+        background-color: #0f0f14;
+    }
+    /* Sidebar styling */
+    [data-testid="stSidebar"] {
+        background-color: #16161d;
+        border-right: 1px solid rgba(255,255,255,0.06);
+    }
+    [data-testid="stSidebar"] .stMarkdown h1,
+    [data-testid="stSidebar"] .stMarkdown h2,
+    [data-testid="stSidebar"] .stMarkdown h3 {
+        color: #e2e8f0;
+    }
+    /* Metric cards */
+    [data-testid="stMetricValue"] {
+        font-size: 1.4rem;
+        font-weight: 600;
+    }
+    /* Remove default padding on main block */
+    .block-container {
+        padding-top: 2rem;
+        padding-bottom: 1rem;
+    }
+    /* Tab styling */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 8px;
+    }
+    .stTabs [data-baseweb="tab"] {
+        border-radius: 6px 6px 0 0;
+        padding: 8px 20px;
+    }
+    /* Dataframe styling */
+    .stDataFrame {
+        border-radius: 8px;
+    }
+    /* Divider color */
+    hr {
+        border-color: rgba(255,255,255,0.06) !important;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+# ---------------------------------------------------------------------------
 # Sidebar navigation
 # ---------------------------------------------------------------------------
 
-st.sidebar.title("wraquant")
+st.sidebar.markdown("## wraquant")
 st.sidebar.caption("The ultimate quant finance toolkit")
+st.sidebar.divider()
 
-page = st.sidebar.selectbox(
-    "Navigate",
-    [
-        "Home",
-        "Experiment Browser",
-        "Strategy Analysis",
-        "Risk Monitor",
-        "Regime Viewer",
-        "Portfolio Optimizer",
-        "TA Screener",
-    ],
-)
+PAGES = [
+    "Home",
+    "Fundamental Analysis",
+    "Valuation",
+    "Technical Analysis",
+    "Risk & Regimes",
+    "Portfolio Risk",
+    "VaR & Stress Testing",
+    "Volatility Modeling",
+    "Regime Analysis",
+    "Backtest Lab",
+    "News & Events",
+    "Screener",
+]
+
+page = st.sidebar.radio("Navigate", PAGES, label_visibility="collapsed")
+
+st.sidebar.divider()
+
+# Global ticker input (available on all pages via session state)
+from wraquant.dashboard.components.sidebar import ticker_input  # noqa: E402
+
+ticker = ticker_input()
 
 # ---------------------------------------------------------------------------
 # Page routing
 # ---------------------------------------------------------------------------
 
 if page == "Home":
-    st.title("wraquant Dashboard")
-    st.markdown("*Interactive quantitative finance analysis*")
+    from wraquant.dashboard.pages.overview import render
 
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Functions", "1,085")
-    col2.metric("Tests", "3,493")
-    col3.metric("Modules", "26")
-    col4.metric("TA Indicators", "265")
-
-    st.markdown("---")
-    st.markdown("### Quick Analysis")
-    st.markdown(
-        "Upload a CSV with a returns column on the **Strategy Analysis** page, "
-        "or explore experiments you have already run via the "
-        "**Experiment Browser**."
-    )
-
-    st.markdown("### Available Pages")
-    st.markdown(
-        "- **Experiment Browser** -- Browse and compare experiment results.\n"
-        "- **Strategy Analysis** -- Upload returns and get a full report.\n"
-        "- **Risk Monitor** -- VaR, rolling metrics, stress tests.\n"
-        "- **Regime Viewer** -- Detect and visualize market regimes.\n"
-        "- **Portfolio Optimizer** -- Interactive portfolio construction.\n"
-        "- **TA Screener** -- Apply 265 technical indicators to price data.\n"
-    )
-
-    st.markdown("### Quick Start (code)")
-    st.code(
-        """\
-import wraquant as wq
-report = wq.analyze(returns)
-print(report["risk"]["sharpe"])
-""",
-        language="python",
-    )
-
-elif page == "Experiment Browser":
-    from wraquant.dashboard.pages.experiment_browser import render
     render()
 
-elif page == "Strategy Analysis":
-    from wraquant.dashboard.pages.strategy_analysis import render
+elif page == "Fundamental Analysis":
+    from wraquant.dashboard.pages.fundamental_analysis import render
+
     render()
 
-elif page == "Risk Monitor":
-    from wraquant.dashboard.pages.risk_monitor import render
+elif page == "Valuation":
+    from wraquant.dashboard.pages.valuation import render
+
     render()
 
-elif page == "Regime Viewer":
-    from wraquant.dashboard.pages.regime_viewer import render
+elif page == "Technical Analysis":
+    from wraquant.dashboard.pages.technical_analysis import render
+
     render()
 
-elif page == "Portfolio Optimizer":
-    from wraquant.dashboard.pages.portfolio_optimizer import render
+elif page == "Risk & Regimes":
+    from wraquant.dashboard.pages.risk_regimes import render
+
     render()
 
-elif page == "TA Screener":
-    from wraquant.dashboard.pages.ta_screener import render
+elif page == "Portfolio Risk":
+    from wraquant.dashboard.pages.portfolio_risk import render
+
+    render()
+
+elif page == "VaR & Stress Testing":
+    from wraquant.dashboard.pages.var_analysis import render
+
+    render()
+
+elif page == "Volatility Modeling":
+    from wraquant.dashboard.pages.volatility import render
+
+    render()
+
+elif page == "Regime Analysis":
+    from wraquant.dashboard.pages.regime_analysis import render
+
+    render()
+
+elif page == "Backtest Lab":
+    from wraquant.dashboard.pages.backtest_lab import render
+
+    render()
+
+elif page == "News & Events":
+    from wraquant.dashboard.pages.news_events import render
+
+    render()
+
+elif page == "Screener":
+    from wraquant.dashboard.pages.screener import render
+
     render()

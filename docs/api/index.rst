@@ -1,7 +1,7 @@
 API Reference
 =============
 
-Complete API documentation for all wraquant modules. Each page includes
+Complete API documentation for all 27 wraquant modules. Each page includes
 a brief overview, quick usage examples, and full auto-generated reference
 for every public function and class.
 
@@ -87,11 +87,25 @@ for every public function and class.
 
 .. grid:: 3
 
+   .. grid-item-card:: Fundamental Analysis
+      :link: fundamental
+      :link-type: doc
+
+      Ratios, valuation, screening
+
+   .. grid-item-card:: News & Sentiment
+      :link: news
+      :link-type: doc
+
+      Sentiment, events, filings
+
    .. grid-item-card:: Econometrics
       :link: econometrics
       :link-type: doc
 
       Panel data & VAR
+
+.. grid:: 3
 
    .. grid-item-card:: Microstructure
       :link: microstructure
@@ -105,13 +119,13 @@ for every public function and class.
 
       TWAP, VWAP, Almgren-Chriss
 
-.. grid:: 3
-
    .. grid-item-card:: Causal Inference
       :link: causal
       :link-type: doc
 
       DID, synthetic control
+
+.. grid:: 3
 
    .. grid-item-card:: Bayesian
       :link: bayes
@@ -125,13 +139,13 @@ for every public function and class.
 
       Carry, sessions, risk
 
-.. grid:: 3
-
    .. grid-item-card:: Data
       :link: data
       :link-type: doc
 
       Fetching & cleaning
+
+.. grid:: 3
 
    .. grid-item-card:: Advanced Math
       :link: math
@@ -144,6 +158,12 @@ for every public function and class.
       :link-type: doc
 
       Types, coercion, results
+
+   .. grid-item-card:: I/O
+      :link: io
+      :link-type: doc
+
+      ETL, SQL, cloud storage
 
 .. toctree::
    :maxdepth: 2
@@ -160,6 +180,8 @@ for every public function and class.
    stats
    opt
    backtest
+   fundamental
+   news
    microstructure
    execution
    causal

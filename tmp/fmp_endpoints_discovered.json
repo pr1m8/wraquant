@@ -1,0 +1,2214 @@
+[
+  {
+    "url": "https://site.financialmodelingprep.com/",
+    "category": "uncategorized"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/datasets/market-data-real-time",
+    "category": "uncategorized"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/datasets/market-data-historic",
+    "category": "uncategorized"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/datasets/fundamental-financial-statements",
+    "category": "uncategorized"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/datasets/indexes",
+    "category": "uncategorized"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/datasets/economics",
+    "category": "uncategorized"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/datasets/company-profile",
+    "category": "uncategorized"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/datasets/analyst-estimates-targets",
+    "category": "uncategorized"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/datasets/earnings-call-transcripts",
+    "category": "uncategorized"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/datasets/search-directory",
+    "category": "uncategorized"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/datasets/calendars",
+    "category": "uncategorized"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/datasets/form-13f",
+    "category": "uncategorized"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/datasets/advanced",
+    "category": "uncategorized"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/datasets/crypto",
+    "category": "uncategorized"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/datasets/forex",
+    "category": "uncategorized"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/datasets/commodity",
+    "category": "uncategorized"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/datasets/ownership-senate-insider",
+    "category": "uncategorized"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/datasets/esg",
+    "category": "uncategorized"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/datasets/etf-mutual-funds",
+    "category": "uncategorized"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/playground",
+    "category": "uncategorized"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/status",
+    "category": "uncategorized"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/changelog",
+    "category": "uncategorized"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/cycle-times-stable",
+    "category": "uncategorized"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/faqs",
+    "category": "uncategorized"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/formula",
+    "category": "uncategorized"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/parsing-statements",
+    "category": "uncategorized"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/dcf-formula",
+    "category": "uncategorized"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/piotroski-score",
+    "category": "uncategorized"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/owner-earnings",
+    "category": "uncategorized"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/recommendations-formula",
+    "category": "uncategorized"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/excel-add-on",
+    "category": "uncategorized"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/excel-add-on-explorer",
+    "category": "uncategorized"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/resources",
+    "category": "uncategorized"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/help-center",
+    "category": "uncategorized"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/login",
+    "category": "uncategorized"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/register",
+    "category": "uncategorized"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/search-symbol",
+    "category": "company-search"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/search-name",
+    "category": "company-search"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/search-cik",
+    "category": "company-search"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/search-cusip",
+    "category": "company-search"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/search-isin",
+    "category": "company-search"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/search-company-screener",
+    "category": "company-search"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/search-exchange-variants",
+    "category": "company-search"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/company-symbols-list",
+    "category": "stock-directory"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/financial-symbols-list",
+    "category": "stock-directory"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/cik-list",
+    "category": "stock-directory"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/symbol-changes-list",
+    "category": "stock-directory"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/etfs-list",
+    "category": "stock-directory"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/actively-trading-list",
+    "category": "stock-directory"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/earnings-transcript-list",
+    "category": "stock-directory"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/available-exchanges",
+    "category": "stock-directory"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/available-sectors",
+    "category": "stock-directory"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/available-industries",
+    "category": "stock-directory"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/available-countries",
+    "category": "stock-directory"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/profile-symbol",
+    "category": "company-information"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/profile-cik",
+    "category": "company-information"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/company-notes",
+    "category": "company-information"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/peers",
+    "category": "company-information"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/delisted-companies",
+    "category": "company-information"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/employee-count",
+    "category": "company-information"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/historical-employee-count",
+    "category": "company-information"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/market-cap",
+    "category": "company-information"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/batch-market-cap",
+    "category": "company-information"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/historical-market-cap",
+    "category": "company-information"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/shares-float",
+    "category": "company-information"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/all-shares-float",
+    "category": "company-information"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/latest-mergers-acquisitions",
+    "category": "company-information"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/search-mergers-acquisitions",
+    "category": "company-information"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/company-executives",
+    "category": "company-information"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/executive-compensation",
+    "category": "company-information"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/executive-compensation-benchmark",
+    "category": "company-information"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/quote",
+    "category": "quote"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/quote-short",
+    "category": "quote"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/aftermarket-trade",
+    "category": "quote"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/aftermarket-quote",
+    "category": "quote"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/quote-change",
+    "category": "quote"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/batch-quote",
+    "category": "quote"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/batch-quote-short",
+    "category": "quote"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/batch-aftermarket-trade",
+    "category": "quote"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/batch-aftermarket-quote",
+    "category": "quote"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/full-exchange-quotes",
+    "category": "quote"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/full-mutualfund-quotes",
+    "category": "quote"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/full-etf-quotes",
+    "category": "quote"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/full-commodities-quotes",
+    "category": "quote"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/full-cryptocurrency-quotes",
+    "category": "quote"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/full-forex-quotes",
+    "category": "quote"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/full-index-quotes",
+    "category": "quote"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/income-statement",
+    "category": "statements"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/balance-sheet-statement",
+    "category": "statements"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/cashflow-statement",
+    "category": "statements"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/latest-financial-statements",
+    "category": "statements"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/income-statements-ttm",
+    "category": "statements"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/balance-sheet-statements-ttm",
+    "category": "statements"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/cashflow-statements-ttm",
+    "category": "statements"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/key-metrics",
+    "category": "statements"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/metrics-ratios",
+    "category": "statements"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/key-metrics-ttm",
+    "category": "statements"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/metrics-ratios-ttm",
+    "category": "statements"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/financial-scores",
+    "category": "statements"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/owner-earnings",
+    "category": "statements"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/enterprise-values",
+    "category": "statements"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/income-statement-growth",
+    "category": "statements"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/balance-sheet-statement-growth",
+    "category": "statements"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/cashflow-statement-growth",
+    "category": "statements"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/financial-statement-growth",
+    "category": "statements"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/financial-reports-dates",
+    "category": "statements"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/financial-reports-form-10-k-json",
+    "category": "statements"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/financial-reports-form-10-k-xlsx",
+    "category": "statements"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/revenue-product-segmentation",
+    "category": "statements"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/revenue-geographic-segments",
+    "category": "statements"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/as-reported-income-statements",
+    "category": "statements"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/as-reported-balance-statements",
+    "category": "statements"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/as-reported-cashflow-statements",
+    "category": "statements"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/as-reported-financial-statements",
+    "category": "statements"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/historical-price-eod-light",
+    "category": "charts"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/historical-price-eod-full",
+    "category": "charts"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/historical-price-eod-non-split-adjusted",
+    "category": "charts"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/historical-price-eod-dividend-adjusted",
+    "category": "charts"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/intraday-1-min",
+    "category": "charts"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/intraday-5-min",
+    "category": "charts"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/intraday-15-min",
+    "category": "charts"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/intraday-30-min",
+    "category": "charts"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/intraday-1-hour",
+    "category": "charts"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/intraday-4-hour",
+    "category": "charts"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/treasury-rates",
+    "category": "economics"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/economics-indicators",
+    "category": "economics"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/economics-calendar",
+    "category": "economics"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/market-risk-premium",
+    "category": "economics"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/dividends-company",
+    "category": "earnings,-dividends,-splits"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/dividends-calendar",
+    "category": "earnings,-dividends,-splits"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/earnings-company",
+    "category": "earnings,-dividends,-splits"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/earnings-calendar",
+    "category": "earnings,-dividends,-splits"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/ipos-calendar",
+    "category": "earnings,-dividends,-splits"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/ipos-disclosure",
+    "category": "earnings,-dividends,-splits"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/ipos-prospectus",
+    "category": "earnings,-dividends,-splits"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/splits-company",
+    "category": "earnings,-dividends,-splits"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/splits-calendar",
+    "category": "earnings,-dividends,-splits"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/latest-transcripts",
+    "category": "earnings-transcript"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/search-transcripts",
+    "category": "earnings-transcript"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/transcripts-dates-by-symbol",
+    "category": "earnings-transcript"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/available-transcript-symbols",
+    "category": "earnings-transcript"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/fmp-articles",
+    "category": "news"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/general-news",
+    "category": "news"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/press-releases",
+    "category": "news"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/stock-news",
+    "category": "news"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/crypto-news",
+    "category": "news"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/forex-news",
+    "category": "news"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/search-press-releases",
+    "category": "news"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/search-stock-news",
+    "category": "news"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/search-crypto-news",
+    "category": "news"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/search-forex-news",
+    "category": "news"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/latest-filings",
+    "category": "form-13f"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/filings-extract",
+    "category": "form-13f"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/form-13f-filings-dates",
+    "category": "form-13f"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/filings-extract-with-analytics-by-holder",
+    "category": "form-13f"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/holder-performance-summary",
+    "category": "form-13f"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/holders-industry-breakdown",
+    "category": "form-13f"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/positions-summary",
+    "category": "form-13f"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/industry-summary",
+    "category": "form-13f"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/financial-estimates",
+    "category": "analyst"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/ratings-snapshot",
+    "category": "analyst"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/historical-ratings",
+    "category": "analyst"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/price-target-summary",
+    "category": "analyst"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/price-target-consensus",
+    "category": "analyst"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/grades",
+    "category": "analyst"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/historical-grades",
+    "category": "analyst"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/grades-summary",
+    "category": "analyst"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/sector-performance-snapshot",
+    "category": "market-performance"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/industry-performance-snapshot",
+    "category": "market-performance"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/historical-sector-performance",
+    "category": "market-performance"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/historical-industry-performance",
+    "category": "market-performance"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/sector-pe-snapshot",
+    "category": "market-performance"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/industry-pe-snapshot",
+    "category": "market-performance"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/historical-sector-pe",
+    "category": "market-performance"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/historical-industry-pe",
+    "category": "market-performance"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/biggest-gainers",
+    "category": "market-performance"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/biggest-losers",
+    "category": "market-performance"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/most-active",
+    "category": "market-performance"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/simple-moving-average",
+    "category": "technical-indicators"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/exponential-moving-average",
+    "category": "technical-indicators"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/weighted-moving-average",
+    "category": "technical-indicators"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/double-exponential-moving-average",
+    "category": "technical-indicators"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/triple-exponential-moving-average",
+    "category": "technical-indicators"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/relative-strength-index",
+    "category": "technical-indicators"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/standard-deviation",
+    "category": "technical-indicators"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/williams",
+    "category": "technical-indicators"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/average-directional-index",
+    "category": "technical-indicators"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/holdings",
+    "category": "etf-and-mutual-funds"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/information",
+    "category": "etf-and-mutual-funds"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/country-weighting",
+    "category": "etf-and-mutual-funds"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/etf-asset-exposure",
+    "category": "etf-and-mutual-funds"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/sector-weighting",
+    "category": "etf-and-mutual-funds"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/latest-disclosures",
+    "category": "etf-and-mutual-funds"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/mutual-fund-disclosures",
+    "category": "etf-and-mutual-funds"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/disclosures-name-search",
+    "category": "etf-and-mutual-funds"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/disclosures-dates",
+    "category": "etf-and-mutual-funds"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/8k-latest",
+    "category": "sec-filings"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/financials-latest",
+    "category": "sec-filings"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/search-by-form-type",
+    "category": "sec-filings"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/search-by-symbol",
+    "category": "sec-filings"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/search-by-cik",
+    "category": "sec-filings"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/search-by-name",
+    "category": "sec-filings"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/company-search-by-symbol",
+    "category": "sec-filings"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/company-search-by-cik",
+    "category": "sec-filings"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/sec-company-full-profile",
+    "category": "sec-filings"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/industry-classification-list",
+    "category": "sec-filings"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/industry-classification-search",
+    "category": "sec-filings"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/all-industry-classification",
+    "category": "sec-filings"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/latest-insider-trade",
+    "category": "insider-trades"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/search-insider-trades",
+    "category": "insider-trades"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/search-reporting-name",
+    "category": "insider-trades"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/all-transaction-types",
+    "category": "insider-trades"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/insider-trade-statistics",
+    "category": "insider-trades"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/acquisition-ownership",
+    "category": "insider-trades"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/indexes-list",
+    "category": "indexes"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/index-quote",
+    "category": "indexes"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/index-quote-short",
+    "category": "indexes"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/all-index-quotes",
+    "category": "indexes"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/index-historical-price-eod-light",
+    "category": "indexes"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/index-historical-price-eod-full",
+    "category": "indexes"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/index-intraday-1-min",
+    "category": "indexes"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/index-intraday-5-min",
+    "category": "indexes"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/index-intraday-1-hour",
+    "category": "indexes"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/sp-500",
+    "category": "indexes"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/nasdaq",
+    "category": "indexes"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/dow-jones",
+    "category": "indexes"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/historical-sp-500",
+    "category": "indexes"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/historical-nasdaq",
+    "category": "indexes"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/historical-dow-jones",
+    "category": "indexes"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/exchange-market-hours",
+    "category": "market-hours"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/holidays-by-exchange",
+    "category": "market-hours"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/all-exchange-market-hours",
+    "category": "market-hours"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/commodities-list",
+    "category": "commodity"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/commodities-quote",
+    "category": "commodity"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/commodities-quote-short",
+    "category": "commodity"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/all-commodities-quotes",
+    "category": "commodity"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/commodities-historical-price-eod-light",
+    "category": "commodity"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/commodities-historical-price-eod-full",
+    "category": "commodity"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/commodities-intraday-1-min",
+    "category": "commodity"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/commodities-intraday-5-min",
+    "category": "commodity"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/commodities-intraday-1-hour",
+    "category": "commodity"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/dcf-advanced",
+    "category": "discounted-cash-flow"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/dcf-levered",
+    "category": "discounted-cash-flow"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/custom-dcf-advanced",
+    "category": "discounted-cash-flow"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/custom-dcf-levered",
+    "category": "discounted-cash-flow"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/forex-list",
+    "category": "forex"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/forex-quote",
+    "category": "forex"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/forex-quote-short",
+    "category": "forex"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/all-forex-quotes",
+    "category": "forex"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/forex-historical-price-eod-light",
+    "category": "forex"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/forex-historical-price-eod-full",
+    "category": "forex"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/forex-intraday-1-min",
+    "category": "forex"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/forex-intraday-5-min",
+    "category": "forex"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/forex-intraday-1-hour",
+    "category": "forex"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/cryptocurrency-list",
+    "category": "crypto"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/cryptocurrency-quote",
+    "category": "crypto"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/cryptocurrency-quote-short",
+    "category": "crypto"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/all-cryptocurrency-quotes",
+    "category": "crypto"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/cryptocurrency-historical-price-eod-light",
+    "category": "crypto"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/cryptocurrency-historical-price-eod-full",
+    "category": "crypto"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/cryptocurrency-intraday-1-min",
+    "category": "crypto"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/cryptocurrency-intraday-5-min",
+    "category": "crypto"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/cryptocurrency-intraday-1-hour",
+    "category": "crypto"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/senate-latest",
+    "category": "senate"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/house-latest",
+    "category": "senate"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/senate-trading",
+    "category": "senate"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/senate-trading-by-name",
+    "category": "senate"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/house-trading",
+    "category": "senate"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/house-trading-by-name",
+    "category": "senate"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/esg-search",
+    "category": "esg"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/esg-ratings",
+    "category": "esg"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/esg-benchmark",
+    "category": "esg"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/cot-report",
+    "category": "commitment-of-traders"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/cot-report-analysis",
+    "category": "commitment-of-traders"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/cot-report-list",
+    "category": "commitment-of-traders"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/latest-crowdfunding",
+    "category": "fundraisers"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/crowdfunding-search",
+    "category": "fundraisers"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/crowdfunding-by-cik",
+    "category": "fundraisers"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/latest-equity-offering",
+    "category": "fundraisers"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/equity-offering-search",
+    "category": "fundraisers"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/equity-offering-by-cik",
+    "category": "fundraisers"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/profile-bulk",
+    "category": "bulk"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/rating-bulk",
+    "category": "bulk"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/dcf-bulk",
+    "category": "bulk"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/scores-bulk",
+    "category": "bulk"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/price-target-summary-bulk",
+    "category": "bulk"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/etf-holder-bulk",
+    "category": "bulk"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/upgrades-downgrades-consensus-bulk",
+    "category": "bulk"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/key-metrics-ttm-bulk",
+    "category": "bulk"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/ratios-ttm-bulk",
+    "category": "bulk"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/peers-bulk",
+    "category": "bulk"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/earnings-surprises-bulk",
+    "category": "bulk"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/income-statement-bulk",
+    "category": "bulk"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/income-statement-growth-bulk",
+    "category": "bulk"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/balance-sheet-statement-bulk",
+    "category": "bulk"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/balance-sheet-statement-growth-bulk",
+    "category": "bulk"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/cash-flow-statement-bulk",
+    "category": "bulk"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/cash-flow-statement-growth-bulk",
+    "category": "bulk"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stable/eod-bulk",
+    "category": "bulk"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stock-ticker-symbol-lookup-api",
+    "category": "company-search"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/ticker-search-company-search",
+    "category": "general-search"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/name-search-company-search",
+    "category": "ticker-search"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/cik-name-search-company-search",
+    "category": "name-search"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/cik-search-company-search",
+    "category": "cik-name-search"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/cusip-search-company-search",
+    "category": "cik-search"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/isin-search-company-search",
+    "category": "cusip-search"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stock-market-quote-free-api",
+    "category": "stock-list"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/etf-list-api",
+    "category": "symbol-list"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/financial-statements-list-api",
+    "category": "exchange-traded-fund-search"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/tradable-list-api",
+    "category": "statement-symbols-list"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/cot-symbols-list-api",
+    "category": "tradable-search"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/cik-list-stock-list",
+    "category": "commitment-of-traders-report"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/euronext-prices-api",
+    "category": "13f-cik-list"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/symbol-change-api",
+    "category": "euronext-symbols"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/available-indexes",
+    "category": "exchange-symbols"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/companies-key-stats-free-api",
+    "category": "company-information"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/executive-compensation-api",
+    "category": "company-profile"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/compensation-benchmark-company-information",
+    "category": "executive-compensation"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/company-notes-due-api",
+    "category": "compensation-benchmark"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/historical-numer-of-employees-api",
+    "category": "company-notes"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/employee-count-company-information",
+    "category": "historical-employee"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stock-screener-api",
+    "category": "employee-count"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stock-grade-api",
+    "category": "screener-(stock)"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/key-executives-api",
+    "category": "stock-grade"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/company-core-information-api",
+    "category": "executives"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/market-capitalization-api",
+    "category": "company-core-information-summary"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/historical-market-cap-company-information",
+    "category": "market-cap"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/all-countries-company-information",
+    "category": "historical-market-cap"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/analyst-estimates-api",
+    "category": "all-countries"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/analyst-stock-recommendations-api",
+    "category": "analyst-estimates"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/company-image-api",
+    "category": "analyst-recommendation"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/company-outlook-api",
+    "category": "company-logo"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stock-peers-api",
+    "category": "company-outlook"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/is-the-market-open-api",
+    "category": "stock-peers"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/market-open-all-company-information",
+    "category": "holidays-and-trading-hours"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/delisted-companies-api",
+    "category": "all-exchanges-trading-hours"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/shares-float-api",
+    "category": "delisted-companies"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/company-historical-share-float",
+    "category": "company-share-float"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/all-available-sectors",
+    "category": "all-shares-float"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/all-available-industries",
+    "category": "all-available-sectors"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/all-available-exchanges",
+    "category": "all-available-industries"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stock-api",
+    "category": "quote"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/quote-order-quote",
+    "category": "full-quote"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/realtime-stock-quote-api",
+    "category": "quote-order"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/otc-quote-quote",
+    "category": "simple-quote"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stock-price-change-api",
+    "category": "exchange-prices"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/aftermarket-trade-quote",
+    "category": "stock-price-change"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/aftermarket-quote-quote",
+    "category": "aftermarket-trade"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/batch-quote-quote",
+    "category": "aftermarket-quote"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/batch-trade-quote",
+    "category": "batch-quote"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/last-forex-quote",
+    "category": "batch-trade"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/crypto-currency-free-api",
+    "category": "last-forex"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/all-realtime-full-prices-quote",
+    "category": "live-full-price-w/-orders"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/fx-price-quote",
+    "category": "all-live-full-price-w/-orders"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/currency-exchange-rate-free-api",
+    "category": "forex-prices"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/financial-statement-free-api",
+    "category": "financial-statements"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/balance-sheet-statements-financial-statements",
+    "category": "income-statements"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/cashflow-statements-financial-statements",
+    "category": "balance-sheet-statements"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/financial-statement-as-reported-api",
+    "category": "cashflow-statements"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/balance-statements-as-reported-financial-statements",
+    "category": "income-statements-as-reported"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/cashflow-statements-as-reported-financial-statements",
+    "category": "balance-sheet-statements-as-reported"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/full-financial-as-reported-financial-statements",
+    "category": "cashflow-statements-as-reported"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/financial-reports-dates",
+    "category": "full-financial-statements-as-reported"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/annual-report-form-api",
+    "category": "list-of-dates-and-links"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/company-key-metrics-api",
+    "category": "statement-analysis"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/financial-ratio-free-api",
+    "category": "key-metrics-ttm"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/financial-statements-growth-api",
+    "category": "ratios-ttm"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/income-statements-growth-api",
+    "category": "cashflow-growth"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/balance-sheet-statements-growth-api",
+    "category": "income-growth"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/company-financial-statement-growth-api",
+    "category": "balance-sheet-growth"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stock-financial-scores",
+    "category": "financial-growth"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/company-enterprise-value-api",
+    "category": "owner-earnings"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/companies-dcf-reports-free-api",
+    "category": "valuation"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/advanced-dcf-discounted-cash-flow",
+    "category": "discounted-cashflow"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/levered-dcf-discounted-cash-flow",
+    "category": "advanced-dcf"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/companies-rating-free-api",
+    "category": "levered-dcf"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/historical-rating-company-information",
+    "category": "company-rating"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/price-target-api",
+    "category": "price-target"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/price-target-summary-api",
+    "category": "price-targets"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/price-target-by-analyst-name-api",
+    "category": "price-target-summary"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/price-target-by-analyst-company-api",
+    "category": "price-target-by-name"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/price-target-consensus-api",
+    "category": "price-target-by-company"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/price-target-rss-feed-api",
+    "category": "price-target-consensus"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/upgrades-and-downgrades-api",
+    "category": "upgrades-&-downgrades"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/upgrades-and-downgrades-rss-feed-api",
+    "category": "upgrades-&-downgrades"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/upgrades-and-downgrades-consensus-api",
+    "category": "upgrades-&-downgrades-rss-feed"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/upgrades-and-downgrades-by-company-api",
+    "category": "upgrades-&-downgrades-consensus"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/fmp-articles-api",
+    "category": "news"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/general-news-api",
+    "category": "fmp-articles"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stock-news-api",
+    "category": "general-news"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stock-news-sentiment-rss-feed",
+    "category": "stock-news"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/forex-news-api",
+    "category": "stock-news-sentiments-rss-feed"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/crypto-news-api",
+    "category": "forex-news"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/all-press-releases-api",
+    "category": "crypto-news"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/press-releases-api",
+    "category": "press-releases"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/social-sentiment-api",
+    "category": "press-releases-by-symbol"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/earning-call-transcript-api",
+    "category": "earnings-transcripts"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/transcript-dates-earnings-transcripts",
+    "category": "earnings-transcript"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/batch-earnings-transcripts",
+    "category": "transcript-dates"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/sec-rss-feeds-api",
+    "category": "securities-and-exchange-commission-(s.e.c)"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/sec-all-rss-feeds-api",
+    "category": "rss-feed-v3"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/rss-feed-8k-api",
+    "category": "rss-feed-all"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/sec-filings-api",
+    "category": "rss-feed-8-k"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/standard-industrial-classification-api",
+    "category": "sec-filings"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/earnings-calendar-api",
+    "category": "earnings"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/earnings-historical-earnings",
+    "category": "earnings-calendar"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/earnings-calendar-confirmed-api",
+    "category": "earnings-historical-&-upcoming"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/earnings-surprises-api",
+    "category": "earnings-confirmed"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/dividend-calendar-api",
+    "category": "dividends"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/historical-stock-dividends-api",
+    "category": "dividends-calendar"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stock-split-calendar-api",
+    "category": "splits"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/historical-stock-splits-api",
+    "category": "splits-calendar"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/ipo-calendar-confirmed-api",
+    "category": "ipo-calendar"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/ipo-calendar-with-prospectus-api",
+    "category": "ipo-confirmed"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/ipo-calendar-api",
+    "category": "ipo-prospectus"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/merger-and-acquisition-api",
+    "category": "mergers-&-acquisitions"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/historical-stock-data-free-api",
+    "category": "stock-historical-price"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/daily-chart-charts",
+    "category": "intraday-chart"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/technical-intraday-sma",
+    "category": "technical-indicators"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/technical-intraday-ema",
+    "category": "simple-moving-average"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/technical-intraday-wma",
+    "category": "exponential-moving-average"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/technical-intraday-dema",
+    "category": "weighted-moving-average"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/technical-intraday-tema",
+    "category": "double-ema"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/technical-intraday-williams",
+    "category": "triple-ema"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/technical-intraday-rsi",
+    "category": "williams"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/technical-intraday-adx",
+    "category": "relative-strength-index"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/technicals-intraday-api",
+    "category": "average-directional-index"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/historical-etf-holdings-available-dates-api",
+    "category": "etf-holdings"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/historical-etf-holdings-api",
+    "category": "etf-holding-dates"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/etf-holders-api",
+    "category": "etf-holdings"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/etf-expense-ratio-api",
+    "category": "etf-holder"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/etf-sector-weightings-api",
+    "category": "etf-information"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/etf-country-weightings-api",
+    "category": "etf-sector-weighting"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/etf-stock-exposure-api",
+    "category": "etf-country-weighting"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/historical-mutual-fund-holdings-available-dates-api",
+    "category": "mutual-funds-holdings"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/historical-mutual-fund-holdings-portfolio-api",
+    "category": "mutual-fund-dates"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/mutual-fund-holdings-search-api",
+    "category": "mutual-funds"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/mutual-fund-holders-api",
+    "category": "mutual-fund-by-name"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/esg-score-api",
+    "category": "esg"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/company-esg-risk-ratings-api",
+    "category": "esg-search"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/esg-benchmarking-score-api",
+    "category": "esg-ratings"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/senate-trading-api",
+    "category": "senate"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/senate-disclosure-api",
+    "category": "senate-trading-rss-feed"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/house-disclosure-api",
+    "category": "house-disclosure"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/indexes-in-stock-market-free-api",
+    "category": "market-performance"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/sectors-pe-ratio-api",
+    "category": "market-index"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/industries-pe-ratio-api",
+    "category": "sector-pe-ratio"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stock-market-sector-performance-free-api",
+    "category": "industry-pe-ratio"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/sector-historical-market-overview",
+    "category": "sector-performance"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/most-gainers-stock-market-data-free-api",
+    "category": "sector-historical"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/most-losers-stock-market-data-free-api",
+    "category": "market-biggest-gainers"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/most-actives-stock-market-data-free-api",
+    "category": "market-biggest-losers"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/analysis-by-symbol-commitment-of-traders",
+    "category": "market-most-active"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/cot-reports-analysis-api",
+    "category": "analysis-by-symbol"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/report-by-symbol-commitment-of-traders",
+    "category": "analysis-by-dates"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/cot-reports-api",
+    "category": "report-by-symbol"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/form-13f-api",
+    "category": "13f---institutional-stock-ownership"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/form-13f-dates-13f---institutional-stock-ownership",
+    "category": "form-13f"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/form-13-f-asset-allocation-diversification-api",
+    "category": "form-13f-dates"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/13f-asset-allocation-dates-13f---institutional-stock-ownership",
+    "category": "13f-asset-allocation"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/institutional-holdings-list-api",
+    "category": "13f-asset-allocation-dates"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/institutional-holders-search-api",
+    "category": "institutional-holders-list"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/institutional-holdings-date-available-api",
+    "category": "institutional-holders-search"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/institutional-holder-rss-feed-api",
+    "category": "portfolio-holdings-dates"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/institutional-stock-ownership-api",
+    "category": "institutional-holder-rss"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stock-ownership-by-holders-api",
+    "category": "institutional-stock-ownership"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/institutional-holdings-portfolio-positions-summary-api",
+    "category": "stock-ownership-by-holders"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/institutional-holdings-portfolio-industry-summary-api",
+    "category": "portfolio-holdings-summary"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/institutional-holdings-portfolio-composition-api",
+    "category": "ownership-by-shares-held"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/institutional-holders-api",
+    "category": "portfolio-composition"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/insider-trading-rss-feed-api",
+    "category": "insider-trading"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/stock-insider-trading-api",
+    "category": "insider-trades-rss"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/transaction-types-insider-trading",
+    "category": "insider-trades-search"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/insiders-by-symbol-insider-trading",
+    "category": "transaction-types"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/insider-trade-statistics-insider-trading",
+    "category": "insiders-by-symbol"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/cik-mapper-insider-trading",
+    "category": "insider-trade-statistics"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/cik-mapper-by-name-insider-trading",
+    "category": "cik-mapper"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/cik-mapper-company-insider-trading",
+    "category": "cik-mapper-by-name"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/acquisition-of-beneficial-ownership",
+    "category": "cik-mapper-by-symbol"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/fail-to-deliver-api",
+    "category": "beneficial-ownership"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/crowdfunding-offerings-rss-feed-api",
+    "category": "fundraising"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/crowdfunding-offerings-company-search-api",
+    "category": "crowdfunding-rss"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/crowdfunding-offerings-by-cik-api",
+    "category": "crowdfunding-search"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/equity-offerings-fundraising-rss-feed-api",
+    "category": "crowdfunding-by-cik"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/equity-offerings-fundraising-company-search-api",
+    "category": "equity-offering-rss"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/equity-offerings-fundraising-by-cik-api",
+    "category": "equity-offering-search"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/treasury-rates-api",
+    "category": "economics-data"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/economic-indicator-api",
+    "category": "treasury-rates"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/economic-calendar-api",
+    "category": "economic-indicators"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/market-risk-premium-api",
+    "category": "economics-calendar"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/commodities-list-commodities",
+    "category": "commodities"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/commodities-prices-api",
+    "category": "commodities-list"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/full-quote-commodities",
+    "category": "full-commodities-quote-list"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/commodity-historical-price-api",
+    "category": "full-commodities-quote"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/commodities-daily-commodities",
+    "category": "intraday-commodities"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/forex-historical-data-api",
+    "category": "forex"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/full-quote-forex",
+    "category": "full-forex-quote-list"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/forex-daily-forex",
+    "category": "intraday-forex"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/cryptocurrency-historical-data-api",
+    "category": "crypto"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/bitcoin-price-free-api",
+    "category": "full-crypto-quote-list"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/cryptocurrency-daily-crypto",
+    "category": "intraday-cryptocurrency"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/list-of-sp-500-companies-api",
+    "category": "constituents"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/historical-sp-500-companies-api",
+    "category": "s&p-500-constituents"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/list-of-nasdaq-companies-api",
+    "category": "historical-s&p-500-constituents"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/historical-nasdaq-api",
+    "category": "nasdaq-constituents"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/list-of-dow-companies-api",
+    "category": "historical-nasdaq-constituents"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/historical-dow-api",
+    "category": "dow-jones-constituents"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/sales-revenue-by-segments-api",
+    "category": "sales-revenue-by-segments"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/revenue-geographic-by-segments-api",
+    "category": "revenue-product-segmentation"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/websocket-api",
+    "category": "websocket"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/crypto-websocket",
+    "category": "company-web-socket"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/forex-websocket",
+    "category": "crypto-web-socket"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/companies-batch-request-free-api",
+    "category": "bulk-requests"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/batch-eod-prices",
+    "category": "multiple-company-prices"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/bulk-endpoint-api",
+    "category": "batch-eod-prices"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/bulk-balance-statemenents",
+    "category": "bulk-income-statements"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/bulk-cashflow-statemenents",
+    "category": "bulk-balance-sheet-statements"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/bulk-ratios",
+    "category": "bulk-cash-flow-statements"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/bulk-key-metrics",
+    "category": "bulk-ratios"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/bulk-earning-surprises",
+    "category": "bulk-key-metrics"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/bulk-profiles",
+    "category": "bulk-earning-surprises"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/bulk-stock-peers",
+    "category": "bulk-profiles"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/bulk-ratings",
+    "category": "bulk-stock-peers"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/all-latest-dcf",
+    "category": "bulk-ratings"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/bulk-key-metrics-ttm",
+    "category": "all-latest-dcf"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/bulk-ratio-ttm",
+    "category": "bulk-key-metrics-ttm"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/bulk-scores",
+    "category": "bulk-ratio-ttm"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/bulk-financial-growth",
+    "category": "bulk-scores"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/bulk-income-statement-growth",
+    "category": "bulk-financial-growth"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/bulk-balance-sheet-growth",
+    "category": "bulk-income-statements-growth"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/bulk-cashflow-statements-growth",
+    "category": "bulk-balance-sheet-growth"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/bulk-price-target-summary",
+    "category": "bulk-cash-flow-statements-growth"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/bulk-up-down-consensus",
+    "category": "bulk-price-target-summary"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/bulk-etf-holders",
+    "category": "bulk-upgrades-downgrades-consensus"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/playground/stable",
+    "category": "bulk-etf-holders"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/developer/docs/cycle-times",
+    "category": "bulk-etf-holders"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/blogs",
+    "category": "bulk-etf-holders"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/market-news",
+    "category": "bulk-etf-holders"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/careers",
+    "category": "bulk-etf-holders"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/affiliates",
+    "category": "bulk-etf-holders"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/contact",
+    "category": "bulk-etf-holders"
+  },
+  {
+    "url": "https://www.linkedin.com/company/financial-modeling-prep/",
+    "category": "bulk-etf-holders"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/most-searched-stocks",
+    "category": "bulk-etf-holders"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/currencies",
+    "category": "bulk-etf-holders"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/cryptocurrencies",
+    "category": "bulk-etf-holders"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/market-indexes",
+    "category": "bulk-etf-holders"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/top-stock-gainers",
+    "category": "bulk-etf-holders"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/top-stock-losers",
+    "category": "bulk-etf-holders"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/top-stock-actives",
+    "category": "bulk-etf-holders"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/sector-performance",
+    "category": "bulk-etf-holders"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/search",
+    "category": "bulk-etf-holders"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/terms-of-service",
+    "category": "bulk-etf-holders"
+  },
+  {
+    "url": "https://site.financialmodelingprep.com/privacy-policy",
+    "category": "bulk-etf-holders"
+  }
+]

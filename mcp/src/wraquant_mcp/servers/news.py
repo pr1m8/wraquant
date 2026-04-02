@@ -1,230 +1,301 @@
-"""News and sentiment analysis MCP tools.
+"""News, sentiment, and event-driven analysis MCP tools.
 
-Tools: sentiment_score, news_impact, earnings_surprise,
-sentiment_aggregate, news_signal.
+Tools: stock_news, news_sentiment, earnings_data, earnings_surprises,
+insider_activity, sec_filings, dividend_history, sentiment_signal.
 """
 
 from __future__ import annotations
 
-import json
 from typing import Any
 
+import pandas as pd
 from wraquant_mcp.context import AnalysisContext, _sanitize_for_json
 
 
 def register_news_tools(mcp, ctx: AnalysisContext) -> None:
-    """Register news and sentiment tools on the MCP server."""
+    """Register news and event-driven tools on the MCP server."""
 
     @mcp.tool()
-    def sentiment_score(
-        texts_json: str,
+    def stock_news(
+        symbol: str,
+        limit: int = 20,
     ) -> dict[str, Any]:
-        """Score a list of text passages on a numeric sentiment scale.
+        """Fetch recent news articles for a stock from FMP.
 
-        Returns a sentiment score in [-1, 1] for each input text.
-        Negative = bearish, positive = bullish, zero = neutral.
+        Returns headlines, dates, sources, and URLs. Use with
+        news_sentiment for sentiment analysis.
 
         Parameters:
-            texts_json: JSON array of text strings to score
-                (e.g., '["Stock rallied on strong earnings", "Revenue missed expectations"]').
+            symbol: Stock ticker.
+            limit: Number of articles to return (default 20).
         """
         try:
-            from wraquant.news.sentiment import sentiment_score as _score
+            from wraquant.data.providers.fmp import FMPClient
 
-            texts = json.loads(texts_json)
-            result = _score(texts)
+            client = FMPClient()
+            news_df = client.stock_news(symbol, limit=limit)
 
-            return _sanitize_for_json(
-                {
-                    "tool": "sentiment_score",
-                    "n_texts": len(texts),
-                    "scores": result["scores"],
-                    "mean_score": result["mean_score"],
-                }
-            )
-        except Exception as e:
-            return {"error": str(e), "tool": "sentiment_score"}
-
-    @mcp.tool()
-    def news_impact(
-        dataset: str,
-        column: str,
-        event_dates_json: str,
-        window: int = 5,
-    ) -> dict[str, Any]:
-        """Measure the impact of news events on a return series.
-
-        Uses an event-study framework to compute cumulative abnormal
-        returns (CARs) around each event date.
-
-        Parameters:
-            dataset: Dataset containing the return series.
-            column: Column name with returns.
-            event_dates_json: JSON array of event date strings
-                (e.g., '["2024-01-15", "2024-03-20"]').
-            window: Number of periods before and after each event
-                to include in the analysis window.
-        """
-        try:
-            import pandas as pd
-
-            from wraquant.news.sentiment import news_impact as _impact
-
-            df = ctx.get_dataset(dataset)
-            returns = df[column].dropna()
-
-            event_dates = json.loads(event_dates_json)
-            event_dates = pd.to_datetime(event_dates)
-
-            result = _impact(returns, event_dates, window=window)
-
-            return _sanitize_for_json(
-                {
-                    "tool": "news_impact",
-                    "dataset": dataset,
-                    "column": column,
-                    "n_events": len(event_dates),
-                    "window": window,
-                    "car": result["car"],
-                }
-            )
-        except Exception as e:
-            return {"error": str(e), "tool": "news_impact"}
-
-    @mcp.tool()
-    def earnings_surprise(
-        actual: float,
-        estimate: float,
-    ) -> dict[str, Any]:
-        """Compute the standardized earnings surprise.
-
-        Measures how much actual earnings deviated from the consensus
-        estimate, normalized by the estimate magnitude.  Positive
-        values indicate a beat; negative values indicate a miss.
-
-        Parameters:
-            actual: Actual reported earnings per share.
-            estimate: Consensus analyst estimate of earnings per share.
-        """
-        try:
-            from wraquant.news.sentiment import earnings_surprise as _surprise
-
-            surprise = _surprise(actual, estimate)
-
-            if surprise > 0.05:
-                signal = "strong_beat"
-            elif surprise > 0:
-                signal = "beat"
-            elif surprise > -0.05:
-                signal = "miss"
-            else:
-                signal = "strong_miss"
-
-            return _sanitize_for_json(
-                {
-                    "tool": "earnings_surprise",
-                    "actual": actual,
-                    "estimate": estimate,
-                    "surprise": surprise,
-                    "signal": signal,
-                }
-            )
-        except Exception as e:
-            return {"error": str(e), "tool": "earnings_surprise"}
-
-    @mcp.tool()
-    def sentiment_aggregate(
-        scores_json: str,
-        method: str = "mean",
-    ) -> dict[str, Any]:
-        """Aggregate multiple sentiment scores into a single composite.
-
-        Combines scores from multiple sources (articles, analyst reports,
-        social media) into a consensus sentiment value.
-
-        Parameters:
-            scores_json: JSON array of sentiment scores
-                (e.g., '[0.5, 0.3, -0.1, 0.7]').
-            method: Aggregation method ('mean' or 'median').
-        """
-        try:
-            import numpy as np
-
-            from wraquant.news.sentiment import sentiment_aggregate as _agg
-
-            scores = json.loads(scores_json)
-            result = _agg(scores, method=method)
-
-            arr = np.array(scores)
-
-            return _sanitize_for_json(
-                {
-                    "tool": "sentiment_aggregate",
-                    "n_scores": len(scores),
-                    "method": method,
-                    "aggregate_score": result,
-                    "std": float(np.std(arr)) if len(arr) > 0 else 0.0,
-                    "min": float(np.min(arr)) if len(arr) > 0 else 0.0,
-                    "max": float(np.max(arr)) if len(arr) > 0 else 0.0,
-                }
-            )
-        except Exception as e:
-            return {"error": str(e), "tool": "sentiment_aggregate"}
-
-    @mcp.tool()
-    def news_signal(
-        dataset: str,
-        sentiment_col: str,
-        threshold: float = 0.5,
-    ) -> dict[str, Any]:
-        """Convert continuous sentiment scores into discrete trading signals.
-
-        Applies threshold-based classification: scores above +threshold
-        become +1 (bullish), below -threshold become -1 (bearish),
-        and values in between become 0 (neutral).
-
-        Parameters:
-            dataset: Dataset containing sentiment scores.
-            sentiment_col: Column with sentiment values.
-            threshold: Absolute threshold for signal generation.
-        """
-        try:
-            import pandas as pd
-
-            from wraquant.news.sentiment import news_signal as _signal
-
-            df = ctx.get_dataset(dataset)
-            sentiment = df[sentiment_col].dropna()
-
-            signals = _signal(sentiment, threshold=threshold)
-
-            signal_df = pd.DataFrame({"signal": signals})
             stored = ctx.store_dataset(
-                f"signals_{dataset}",
-                signal_df,
-                source_op="news_signal",
-                parent=dataset,
+                f"news_{symbol.lower()}",
+                news_df,
+                source_op="stock_news",
             )
 
-            n_bullish = int((signals == 1).sum())
-            n_bearish = int((signals == -1).sum())
-            n_neutral = int((signals == 0).sum())
+            headlines = []
+            for _, row in news_df.head(10).iterrows():
+                headlines.append(
+                    {
+                        "title": str(row.get("title", "")),
+                        "date": str(row.get("publishedDate", row.get("date", ""))),
+                        "source": str(row.get("site", row.get("source", ""))),
+                    }
+                )
 
             return _sanitize_for_json(
                 {
-                    "tool": "news_signal",
-                    "dataset": dataset,
-                    "sentiment_col": sentiment_col,
-                    "threshold": threshold,
-                    "n_bullish": n_bullish,
-                    "n_bearish": n_bearish,
-                    "n_neutral": n_neutral,
-                    "total_observations": n_bullish + n_bearish + n_neutral,
-                    "latest_signal": (
-                        int(signals.iloc[-1]) if len(signals) > 0 else None
-                    ),
+                    "tool": "stock_news",
+                    "symbol": symbol,
+                    "total_articles": len(news_df),
+                    "recent_headlines": headlines,
                     **stored,
                 }
             )
         except Exception as e:
-            return {"error": str(e), "tool": "news_signal"}
+            return {"error": str(e), "tool": "stock_news"}
+
+    @mcp.tool()
+    def news_sentiment(
+        symbol: str,
+        limit: int = 50,
+    ) -> dict[str, Any]:
+        """Analyze sentiment of recent news for a stock.
+
+        Computes aggregate sentiment score (-1 to +1), sentiment trend,
+        and categorizes as bullish/bearish/neutral.
+
+        Parameters:
+            symbol: Stock ticker.
+            limit: Number of articles to analyze.
+        """
+        try:
+            from wraquant.news.sentiment import news_sentiment as _sentiment
+
+            result = _sentiment(symbol, limit=limit)
+
+            return _sanitize_for_json(
+                {
+                    "tool": "news_sentiment",
+                    "symbol": symbol,
+                    **result,
+                }
+            )
+        except Exception as e:
+            return {"error": str(e), "tool": "news_sentiment"}
+
+    @mcp.tool()
+    def earnings_data(
+        symbol: str,
+    ) -> dict[str, Any]:
+        """Get earnings history and upcoming earnings for a stock.
+
+        Returns historical EPS (actual vs estimate), beat/miss history,
+        and next earnings date.
+
+        Parameters:
+            symbol: Stock ticker.
+        """
+        try:
+            from wraquant.news.events import earnings_history, upcoming_earnings
+
+            history = earnings_history(symbol)
+            upcoming = upcoming_earnings(symbol)
+
+            return _sanitize_for_json(
+                {
+                    "tool": "earnings_data",
+                    "symbol": symbol,
+                    "upcoming": upcoming,
+                    "history": history,
+                }
+            )
+        except Exception as e:
+            return {"error": str(e), "tool": "earnings_data"}
+
+    @mcp.tool()
+    def earnings_surprises(
+        symbol: str,
+        limit: int = 20,
+    ) -> dict[str, Any]:
+        """Get earnings surprise data: actual vs estimate EPS.
+
+        Shows how often the company beats/misses estimates and by how much.
+
+        Parameters:
+            symbol: Stock ticker.
+            limit: Number of quarters.
+        """
+        try:
+            from wraquant.data.providers.fmp import FMPClient
+
+            client = FMPClient()
+            surprises_df = client.earnings_surprises(symbol)
+
+            if len(surprises_df) > limit:
+                surprises_df = surprises_df.head(limit)
+
+            beats = 0
+            misses = 0
+            for _, row in surprises_df.iterrows():
+                actual = row.get("actualEarningResult", row.get("actual", 0))
+                estimate = row.get("estimatedEarning", row.get("estimate", 0))
+                if actual and estimate:
+                    if float(actual) > float(estimate):
+                        beats += 1
+                    else:
+                        misses += 1
+
+            return _sanitize_for_json(
+                {
+                    "tool": "earnings_surprises",
+                    "symbol": symbol,
+                    "total_quarters": len(surprises_df),
+                    "beats": beats,
+                    "misses": misses,
+                    "beat_rate": beats / max(beats + misses, 1),
+                    "recent": surprises_df.head(5).to_dict(orient="records"),
+                }
+            )
+        except Exception as e:
+            return {"error": str(e), "tool": "earnings_surprises"}
+
+    @mcp.tool()
+    def insider_activity(
+        symbol: str,
+        limit: int = 50,
+    ) -> dict[str, Any]:
+        """Analyze insider trading activity for a stock.
+
+        Returns recent insider buys/sells, buy/sell ratio, and
+        notable large transactions.
+
+        Parameters:
+            symbol: Stock ticker.
+            limit: Number of transactions to analyze.
+        """
+        try:
+            from wraquant.news.events import insider_activity as _insider
+
+            result = _insider(symbol, limit=limit)
+
+            return _sanitize_for_json(
+                {
+                    "tool": "insider_activity",
+                    "symbol": symbol,
+                    **result,
+                }
+            )
+        except Exception as e:
+            return {"error": str(e), "tool": "insider_activity"}
+
+    @mcp.tool()
+    def sec_filings(
+        symbol: str,
+        form_type: str | None = None,
+        limit: int = 20,
+    ) -> dict[str, Any]:
+        """Get recent SEC filings for a stock.
+
+        Returns 10-K, 10-Q, 8-K and other filings with dates and links.
+
+        Parameters:
+            symbol: Stock ticker.
+            form_type: Filter by type ('10-K', '10-Q', '8-K'). None = all.
+            limit: Number of filings.
+        """
+        try:
+            from wraquant.news.filings import recent_filings
+
+            filings_df = recent_filings(symbol, form_type=form_type, limit=limit)
+
+            stored = ctx.store_dataset(
+                f"filings_{symbol.lower()}",
+                filings_df,
+                source_op="sec_filings",
+            )
+
+            return _sanitize_for_json(
+                {
+                    "tool": "sec_filings",
+                    "symbol": symbol,
+                    "form_type": form_type,
+                    "total_filings": len(filings_df),
+                    "recent": filings_df.head(10).to_dict(orient="records"),
+                    **stored,
+                }
+            )
+        except Exception as e:
+            return {"error": str(e), "tool": "sec_filings"}
+
+    @mcp.tool()
+    def dividend_history(
+        symbol: str,
+    ) -> dict[str, Any]:
+        """Get dividend history: yield, growth, payout ratio over time.
+
+        Parameters:
+            symbol: Stock ticker.
+        """
+        try:
+            from wraquant.news.events import dividend_history as _div
+
+            result = _div(symbol)
+
+            return _sanitize_for_json(
+                {
+                    "tool": "dividend_history",
+                    "symbol": symbol,
+                    **(
+                        result
+                        if isinstance(result, dict)
+                        else {
+                            "data": (
+                                result.to_dict(orient="records")
+                                if isinstance(result, pd.DataFrame)
+                                else result
+                            )
+                        }
+                    ),
+                }
+            )
+        except Exception as e:
+            return {"error": str(e), "tool": "dividend_history"}
+
+    @mcp.tool()
+    def sentiment_signal(
+        symbol: str,
+        threshold: float = 0.3,
+    ) -> dict[str, Any]:
+        """Generate a trading signal from news sentiment.
+
+        Returns 'bullish', 'bearish', or 'neutral' based on aggregate
+        sentiment exceeding the threshold.
+
+        Parameters:
+            symbol: Stock ticker.
+            threshold: Sentiment threshold for signal (default 0.3).
+        """
+        try:
+            from wraquant.news.sentiment import sentiment_signal as _signal
+
+            signal = _signal(symbol, threshold=threshold)
+
+            return _sanitize_for_json(
+                {
+                    "tool": "sentiment_signal",
+                    "symbol": symbol,
+                    "signal": signal,
+                    "threshold": threshold,
+                }
+            )
+        except Exception as e:
+            return {"error": str(e), "tool": "sentiment_signal"}

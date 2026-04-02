@@ -29,3 +29,9 @@ def register_builtin_providers() -> None:
         from wraquant.data.providers.nasdaq import NasdaqProvider
 
         registry.register(NasdaqProvider())
+
+    # Financial Modeling Prep (FMP)
+    if is_available("httpx"):
+        from wraquant.data.providers.fmp import FMPProvider
+
+        registry.register(FMPProvider())

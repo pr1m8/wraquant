@@ -4804,3 +4804,539 @@ plot_vol_surface: 3D surface of implied vol across strikes and maturities. Skew 
                 },
             }
         ]
+
+    # ── fundamental/ (FMP-backed) ─────────────────────────────────────
+
+    @mcp.prompt()
+    def guide_company_profile(symbol: str = "AAPL") -> list[dict]:
+        """Guide: Using the company_profile tool (FMP)."""
+        return [
+            {
+                "role": "user",
+                "content": {
+                    "type": "text",
+                    "text": f"""
+company_profile("{symbol}"): Fetches comprehensive company information from FMP — sector, industry, market cap, description, CEO, employees, website, IPO date, and key metrics.
+
+Parameters:
+- symbol: Stock ticker (e.g., "AAPL", "MSFT").
+
+Interpretation:
+- Use sector/industry to find peer companies for relative_valuation.
+- Market cap classifies the company: mega (>200B), large (10-200B), mid (2-10B), small (<2B).
+- Employee count + revenue per employee = productivity metric.
+- IPO date tells you how much history is available.
+
+Next steps:
+1. financial_ratios("{symbol}") — deep-dive into profitability, leverage, valuation.
+2. income_analysis("{symbol}") — revenue/margin trends over time.
+3. stock_news("{symbol}") — recent news that may affect the thesis.
+""",
+                },
+            }
+        ]
+
+    @mcp.prompt()
+    def guide_financial_ratios_fmp(symbol: str = "AAPL") -> list[dict]:
+        """Guide: Using the financial_ratios tool (FMP, symbol-based)."""
+        return [
+            {
+                "role": "user",
+                "content": {
+                    "type": "text",
+                    "text": f"""
+financial_ratios("{symbol}"): Computes comprehensive ratios from live FMP data — profitability (ROE, ROA, ROIC, margins), liquidity (current ratio, quick ratio), leverage (D/E, interest coverage), efficiency (asset turnover, inventory days), valuation (P/E, P/B, EV/EBITDA), and growth (revenue, earnings, FCF growth).
+
+Parameters:
+- symbol: Stock ticker.
+- period: "annual" (default) or "quarter" for quarterly data.
+
+Interpretation:
+- Compare ratios to sector medians, NOT absolute thresholds. A 15 P/E is cheap for tech but expensive for utilities.
+- ROE > 15% + D/E < 1 = quality value. High ROE with high D/E = leveraged returns (riskier).
+- Current ratio > 1.5 = adequate liquidity. < 1 = potential liquidity stress.
+- Interest coverage < 3 = watch for debt servicing risk.
+- Declining margins over 3+ years = structural problem.
+
+Next steps:
+1. dupont_analysis("{symbol}") — decompose ROE into components.
+2. relative_valuation("{symbol}") — compare multiples vs peers.
+3. financial_health("{symbol}") — composite health score.
+""",
+                },
+            }
+        ]
+
+    @mcp.prompt()
+    def guide_income_analysis(symbol: str = "AAPL") -> list[dict]:
+        """Guide: Using the income_analysis tool."""
+        return [
+            {
+                "role": "user",
+                "content": {
+                    "type": "text",
+                    "text": f"""
+income_analysis("{symbol}"): Analyzes multi-year income statement trends — revenue growth, gross/operating/net margins, and profitability trajectory.
+
+Parameters:
+- symbol: Stock ticker.
+- period: "annual" (default) or "quarter".
+
+Interpretation:
+- Revenue growth: > 10% annually = strong growth. < 0% = declining business.
+- Gross margin stability: Consistent GM = pricing power. Declining GM = competitive pressure.
+- Operating margin: Should expand with scale. Contraction despite revenue growth = cost issues.
+- Net margin: After-tax bottom line. Compare to peers — wide gaps suggest different business models.
+- Watch the trend over 3-5 years, not just the latest year.
+
+Next steps:
+1. balance_sheet_analysis("{symbol}") — asset/liability context.
+2. cash_flow_analysis("{symbol}") — verify earnings are backed by cash.
+3. earnings_quality("{symbol}") — check if earnings are real or manipulated.
+""",
+                },
+            }
+        ]
+
+    @mcp.prompt()
+    def guide_balance_sheet_analysis(symbol: str = "AAPL") -> list[dict]:
+        """Guide: Using the balance_sheet_analysis tool."""
+        return [
+            {
+                "role": "user",
+                "content": {
+                    "type": "text",
+                    "text": f"""
+balance_sheet_analysis("{symbol}"): Analyzes balance sheet composition — asset breakdown, liability structure, working capital, leverage ratios, and year-over-year changes.
+
+Parameters:
+- symbol: Stock ticker.
+- period: "annual" (default) or "quarter".
+
+Interpretation:
+- Debt/Equity: < 0.5 = conservative, 0.5-1.5 = moderate, > 2 = aggressive leverage.
+- Working capital trend: Declining WC + increasing revenue = efficient. Declining WC + flat revenue = cash squeeze.
+- Goodwill/Total assets: > 30% = acquisition-heavy, impairment risk.
+- Cash position: Should cover at least 6 months of operating expenses.
+- Tangible book value: More reliable than book value for asset-heavy industries.
+
+Next steps:
+1. altman_z("{symbol}") — bankruptcy risk from balance sheet ratios.
+2. financial_health("{symbol}") — composite score across all statements.
+3. cash_flow_analysis("{symbol}") — cash generation context.
+""",
+                },
+            }
+        ]
+
+    @mcp.prompt()
+    def guide_cash_flow_analysis(symbol: str = "AAPL") -> list[dict]:
+        """Guide: Using the cash_flow_analysis tool."""
+        return [
+            {
+                "role": "user",
+                "content": {
+                    "type": "text",
+                    "text": f"""
+cash_flow_analysis("{symbol}"): Analyzes cash flow statement — free cash flow, operating cash flow quality, capex intensity, and cash conversion.
+
+Parameters:
+- symbol: Stock ticker.
+- period: "annual" (default) or "quarter".
+
+Interpretation:
+- FCF margin (FCF/Revenue): > 15% = strong cash generation. < 5% = capital-intensive.
+- OCF/Net Income: Should be > 1.0. If consistently < 1.0, earnings are not backed by cash (red flag).
+- Capex/Revenue: High ratio = capital-intensive business. Low = asset-light (typically higher valuations).
+- FCF growth: Steady FCF growth supports dividend sustainability and buyback capacity.
+- Watch for divergence between net income and OCF — accruals manipulation.
+
+Next steps:
+1. dcf_valuation("{symbol}") — use FCF projections for intrinsic value.
+2. earnings_quality("{symbol}") — verify cash conversion quality.
+3. dividend_history("{symbol}") — check if dividends are supported by FCF.
+""",
+                },
+            }
+        ]
+
+    @mcp.prompt()
+    def guide_dcf_valuation_fmp(symbol: str = "AAPL") -> list[dict]:
+        """Guide: Using the dcf_valuation tool (FMP, symbol-based)."""
+        return [
+            {
+                "role": "user",
+                "content": {
+                    "type": "text",
+                    "text": f"""
+dcf_valuation("{symbol}"): Estimates intrinsic value per share using discounted cash flow analysis with live FMP financial data.
+
+Parameters:
+- symbol: Stock ticker.
+- discount_rate: WACC or required return (default 0.10 = 10%).
+- terminal_growth: Perpetual growth rate (default 0.025 = 2.5%).
+
+Interpretation:
+- Intrinsic value > market price → potentially undervalued (margin of safety > 0).
+- Margin of safety > 30% = attractive entry. < 10% = fairly valued.
+- HIGHLY sensitive to assumptions: ±1% in discount rate changes value 20-30%.
+- Terminal growth MUST be < long-run GDP growth (2-3%). > 4% is unrealistic.
+- Run sensitivity analysis: try discount_rate 0.08, 0.10, 0.12 with terminal_growth 0.02, 0.025, 0.03.
+
+Next steps:
+1. relative_valuation("{symbol}") — cross-check DCF with peer multiples.
+2. cash_flow_analysis("{symbol}") — validate FCF projections used.
+3. financial_ratios("{symbol}") — check if growth assumptions align with actual growth.
+""",
+                },
+            }
+        ]
+
+    @mcp.prompt()
+    def guide_relative_valuation(symbol: str = "AAPL") -> list[dict]:
+        """Guide: Using the relative_valuation tool."""
+        return [
+            {
+                "role": "user",
+                "content": {
+                    "type": "text",
+                    "text": f"""
+relative_valuation("{symbol}"): Compares valuation multiples (P/E, P/B, EV/EBITDA, P/S) against peer companies with percentile ranking and implied fair values.
+
+Parameters:
+- symbol: Stock ticker.
+- peers_json: Optional JSON list of peer tickers, e.g. '["MSFT", "GOOGL", "META"]'. If None, auto-selects same-sector peers.
+
+Interpretation:
+- Percentile < 25th = potentially cheap vs peers. > 75th = expensive vs peers.
+- Implied fair value: What the stock would trade at if it had median peer multiples.
+- P/E alone is misleading — EV/EBITDA is better for leverage-adjusted comparison.
+- P/S is useful for unprofitable growth companies where P/E is meaningless.
+- Discount to peers may be JUSTIFIED if growth or quality is lower.
+
+Next steps:
+1. dcf_valuation("{symbol}") — intrinsic value from cash flows (independent check).
+2. financial_ratios("{symbol}") — understand WHY multiples differ from peers.
+3. company_profile("{symbol}") — verify sector classification for peer selection.
+""",
+                },
+            }
+        ]
+
+    @mcp.prompt()
+    def guide_financial_health(symbol: str = "AAPL") -> list[dict]:
+        """Guide: Using the financial_health tool."""
+        return [
+            {
+                "role": "user",
+                "content": {
+                    "type": "text",
+                    "text": f"""
+financial_health("{symbol}"): Computes a composite financial health score (0-100) with letter grade by combining profitability, leverage, liquidity, efficiency, and growth metrics.
+
+Parameters:
+- symbol: Stock ticker.
+
+Interpretation:
+- Score > 80 (A): Excellent financial health — strong across all dimensions.
+- Score 60-80 (B): Good health, may have weaknesses in 1-2 areas.
+- Score 40-60 (C): Average, notable concerns. Investigate the weakest sub-scores.
+- Score < 40 (D/F): Poor health, multiple red flags. Check altman_z for distress risk.
+- Sub-scores reveal WHERE the problems are: low profitability vs high leverage vs illiquidity.
+
+Next steps:
+1. piotroski_score("{symbol}") — binary scoring for additional perspective.
+2. altman_z("{symbol}") — focused bankruptcy risk assessment.
+3. earnings_quality("{symbol}") — verify reported numbers are trustworthy.
+""",
+                },
+            }
+        ]
+
+    @mcp.prompt()
+    def guide_earnings_quality(symbol: str = "AAPL") -> list[dict]:
+        """Guide: Using the earnings_quality tool."""
+        return [
+            {
+                "role": "user",
+                "content": {
+                    "type": "text",
+                    "text": f"""
+earnings_quality("{symbol}"): Assesses whether reported earnings are real and sustainable — checks accruals ratio, cash conversion, earnings persistence, and red flags.
+
+Parameters:
+- symbol: Stock ticker.
+
+Interpretation:
+- Accruals ratio: Low accruals (< 5% of assets) = high quality. High accruals = earnings from accounting, not cash.
+- Cash conversion (OCF/NI): Should be > 1.0. Consistently < 0.8 = earnings manipulation risk.
+- Earnings persistence: High R-squared of earnings autoregression = sustainable. Low = volatile/one-time items.
+- Revenue quality: Compare revenue growth to receivables growth. If receivables grow faster = channel stuffing risk.
+- Red flags: negative FCF + positive NI, growing gap between NI and OCF, frequent "one-time" charges.
+
+Next steps:
+1. cash_flow_analysis("{symbol}") — deep-dive into cash flow patterns.
+2. income_analysis("{symbol}") — margin trends that contextualize quality.
+3. sec_filings("{symbol}") — read 10-K footnotes for accounting policy changes.
+""",
+                },
+            }
+        ]
+
+    @mcp.prompt()
+    def guide_dupont_analysis(symbol: str = "AAPL") -> list[dict]:
+        """Guide: Using the dupont_analysis tool."""
+        return [
+            {
+                "role": "user",
+                "content": {
+                    "type": "text",
+                    "text": f"""
+dupont_analysis("{symbol}"): Decomposes ROE into its drivers using 3-way and 5-way DuPont analysis.
+
+Parameters:
+- symbol: Stock ticker.
+
+3-way decomposition: ROE = Profit Margin x Asset Turnover x Equity Multiplier
+- Profit Margin: Net income / Revenue. Higher = better pricing power.
+- Asset Turnover: Revenue / Total Assets. Higher = more efficient asset use.
+- Equity Multiplier: Total Assets / Equity. Higher = more leverage.
+
+5-way adds: Tax Burden (NI/EBT) and Interest Burden (EBT/EBIT).
+
+Interpretation:
+- High ROE from high margin = quality. High ROE from high leverage = risky.
+- Improving turnover with stable margin = operational improvement.
+- Falling margin offset by rising leverage = deteriorating quality masked by debt.
+- Compare components across years to spot where ROE changes originate.
+
+Next steps:
+1. financial_ratios("{symbol}") — full ratio context.
+2. balance_sheet_analysis("{symbol}") — understand leverage component.
+3. income_analysis("{symbol}") — understand margin component.
+""",
+                },
+            }
+        ]
+
+    @mcp.prompt()
+    def guide_stock_screener() -> list[dict]:
+        """Guide: Using the stock_screener tool."""
+        return [
+            {
+                "role": "user",
+                "content": {
+                    "type": "text",
+                    "text": """
+stock_screener(criteria_json, top_n=20): Screens stocks by fundamental criteria using FMP data.
+
+Parameters:
+- criteria_json: JSON dict with min/max values, e.g.:
+  '{"min_roe": 0.15, "max_pe": 25, "min_dividend_yield": 0.02, "min_market_cap": 1e9}'
+- top_n: Maximum number of results (default 20).
+
+Common screening recipes:
+- Value: '{"max_pe": 15, "min_roe": 0.12, "max_debt_to_equity": 1.0}'
+- Growth: '{"min_revenue_growth": 0.20, "min_earnings_growth": 0.15}'
+- Dividend: '{"min_dividend_yield": 0.03, "min_payout_ratio": 0.2, "max_payout_ratio": 0.7}'
+- Quality: '{"min_roe": 0.20, "min_roic": 0.15, "max_debt_to_equity": 0.5}'
+
+Interpretation:
+- Results are stored as "screener_results" dataset for further analysis.
+- Screen is a starting point, not a buy signal. Always follow up with deep-dive analysis.
+- Combine multiple criteria to narrow results. Start broad, then tighten.
+
+Next steps:
+1. financial_health(symbol) — score top results individually.
+2. dcf_valuation(symbol) — estimate intrinsic values for top picks.
+3. relative_valuation(symbol) — compare top picks against each other.
+""",
+                },
+            }
+        ]
+
+    # ── news/ (FMP-backed) ────────────────────────────────────────────
+
+    @mcp.prompt()
+    def guide_stock_news(symbol: str = "AAPL") -> list[dict]:
+        """Guide: Using the stock_news tool."""
+        return [
+            {
+                "role": "user",
+                "content": {
+                    "type": "text",
+                    "text": f"""
+stock_news("{symbol}"): Fetches recent news articles for a stock from FMP — headlines, dates, sources, and URLs.
+
+Parameters:
+- symbol: Stock ticker.
+- limit: Number of articles to return (default 20, max ~100).
+
+Interpretation:
+- Headlines are stored as "news_{{symbol}}" dataset for further analysis.
+- Scan for: earnings announcements, M&A activity, regulatory actions, analyst upgrades/downgrades.
+- Cluster of negative headlines = potential sentiment overshoot (contrarian opportunity).
+- Absence of news for a mid/large-cap = unusual, may precede announcement.
+
+Next steps:
+1. news_sentiment("{symbol}") — quantify sentiment from the articles.
+2. earnings_data("{symbol}") — check if news relates to upcoming/recent earnings.
+3. insider_activity("{symbol}") — see if insiders are acting on the news.
+""",
+                },
+            }
+        ]
+
+    @mcp.prompt()
+    def guide_news_sentiment_fmp(symbol: str = "AAPL") -> list[dict]:
+        """Guide: Using the news_sentiment tool (FMP, symbol-based)."""
+        return [
+            {
+                "role": "user",
+                "content": {
+                    "type": "text",
+                    "text": f"""
+news_sentiment("{symbol}"): Analyzes sentiment of recent news articles — aggregate score (-1 to +1), trend direction, and bullish/bearish/neutral classification.
+
+Parameters:
+- symbol: Stock ticker.
+- limit: Number of articles to analyze (default 50).
+
+Interpretation:
+- Score > 0.3 = bullish sentiment. < -0.3 = bearish. Between = neutral.
+- Sentiment TREND matters more than level: improving sentiment from -0.5 to -0.2 is bullish.
+- Extreme sentiment (> 0.7 or < -0.7) often precedes mean reversion — contrarian signal.
+- Sentiment is most predictive for small/mid-caps where information diffuses slowly.
+- For large-caps, sentiment reflects rather than predicts — use as confirmation.
+
+Next steps:
+1. sentiment_signal("{symbol}") — convert sentiment to a trading signal.
+2. stock_news("{symbol}") — read the actual headlines for context.
+3. earnings_data("{symbol}") — check if sentiment is earnings-driven.
+""",
+                },
+            }
+        ]
+
+    @mcp.prompt()
+    def guide_earnings_data(symbol: str = "AAPL") -> list[dict]:
+        """Guide: Using the earnings_data tool."""
+        return [
+            {
+                "role": "user",
+                "content": {
+                    "type": "text",
+                    "text": f"""
+earnings_data("{symbol}"): Gets earnings history (actual vs estimate EPS) and upcoming earnings date.
+
+Parameters:
+- symbol: Stock ticker.
+
+Interpretation:
+- Beat rate: > 75% = company consistently exceeds expectations (management guides conservatively).
+- Average surprise magnitude: Large positive surprises = analysts underestimate the business.
+- PEAD (post-earnings announcement drift): Stocks that beat tend to continue drifting up for 30-60 days.
+- Upcoming earnings: Important for timing entry/exit and managing event risk.
+- Revenue beats matter too — EPS beats via cost-cutting without revenue growth are low quality.
+
+Next steps:
+1. earnings_surprises("{symbol}") — detailed surprise data per quarter.
+2. earnings_quality("{symbol}") — verify the quality behind the numbers.
+3. income_analysis("{symbol}") — longer-term trend context.
+""",
+                },
+            }
+        ]
+
+    @mcp.prompt()
+    def guide_insider_activity(symbol: str = "AAPL") -> list[dict]:
+        """Guide: Using the insider_activity tool."""
+        return [
+            {
+                "role": "user",
+                "content": {
+                    "type": "text",
+                    "text": f"""
+insider_activity("{symbol}"): Analyzes recent insider trading — buys vs sells, buy/sell ratio, and notable large transactions.
+
+Parameters:
+- symbol: Stock ticker.
+- limit: Number of transactions to analyze (default 50).
+
+Interpretation:
+- Insider BUYS are more informative than sells (insiders sell for many reasons, buy for one).
+- Cluster buying by multiple insiders = strong bullish signal (they agree the stock is cheap).
+- Buy/sell ratio > 2 = net insider accumulation. < 0.5 = net insider distribution.
+- Large purchases (> $500K) by CEO/CFO carry more weight than small purchases by directors.
+- Form 4 filings must be filed within 2 business days — data is near real-time.
+
+Next steps:
+1. company_profile("{symbol}") — context on who the insiders are.
+2. financial_health("{symbol}") — check if insiders are buying a healthy company.
+3. stock_news("{symbol}") — correlate insider activity with news flow.
+""",
+                },
+            }
+        ]
+
+    @mcp.prompt()
+    def guide_dividend_history(symbol: str = "AAPL") -> list[dict]:
+        """Guide: Using the dividend_history tool."""
+        return [
+            {
+                "role": "user",
+                "content": {
+                    "type": "text",
+                    "text": f"""
+dividend_history("{symbol}"): Retrieves dividend payment history — yield, growth rate, payout ratio over time.
+
+Parameters:
+- symbol: Stock ticker.
+
+Interpretation:
+- Dividend growth > 5% annually for 10+ years = Dividend Aristocrat candidate.
+- Payout ratio: 30-60% = sustainable. > 80% = limited growth, cut risk. > 100% = unsustainable.
+- Yield > sector average + rising payout ratio = potential yield trap (dividend at risk).
+- Ex-dividend date timing matters for income strategies.
+- Compare dividend growth to earnings growth — if dividends grow faster, payout ratio is rising.
+
+Next steps:
+1. cash_flow_analysis("{symbol}") — verify FCF supports the dividend.
+2. financial_health("{symbol}") — overall company stability.
+3. earnings_data("{symbol}") — earnings trajectory supporting future dividends.
+""",
+                },
+            }
+        ]
+
+    @mcp.prompt()
+    def guide_sec_filings_fmp(symbol: str = "AAPL") -> list[dict]:
+        """Guide: Using the sec_filings tool (FMP, symbol-based)."""
+        return [
+            {
+                "role": "user",
+                "content": {
+                    "type": "text",
+                    "text": f"""
+sec_filings("{symbol}"): Fetches recent SEC filings (10-K, 10-Q, 8-K, etc.) with dates and links.
+
+Parameters:
+- symbol: Stock ticker.
+- form_type: Filter by type — "10-K" (annual), "10-Q" (quarterly), "8-K" (material events). None = all.
+- limit: Number of filings (default 20).
+
+Interpretation:
+- 10-K: Annual report. Most comprehensive. Read risk factors, MD&A, and accounting policies.
+- 10-Q: Quarterly report. Check for significant changes from prior quarter.
+- 8-K: Material events — M&A, executive changes, covenant violations, restatements.
+- Multiple 8-Ks in short period = something significant is happening.
+- Filings stored as "filings_{{symbol}}" dataset for reference.
+
+Next steps:
+1. income_analysis("{symbol}") — quantitative view of what the filing describes.
+2. earnings_quality("{symbol}") — check for accounting red flags noted in filings.
+3. stock_news("{symbol}") — news coverage of filing contents.
+""",
+                },
+            }
+        ]
