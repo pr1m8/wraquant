@@ -7,7 +7,6 @@ Launch:
     streamlit run src/wraquant/dashboard/app.py
     python -m wraquant.dashboard
 """
-
 from __future__ import annotations
 
 import importlib
@@ -30,7 +29,6 @@ import streamlit as st  # noqa: E402
 # ---------------------------------------------------------------------------
 # Page config (must be the first Streamlit call)
 # ---------------------------------------------------------------------------
-
 st.set_page_config(
     page_title="wraquant Dashboard",
     page_icon="\U0001f4ca",
@@ -41,34 +39,29 @@ st.set_page_config(
 # ---------------------------------------------------------------------------
 # Custom CSS for dark, polished look
 # ---------------------------------------------------------------------------
-
-_CUSTOM_CSS = """
-<style>
-.stApp { background-color: #0f0f14; }
-[data-testid="stSidebar"] {
-    background-color: #16161d;
-    border-right: 1px solid rgba(255,255,255,0.06);
-}
-[data-testid="stSidebar"] .stMarkdown h1,
-[data-testid="stSidebar"] .stMarkdown h2,
-[data-testid="stSidebar"] .stMarkdown h3 { color: #e2e8f0; }
-[data-testid="stMetricValue"] { font-size: 1.4rem; font-weight: 600; }
-.block-container { padding-top: 2rem; padding-bottom: 1rem; }
-.stTabs [data-baseweb="tab-list"] { gap: 8px; }
-.stTabs [data-baseweb="tab"] { border-radius: 6px 6px 0 0; padding: 8px 20px; }
-.stDataFrame { border-radius: 8px; }
-hr { border-color: rgba(255,255,255,0.06) !important; }
-.nav-link { font-size: 0.9rem !important; }
-.nav-link-selected { background-color: #6366f1 !important; font-weight: 600 !important; }
-</style>
-"""
-st.markdown(_CUSTOM_CSS, unsafe_allow_html=True)
+_CSS = (
+    "<style>"
+    ".stApp{background-color:#0f0f14}"
+    '[data-testid="stSidebar"]{background-color:#16161d;border-right:1px solid rgba(255,255,255,0.06)}'
+    '[data-testid="stSidebar"] .stMarkdown h1,'
+    '[data-testid="stSidebar"] .stMarkdown h2,'
+    '[data-testid="stSidebar"] .stMarkdown h3{color:#e2e8f0}'
+    '[data-testid="stMetricValue"]{font-size:1.4rem;font-weight:600}'
+    ".block-container{padding-top:2rem;padding-bottom:1rem}"
+    '.stTabs [data-baseweb="tab-list"]{gap:8px}'
+    '.stTabs [data-baseweb="tab"]{border-radius:6px 6px 0 0;padding:8px 20px}'
+    ".stDataFrame{border-radius:8px}"
+    "hr{border-color:rgba(255,255,255,0.06)!important}"
+    ".nav-link{font-size:0.9rem!important}"
+    ".nav-link-selected{background-color:#6366f1!important;font-weight:600!important}"
+    "</style>"
+)
+st.markdown(_CSS, unsafe_allow_html=True)
 
 # ---------------------------------------------------------------------------
-# Sidebar navigation with streamlit-option-menu
+# Sidebar navigation
 # ---------------------------------------------------------------------------
-
-_MENU_ITEMS = [
+_ITEMS = [
     "Overview", "---",
     "Fundamental", "Valuation", "Screener", "---",
     "Technical Analysis", "Returns & Stats", "Time Series", "---",
@@ -79,8 +72,7 @@ _MENU_ITEMS = [
     "Pricing & Options", "Causal & Bayes", "---",
     "News & Events", "FX Analysis",
 ]
-
-_MENU_ICONS = [
+_ICONS = [
     "house", None,
     "building", "calculator", "search", None,
     "graph-up", "bar-chart", "clock-history", None,
@@ -91,16 +83,12 @@ _MENU_ICONS = [
     "cash-coin", "diagram-3", None,
     "newspaper", "currency-exchange",
 ]
-
-_OPTION_MENU_STYLES = {
+_STYLES = {
     "container": {"padding": "4px", "background-color": "#16161d"},
     "icon": {"color": "#94a3b8", "font-size": "14px"},
     "nav-link": {
-        "font-size": "14px",
-        "text-align": "left",
-        "margin": "2px 0",
-        "color": "#e2e8f0",
-        "--hover-color": "#1e1e28",
+        "font-size": "14px", "text-align": "left",
+        "margin": "2px 0", "color": "#e2e8f0", "--hover-color": "#1e1e28",
     },
     "nav-link-selected": {"background-color": "#6366f1", "color": "white"},
     "separator": {"border-color": "rgba(255,255,255,0.06)"},
@@ -109,42 +97,25 @@ _OPTION_MENU_STYLES = {
 with st.sidebar:
     try:
         from streamlit_option_menu import option_menu  # noqa: E402
-
         selected = option_menu(
-            "wraquant",
-            _MENU_ITEMS,
-            icons=_MENU_ICONS,
-            menu_icon="graph-up",
-            default_index=0,
-            styles=_OPTION_MENU_STYLES,
+            "wraquant", _ITEMS, icons=_ICONS,
+            menu_icon="graph-up", default_index=0, styles=_STYLES,
         )
     except ImportError:
         st.markdown("## wraquant")
         st.caption("Install `streamlit-option-menu` for enhanced nav")
-        _FLAT_PAGES = [p for p in _MENU_ITEMS if p != "---"]
-        selected = st.radio("Navigate", _FLAT_PAGES, label_visibility="collapsed")
+        selected = st.radio(
+            "Navigate",
+            [p for p in _ITEMS if p != "---"],
+            label_visibility="collapsed",
+        )
+
+    st.divider()
 
 # ---------------------------------------------------------------------------
-# Ticker input — top bar, NOT sidebar
+# Page routing  (wraquant.dashboard.views.*)
 # ---------------------------------------------------------------------------
-
-_hdr_l, _hdr_r = st.columns([3, 1])
-with _hdr_r:
-    _tk = st.text_input(
-        "Symbol",
-        value=st.session_state.get("ticker", "AAPL"),
-        key="_global_ticker",
-        label_visibility="collapsed",
-        placeholder="Ticker...",
-    )
-    if _tk:
-        st.session_state["ticker"] = _tk.upper().strip()
-
-# ---------------------------------------------------------------------------
-# Page routing (views/ directory — NOT pages/ to avoid Streamlit auto-detect)
-# ---------------------------------------------------------------------------
-
-_PAGE_MODULES = {
+_MAP = {
     "Overview": "wraquant.dashboard.views.overview",
     "Fundamental": "wraquant.dashboard.views.fundamental_analysis",
     "Valuation": "wraquant.dashboard.views.valuation",
@@ -168,16 +139,27 @@ _PAGE_MODULES = {
     "Causal & Bayes": "wraquant.dashboard.views.causal_bayes",
 }
 
-if selected and selected != "---":
-    _mod_path = _PAGE_MODULES.get(selected)
-    if _mod_path:
-        try:
-            _mod = importlib.import_module(_mod_path)
-            _mod.render()
-        except ImportError as _exc:
-            st.error(f"Could not load page **{selected}**: {_exc}")
-        except Exception as _exc:
-            st.error(f"Error rendering **{selected}**: {_exc}")
-            import traceback
+# ---------------------------------------------------------------------------
+# Ticker input — top header bar, NOT sidebar
+# ---------------------------------------------------------------------------
 
+_hdr_l, _hdr_r = st.columns([3, 1])
+with _hdr_r:
+    _tk = st.text_input(
+        "Symbol", value=st.session_state.get("ticker", "AAPL"),
+        key="_global_ticker", label_visibility="collapsed", placeholder="Ticker...",
+    )
+    if _tk:
+        st.session_state["ticker"] = _tk.upper().strip()
+
+if selected and selected != "---":
+    _path = _MAP.get(selected)
+    if _path:
+        try:
+            importlib.import_module(_path).render()
+        except ImportError as _e:
+            st.error(f"Could not load page **{selected}**: {_e}")
+        except Exception as _e:
+            st.error(f"Error rendering **{selected}**: {_e}")
+            import traceback
             st.code(traceback.format_exc(), language="python")
