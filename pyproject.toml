@@ -292,8 +292,12 @@ viz = [
 ]
 scale = ["dask>=2026.1.2", "dask-ml>=2025.1.0", "ray>=2.54.0"]
 dashboard = ["streamlit>=1.56.0", "plotly>=6.6.0"]
+# Note: some groups contain packages not yet compatible with pandas 3 /
+# Python 3.13 (copulae, darts, econml, sktime, etc.). They remain in
+# individual groups for users on compatible stacks. The `all` meta-group
+# only includes groups that resolve cleanly on the latest stack.
 all = [
-  "wraquant[market-data,timeseries,cleaning,validation,etl,ingestion,workflow,optimization,regimes,backtesting,risk,pricing,stochastic,viz,bayes,causal,scale,dashboard,ml,accelerate,quant-math]",
+  "wraquant[market-data,cleaning,validation,etl,ingestion,workflow,optimization,pricing,stochastic,viz,dashboard,ml,accelerate,quant-math]",
 ]
 
 [tool.uv]

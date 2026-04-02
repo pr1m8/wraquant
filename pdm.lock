@@ -5,7 +5,7 @@
 groups = ["default", "accelerate", "all", "backtesting", "bayes", "causal", "cleaning", "conic-extra", "dashboard", "dev", "etl", "ingestion", "logging", "lp-extra", "market-data", "ml", "nlp-extra", "optimization", "pde", "pricing", "profiling", "quant-math", "regimes", "risk", "scale", "stochastic", "symbolic", "timeseries", "validation", "viz", "warehouse", "workflow"]
 strategy = []
 lock_version = "4.5.0"
-content_hash = "sha256:da50dc9691ab65822015322f6e3187b9accb8196c61bdd87f8d54916aeb09984"
+content_hash = "sha256:25f1e24d6d8637b1301330f56bd455e5fa042b167567699f9ef315026d5a8ead"
 
 [[metadata.targets]]
 requires_python = ">=3.13"
