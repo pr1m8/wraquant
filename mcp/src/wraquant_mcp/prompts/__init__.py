@@ -19,6 +19,7 @@ def register_all_prompts(mcp: Any) -> None:
     from wraquant_mcp.prompts.econometrics import register_econometrics_prompts
     from wraquant_mcp.prompts.execution import register_execution_prompts
     from wraquant_mcp.prompts.forex import register_forex_prompts
+    from wraquant_mcp.prompts.fundamental import register_fundamental_prompts
     from wraquant_mcp.prompts.math import register_math_prompts
     from wraquant_mcp.prompts.ml import register_ml_prompts
     from wraquant_mcp.prompts.portfolio import register_portfolio_prompts
@@ -46,3 +47,4 @@ def register_all_prompts(mcp: Any) -> None:
     register_data_prompts(mcp)
     register_math_prompts(mcp)
     register_bayes_prompts(mcp)
+    register_fundamental_prompts(mcp)

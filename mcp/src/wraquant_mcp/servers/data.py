@@ -2,9 +2,9 @@
 
 Tools: load_csv, load_json, export_dataset, merge_datasets,
 filter_dataset, rename_columns, resample_dataset,
-fetch_yahoo, fetch_ohlcv, clean_dataset, validate_returns,
-resample_ohlcv, align_datasets, compute_log_returns,
-add_column, describe_dataset, split_dataset.
+fetch_yahoo, fetch_ohlcv, fetch_fmp, clean_dataset,
+validate_returns, resample_ohlcv, align_datasets,
+compute_log_returns, add_column, describe_dataset, split_dataset.
 """
 
 from __future__ import annotations
@@ -489,6 +489,73 @@ def register_data_tools(mcp, ctx: AnalysisContext) -> None:
                 **stored,
             }
         )
+
+    @mcp.tool()
+    def fetch_fmp(
+        symbol: str,
+        start: str = "2020-01-01",
+        end: str | None = None,
+        interval: str = "daily",
+    ) -> dict[str, Any]:
+        """Fetch historical OHLCV prices from FMP as an alternative to Yahoo.
+
+        Downloads price data via the FMP API (requires FMP_API_KEY env var)
+        and stores it as a named dataset in the workspace DuckDB store.
+        Supports daily and intraday intervals.
+
+        Parameters:
+            symbol: Ticker symbol (e.g., 'AAPL', 'MSFT', 'BTC-USD').
+            start: Start date string (e.g., '2020-01-01').
+            end: End date string. If None, fetches up to today.
+            interval: Bar resolution — 'daily' (default), '1min', '5min',
+                '15min', '30min', '1hour', '4hour'.
+        """
+        try:
+            from wraquant.data.providers.fmp import FMPClient
+
+            client = FMPClient()
+            df = client.historical_price(
+                symbol, start=start, end=end, interval=interval
+            )
+
+            if df.empty:
+                return {
+                    "error": f"No price data returned for {symbol} ({start} to {end or 'today'})",
+                    "tool": "fetch_fmp",
+                }
+
+            # Set date as index if present
+            if "date" in df.columns:
+                import pandas as pd
+
+                df["date"] = pd.to_datetime(df["date"])
+                df = df.set_index("date")
+
+            name = f"prices_{symbol.lower().replace('-', '_')}"
+            stored = ctx.store_dataset(name, df, source_op="fetch_fmp")
+
+            ctx._log(
+                "fetch_fmp",
+                name,
+                symbol=symbol,
+                start=start,
+                end=end,
+                interval=interval,
+            )
+
+            return _sanitize_for_json(
+                {
+                    "tool": "fetch_fmp",
+                    "symbol": symbol,
+                    "start": start,
+                    "end": end,
+                    "interval": interval,
+                    "source": "FMP",
+                    **stored,
+                }
+            )
+        except Exception as e:
+            return {"error": str(e), "tool": "fetch_fmp"}
 
     # ------------------------------------------------------------------
     # Data cleaning / validation tools
