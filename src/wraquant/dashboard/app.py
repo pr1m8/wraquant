@@ -191,12 +191,21 @@ with st.sidebar:
         ]
         selected = st.radio("Navigate", PAGES, label_visibility="collapsed")
 
-    st.divider()
+# ---------------------------------------------------------------------------
+# Top bar with ticker input (NOT in sidebar)
+# ---------------------------------------------------------------------------
 
-    # Global ticker input (available on all pages via session state)
-    from wraquant.dashboard.components.sidebar import ticker_input  # noqa: E402
-
-    ticker = ticker_input()
+_top_left, _top_right = st.columns([3, 1])
+with _top_right:
+    _ticker = st.text_input(
+        "Ticker",
+        value=st.session_state.get("ticker", "AAPL"),
+        key="_ticker_input",
+        label_visibility="collapsed",
+        placeholder="Enter ticker...",
+    )
+    if _ticker:
+        st.session_state["ticker"] = _ticker.upper().strip()
 
 # ---------------------------------------------------------------------------
 # Page routing
