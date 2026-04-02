@@ -1,0 +1,23 @@
+{
+  "mcpServers": {
+    "wraquant": {
+      "command": "wraquant-mcp",
+      "env": {
+        "PYTHONUNBUFFERED": "1"
+      }
+    },
+    "openbb": {
+      "command": "openbb-mcp",
+      "env": {
+        "OPENBB_TOKEN": "your_openbb_token_here"
+      }
+    },
+    "duckdb": {
+      "command": "duckdb-mcp",
+      "args": [
+        "--db",
+        "~/.wraquant/workspaces/default/data.duckdb"
+      ]
+    }
+  }
+}
