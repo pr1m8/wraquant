@@ -1386,6 +1386,39 @@ is always available.
 
 ---
 
+## MCP Server (AI Agent Integration)
+
+wraquant-mcp exposes all 1,097 wraquant functions as MCP (Model Context
+Protocol) tools for Claude, LangChain, and other AI agents. 182 hand-crafted
+tools, 128 prompt templates, shared DuckDB state.
+
+```bash
+pip install wraquant-mcp
+wraquant-mcp                    # Start stdio server for Claude Desktop
+wraquant-mcp --transport http   # Start HTTP server for LangChain
+```
+
+Claude Desktop config (`~/.claude/claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "wraquant": {
+      "command": "wraquant-mcp",
+      "env": { "PYTHONUNBUFFERED": "1" }
+    }
+  }
+}
+```
+
+Composes with OpenBB MCP (data fetching), DuckDB MCP (SQL queries on shared
+state), Jupyter MCP (notebook interaction), and Alpaca MCP (trade execution).
+
+See [mcp/README.md](mcp/README.md) for full documentation, tool reference,
+prompt template catalog, and example workflows.
+
+---
+
 ## Development
 
 ```bash
