@@ -14,6 +14,14 @@ import os
 from pathlib import Path
 
 # ---------------------------------------------------------------------------
+# Kill pages/ directory if it exists (prevents Streamlit auto-nav conflict)
+# ---------------------------------------------------------------------------
+_pages_dir = Path(__file__).parent / "pages"
+if _pages_dir.exists():
+    import shutil
+    shutil.rmtree(_pages_dir, ignore_errors=True)
+
+# ---------------------------------------------------------------------------
 # Auto-load .env file if it exists (before any other imports)
 # ---------------------------------------------------------------------------
 _env_file = Path(__file__).resolve().parents[3] / ".env"
