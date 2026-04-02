@@ -1126,6 +1126,215 @@ class FMPClient:
             df.reset_index(drop=True, inplace=True)
         return df
 
+    # ── Analyst & Ratings ─────────────────────────────────────────────
+
+    def analyst_estimates(
+        self,
+        symbol: str,
+        period: str = "annual",
+        limit: int = 10,
+    ) -> pd.DataFrame:
+        """Fetch analyst earnings and revenue estimates.
+
+        Returns:
+            DataFrame with estimatedRevenueAvg, estimatedEpsAvg,
+            numberAnalystEstimatedRevenue, etc.
+        """
+        return self._get_df(
+            "/stable/analyst-estimates",
+            {"symbol": symbol, "period": period, "limit": limit},
+        )
+
+    def price_target(self, symbol: str) -> pd.DataFrame:
+        """Fetch analyst price target history.
+
+        Returns:
+            DataFrame with publishedDate, analystName, priceTarget.
+        """
+        return self._get_df("/stable/price-target", {"symbol": symbol})
+
+    def price_target_consensus(self, symbol: str) -> dict[str, Any]:
+        """Get consensus price target.
+
+        Returns:
+            Dict with targetHigh, targetLow, targetConsensus, targetMedian.
+        """
+        data = self._get("/stable/price-target-consensus", {"symbol": symbol})
+        return data[0] if isinstance(data, list) and data else data
+
+    def upgrades_downgrades(self, symbol: str) -> pd.DataFrame:
+        """Fetch analyst upgrades and downgrades.
+
+        Returns:
+            DataFrame with publishedDate, action, newGrade, previousGrade.
+        """
+        return self._get_df("/stable/upgrades-downgrades", {"symbol": symbol})
+
+    def stock_peers(self, symbol: str) -> list[str]:
+        """Get peer companies for a stock.
+
+        Returns:
+            List of peer ticker symbols.
+        """
+        data = self._get("/stable/stock-peers", {"symbol": symbol})
+        if isinstance(data, list) and data and isinstance(data[0], dict):
+            return data[0].get("peersList", [])
+        return []
+
+    # ── ESG ───────────────────────────────────────────────────────────
+
+    def esg_ratings(self, symbol: str) -> dict[str, Any]:
+        """Get ESG ratings for a company.
+
+        Returns:
+            Dict with environmentalScore, socialScore,
+            governanceScore, ESGScore.
+        """
+        data = self._get(
+            "/stable/esg-environmental-social-governance-data", {"symbol": symbol}
+        )
+        return data[0] if isinstance(data, list) and data else data
+
+    # ── Index Constituents ────────────────────────────────────────────
+
+    def index_constituents(self, index: str = "sp500") -> pd.DataFrame:
+        """Get constituents of a major index.
+
+        Parameters:
+            index: 'sp500', 'nasdaq', or 'dowjones'.
+
+        Returns:
+            DataFrame with symbol, name, sector, subSector.
+        """
+        path_map = {
+            "sp500": "/stable/sp500-constituents",
+            "nasdaq": "/stable/nasdaq-constituents",
+            "dowjones": "/stable/dowjones-constituents",
+        }
+        return self._get_df(path_map.get(index, f"/stable/{index}-constituents"))
+
+    # ── Revenue Segments ──────────────────────────────────────────────
+
+    def revenue_product_segmentation(self, symbol: str) -> pd.DataFrame:
+        """Fetch revenue breakdown by product segment."""
+        return self._get_df("/stable/revenue-product-segmentation", {"symbol": symbol})
+
+    def revenue_geographic_segmentation(self, symbol: str) -> pd.DataFrame:
+        """Fetch revenue breakdown by geographic region."""
+        return self._get_df(
+            "/stable/revenue-geographic-segmentation", {"symbol": symbol}
+        )
+
+    # ── Government Trading ────────────────────────────────────────────
+
+    def senate_trades(self, symbol: str | None = None) -> pd.DataFrame:
+        """Fetch US Senate stock trading disclosures.
+
+        Parameters:
+            symbol: Optional ticker to filter. None = all senators.
+        """
+        params: dict[str, Any] = {}
+        if symbol:
+            params["symbol"] = symbol
+        return self._get_df("/stable/senate-trading", params)
+
+    def house_trades(self, symbol: str | None = None) -> pd.DataFrame:
+        """Fetch US House of Representatives trading disclosures.
+
+        Parameters:
+            symbol: Optional ticker to filter.
+        """
+        params: dict[str, Any] = {}
+        if symbol:
+            params["symbol"] = symbol
+        return self._get_df("/stable/house-disclosure", params)
+
+    # ── Stock Screener ────────────────────────────────────────────────
+
+    def stock_screener(
+        self,
+        market_cap_gt: int | None = None,
+        market_cap_lt: int | None = None,
+        sector: str | None = None,
+        industry: str | None = None,
+        country: str | None = None,
+        exchange: str | None = None,
+        dividend_gt: float | None = None,
+        volume_gt: int | None = None,
+        beta_gt: float | None = None,
+        beta_lt: float | None = None,
+        price_gt: float | None = None,
+        price_lt: float | None = None,
+        limit: int = 100,
+    ) -> pd.DataFrame:
+        """Screen stocks by fundamental criteria.
+
+        Parameters:
+            market_cap_gt: Minimum market cap.
+            market_cap_lt: Maximum market cap.
+            sector: Filter by sector (e.g., 'Technology').
+            industry: Filter by industry.
+            country: Filter by country (e.g., 'US').
+            exchange: Filter by exchange.
+            dividend_gt: Minimum dividend yield.
+            volume_gt: Minimum average volume.
+            beta_gt: Minimum beta.
+            beta_lt: Maximum beta.
+            price_gt: Minimum price.
+            price_lt: Maximum price.
+            limit: Max results.
+
+        Returns:
+            DataFrame of matching stocks with key metrics.
+        """
+        params: dict[str, Any] = {"limit": limit}
+        if market_cap_gt is not None:
+            params["marketCapMoreThan"] = market_cap_gt
+        if market_cap_lt is not None:
+            params["marketCapLowerThan"] = market_cap_lt
+        if sector:
+            params["sector"] = sector
+        if industry:
+            params["industry"] = industry
+        if country:
+            params["country"] = country
+        if exchange:
+            params["exchange"] = exchange
+        if dividend_gt is not None:
+            params["dividendMoreThan"] = dividend_gt
+        if volume_gt is not None:
+            params["volumeMoreThan"] = volume_gt
+        if beta_gt is not None:
+            params["betaMoreThan"] = beta_gt
+        if beta_lt is not None:
+            params["betaLowerThan"] = beta_lt
+        if price_gt is not None:
+            params["priceMoreThan"] = price_gt
+        if price_lt is not None:
+            params["priceLowerThan"] = price_lt
+        return self._get_df("/stable/stock-screener", params)
+
+    # ── Shares Float ──────────────────────────────────────────────────
+
+    def shares_float(self, symbol: str) -> dict[str, Any]:
+        """Get shares float data.
+
+        Returns:
+            Dict with freeFloat, floatShares, outstandingShares.
+        """
+        data = self._get("/stable/shares-float", {"symbol": symbol})
+        return data[0] if isinstance(data, list) and data else data
+
+    # ── Executive Compensation ────────────────────────────────────────
+
+    def executive_compensation(self, symbol: str) -> pd.DataFrame:
+        """Fetch executive compensation data.
+
+        Returns:
+            DataFrame with name, title, salary, bonus, stockAward.
+        """
+        return self._get_df("/stable/executive-compensation", {"symbol": symbol})
+
 
 # ======================================================================
 # DataProvider adapter — thin OHLCV bridge for the provider registry
