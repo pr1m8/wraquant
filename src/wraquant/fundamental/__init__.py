@@ -1,29 +1,60 @@
 """Fundamental analysis for quantitative finance.
 
-Provides FMP-backed tools for financial ratios, valuation models,
-financial statement analysis, earnings quality, and stock screening.
+Provides tools for computing financial ratios, valuation models,
+financial statement analysis, and stock screening -- the building
+blocks of fundamental-driven quant strategies.
 
-Modules:
-    ratios: Profitability, liquidity, leverage, efficiency, valuation ratios
-    valuation: DCF, relative valuation, Graham number, DDM, residual income
-    financials: Income/balance sheet/cash flow analysis, health scores
-    screening: Stock screeners (value, growth, quality, Piotroski, magic formula)
+This module covers four areas:
+
+1. **Financial ratios** (``ratios`` submodule) -- Profitability, liquidity,
+   leverage, efficiency, valuation, and growth ratios.  Includes DuPont
+   decomposition (3-way and 5-way) and a convenience function that
+   aggregates all ratios.
+
+2. **Valuation models** (``valuation`` submodule) -- DCF valuation,
+   relative valuation, Graham Number, Peter Lynch fair value, Dividend
+   Discount Model, Residual Income Model, and margin of safety.
+   Also retains the Piotroski F-Score and DataFrame quality screen.
+
+3. **Financial statement analysis** (``financials`` submodule) -- Income
+   statement, balance sheet, and cash flow trend analysis.  Composite
+   financial health scoring (0--100), earnings quality assessment, and
+   common-size statements.
+
+4. **Stock screening** (``screening`` submodule) -- Pre-built screens for
+   value, growth, and quality investing.  Classic strategies: Piotroski
+   F-Score screen and Greenblatt's Magic Formula.  Flexible custom
+   screening with arbitrary criteria.
+
+All FMP-based functions accept an optional ``fmp_client`` parameter to
+reuse a single provider instance across calls.
 
 Example:
-    >>> from wraquant.fundamental import comprehensive_ratios, dcf_valuation
-    >>> ratios = comprehensive_ratios("AAPL")
-    >>> dcf = dcf_valuation("AAPL", discount_rate=0.10)
-    >>> print(f"Intrinsic value: ${dcf['intrinsic_value_per_share']:.2f}")
+    >>> from wraquant.fundamental import profitability_ratios, dcf_valuation
+    >>> prof = profitability_ratios("AAPL")
+    >>> print(f"ROE: {prof['roe']:.2%}")
+    >>> dcf = dcf_valuation("AAPL")
+    >>> print(f"Fair value: ${dcf['intrinsic_value_per_share']:.2f}")
 
 References:
     - Graham & Dodd (1934), "Security Analysis"
-    - Piotroski (2000), "Value Investing"
+    - Piotroski (2000), "Value Investing: The Use of Historical
+      Financial Statement Information to Separate Winners from Losers"
     - Greenblatt (2006), "The Little Book That Beats the Market"
-    - Damodaran (2012), "Investment Valuation"
+    - Damodaran (2012), "Investment Valuation", 3rd edition
 """
 
-from __future__ import annotations
+# --- Financial statement analysis ---
+from wraquant.fundamental.financials import (
+    balance_sheet_analysis,
+    cash_flow_analysis,
+    common_size_analysis,
+    earnings_quality,
+    financial_health_score,
+    income_analysis,
+)
 
+# --- Ratios ---
 from wraquant.fundamental.ratios import (
     comprehensive_ratios,
     dupont_decomposition,
@@ -34,6 +65,20 @@ from wraquant.fundamental.ratios import (
     profitability_ratios,
     valuation_ratios,
 )
+
+# --- Screening ---
+from wraquant.fundamental.screening import (
+    custom_screen,
+    growth_screen,
+    magic_formula_screen,
+    piotroski_screen,
+)
+from wraquant.fundamental.screening import quality_screen as quality_factor_screen
+from wraquant.fundamental.screening import (
+    value_screen,
+)
+
+# --- Valuation ---
 from wraquant.fundamental.valuation import (
     dcf_valuation,
     dividend_discount_model,
@@ -45,29 +90,6 @@ from wraquant.fundamental.valuation import (
     relative_valuation,
     residual_income_model,
 )
-
-try:
-    from wraquant.fundamental.financials import (
-        balance_sheet_analysis,
-        cash_flow_analysis,
-        common_size_analysis,
-        earnings_quality,
-        financial_health_score,
-        income_analysis,
-    )
-except ImportError:
-    pass
-
-try:
-    from wraquant.fundamental.screening import (
-        custom_screen,
-        growth_screen,
-        magic_formula_screen,
-        piotroski_screen,
-        value_screen,
-    )
-except ImportError:
-    pass
 
 __all__ = [
     # Ratios
@@ -89,7 +111,7 @@ __all__ = [
     "margin_of_safety",
     "piotroski_f_score",
     "quality_screen",
-    # Financials
+    # Financial statement analysis
     "income_analysis",
     "balance_sheet_analysis",
     "cash_flow_analysis",
@@ -99,6 +121,7 @@ __all__ = [
     # Screening
     "value_screen",
     "growth_screen",
+    "quality_factor_screen",
     "piotroski_screen",
     "magic_formula_screen",
     "custom_screen",
