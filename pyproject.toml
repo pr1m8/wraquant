@@ -1,6 +1,6 @@
 [project]
 name = "wraquant"
-version = "0.1.1"
+version = "1.0.0"
 description = "The ultimate quant finance toolkit for Python"
 authors = [
   { name = "William Astley", email = "william.astley@algebraicwealth.com" },
@@ -19,10 +19,21 @@ requires-python = ">=3.13"
 readme = "README.md"
 license = { text = "MIT" }
 keywords = [
-  "quantitative-finance", "trading", "risk-management", "portfolio-optimization",
-  "technical-analysis", "backtesting", "time-series", "volatility", "garch",
-  "regime-detection", "options-pricing", "machine-learning", "bayesian",
-  "econometrics", "market-microstructure",
+  "quantitative-finance",
+  "trading",
+  "risk-management",
+  "portfolio-optimization",
+  "technical-analysis",
+  "backtesting",
+  "time-series",
+  "volatility",
+  "garch",
+  "regime-detection",
+  "options-pricing",
+  "machine-learning",
+  "bayesian",
+  "econometrics",
+  "market-microstructure",
 ]
 classifiers = [
   "Development Status :: 4 - Beta",
