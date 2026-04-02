@@ -34,6 +34,14 @@ def _fetch_series(ticker: str, days: int = 1095):
         )
         if df is not None and not df.empty:
             df.columns = [c.lower() for c in df.columns]
+            if "date" in df.columns:
+                df["date"] = pd.to_datetime(df["date"])
+                df = df.set_index("date").sort_index()
+            elif not isinstance(df.index, pd.DatetimeIndex):
+                try:
+                    df.index = pd.to_datetime(df.index)
+                except (ValueError, TypeError):
+                    pass
             close = df["close"]
             return close, close.pct_change().dropna()
     except Exception:
@@ -280,6 +288,13 @@ def render() -> None:
     # ---- Seasonality Tab ----
     with tab_season:
         st.subheader("Calendar Effects")
+
+        # Ensure DatetimeIndex for seasonality
+        if not isinstance(returns.index, pd.DatetimeIndex):
+            try:
+                returns.index = pd.to_datetime(returns.index)
+            except (ValueError, TypeError):
+                st.warning("Cannot compute seasonality without date index.")
 
         # Day-of-week
         if hasattr(returns.index, "dayofweek"):
@@ -582,7 +597,7 @@ def render() -> None:
             if len(anomalies) > 0:
                 st.subheader("Anomaly Events")
                 anom_df = pd.DataFrame({
-                    "Date": anomalies.index.strftime("%Y-%m-%d"),
+                    "Date": [str(d)[:10] for d in anomalies.index],
                     "Return": [f"{v:.4%}" for v in anomalies.values],
                     "Z-Score": [
                         f"{(v - returns.mean()) / returns.std():.2f}"
