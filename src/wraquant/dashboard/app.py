@@ -1,8 +1,7 @@
-"""wraquant Dashboard -- Interactive Quantitative Finance Analysis.
+"""wraquant Dashboard v2 -- Interactive Quantitative Finance Analysis.
 
-Main Streamlit application that wires together the page modules
-under ``wraquant.dashboard.pages``.  Each page is a self-contained
-render function that owns its own layout and state.
+Complete rewrite with streamlit-option-menu sidebar navigation,
+grouped page sections, and polished dark theme.
 
 Launch:
     streamlit run src/wraquant/dashboard/app.py
@@ -14,7 +13,9 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+# ---------------------------------------------------------------------------
 # Auto-load .env file if it exists (before any other imports)
+# ---------------------------------------------------------------------------
 _env_file = Path(__file__).resolve().parents[3] / ".env"
 if _env_file.exists():
     for line in _env_file.read_text().splitlines():
@@ -23,7 +24,7 @@ if _env_file.exists():
             key, _, value = line.partition("=")
             os.environ.setdefault(key.strip(), value.strip())
 
-import streamlit as st
+import streamlit as st  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Page config (must be the first Streamlit call)
@@ -31,7 +32,7 @@ import streamlit as st
 
 st.set_page_config(
     page_title="wraquant Dashboard",
-    page_icon="\U0001f4ca",  # bar chart emoji
+    page_icon="\U0001f4ca",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -83,103 +84,153 @@ st.markdown(
     hr {
         border-color: rgba(255,255,255,0.06) !important;
     }
+    /* Option menu tweaks */
+    .nav-link {
+        font-size: 0.9rem !important;
+    }
+    .nav-link-selected {
+        background-color: #6366f1 !important;
+        font-weight: 600 !important;
+    }
     </style>
     """,
     unsafe_allow_html=True,
 )
 
 # ---------------------------------------------------------------------------
-# Sidebar navigation
+# Sidebar navigation with streamlit-option-menu
 # ---------------------------------------------------------------------------
 
-st.sidebar.markdown("## wraquant")
-st.sidebar.caption("The ultimate quant finance toolkit")
-st.sidebar.divider()
+with st.sidebar:
+    try:
+        from streamlit_option_menu import option_menu
 
-PAGES = [
-    "Home",
-    "Fundamental Analysis",
-    "Valuation",
-    "Technical Analysis",
-    "Risk & Regimes",
-    "Portfolio Risk",
-    "VaR & Stress Testing",
-    "Volatility Modeling",
-    "Regime Analysis",
-    "Backtest Lab",
-    "News & Events",
-    "Screener",
-]
+        selected = option_menu(
+            "wraquant",
+            [
+                "Overview",
+                "---",
+                "Fundamental",
+                "Valuation",
+                "Screener",
+                "---",
+                "Technical Analysis",
+                "Returns & Stats",
+                "---",
+                "Risk Dashboard",
+                "VaR & Stress Test",
+                "Portfolio",
+                "---",
+                "Volatility",
+                "Regimes",
+                "Forecasting",
+                "---",
+                "News & Events",
+                "FX Analysis",
+            ],
+            icons=[
+                "house",
+                None,
+                "building",
+                "calculator",
+                "search",
+                None,
+                "graph-up",
+                "bar-chart",
+                None,
+                "shield",
+                "exclamation-triangle",
+                "pie-chart",
+                None,
+                "activity",
+                "layers",
+                "graph-up-arrow",
+                None,
+                "newspaper",
+                "currency-exchange",
+            ],
+            menu_icon="graph-up",
+            default_index=0,
+            styles={
+                "container": {"padding": "4px", "background-color": "#16161d"},
+                "icon": {"color": "#94a3b8", "font-size": "14px"},
+                "nav-link": {
+                    "font-size": "14px",
+                    "text-align": "left",
+                    "margin": "2px 0",
+                    "color": "#e2e8f0",
+                    "--hover-color": "#1e1e28",
+                },
+                "nav-link-selected": {
+                    "background-color": "#6366f1",
+                    "color": "white",
+                },
+                "separator": {
+                    "border-color": "rgba(255,255,255,0.06)",
+                },
+            },
+        )
+    except ImportError:
+        st.markdown("## wraquant")
+        st.caption("Install `streamlit-option-menu` for enhanced nav")
+        PAGES = [
+            "Overview",
+            "Fundamental",
+            "Valuation",
+            "Screener",
+            "Technical Analysis",
+            "Returns & Stats",
+            "Risk Dashboard",
+            "VaR & Stress Test",
+            "Portfolio",
+            "Volatility",
+            "Regimes",
+            "Forecasting",
+            "News & Events",
+            "FX Analysis",
+        ]
+        selected = st.radio("Navigate", PAGES, label_visibility="collapsed")
 
-page = st.sidebar.radio("Navigate", PAGES, label_visibility="collapsed")
+    st.divider()
 
-st.sidebar.divider()
+    # Global ticker input (available on all pages via session state)
+    from wraquant.dashboard.components.sidebar import ticker_input  # noqa: E402
 
-# Global ticker input (available on all pages via session state)
-from wraquant.dashboard.components.sidebar import ticker_input  # noqa: E402
-
-ticker = ticker_input()
+    ticker = ticker_input()
 
 # ---------------------------------------------------------------------------
 # Page routing
 # ---------------------------------------------------------------------------
 
-if page == "Home":
-    from wraquant.dashboard.pages.overview import render
+_PAGE_MAP = {
+    "Overview": "wraquant.dashboard.views.overview",
+    "Fundamental": "wraquant.dashboard.views.fundamental_analysis",
+    "Valuation": "wraquant.dashboard.views.valuation",
+    "Screener": "wraquant.dashboard.views.screener",
+    "Technical Analysis": "wraquant.dashboard.views.technical_analysis",
+    "Returns & Stats": "wraquant.dashboard.views.returns_stats",
+    "Risk Dashboard": "wraquant.dashboard.views.risk_regimes",
+    "VaR & Stress Test": "wraquant.dashboard.views.var_analysis",
+    "Portfolio": "wraquant.dashboard.views.portfolio_risk",
+    "Volatility": "wraquant.dashboard.views.volatility",
+    "Regimes": "wraquant.dashboard.views.regime_analysis",
+    "Forecasting": "wraquant.dashboard.views.forecasting",
+    "News & Events": "wraquant.dashboard.views.news_events",
+    "FX Analysis": "wraquant.dashboard.views.fx_analysis",
+}
 
-    render()
+if selected and selected != "---":
+    module_path = _PAGE_MAP.get(selected)
+    if module_path:
+        import importlib
 
-elif page == "Fundamental Analysis":
-    from wraquant.dashboard.pages.fundamental_analysis import render
+        try:
+            mod = importlib.import_module(module_path)
+            mod.render()
+        except ImportError as exc:
+            st.error(f"Could not load page **{selected}**: {exc}")
+        except Exception as exc:
+            st.error(f"Error rendering **{selected}**: {exc}")
+            import traceback
 
-    render()
-
-elif page == "Valuation":
-    from wraquant.dashboard.pages.valuation import render
-
-    render()
-
-elif page == "Technical Analysis":
-    from wraquant.dashboard.pages.technical_analysis import render
-
-    render()
-
-elif page == "Risk & Regimes":
-    from wraquant.dashboard.pages.risk_regimes import render
-
-    render()
-
-elif page == "Portfolio Risk":
-    from wraquant.dashboard.pages.portfolio_risk import render
-
-    render()
-
-elif page == "VaR & Stress Testing":
-    from wraquant.dashboard.pages.var_analysis import render
-
-    render()
-
-elif page == "Volatility Modeling":
-    from wraquant.dashboard.pages.volatility import render
-
-    render()
-
-elif page == "Regime Analysis":
-    from wraquant.dashboard.pages.regime_analysis import render
-
-    render()
-
-elif page == "Backtest Lab":
-    from wraquant.dashboard.pages.backtest_lab import render
-
-    render()
-
-elif page == "News & Events":
-    from wraquant.dashboard.pages.news_events import render
-
-    render()
-
-elif page == "Screener":
-    from wraquant.dashboard.pages.screener import render
-
-    render()
+            st.code(traceback.format_exc(), language="python")

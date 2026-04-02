@@ -2,19 +2,23 @@
 
 ## Overview
 
-The ultimate quant finance Python package. 25+ modules, 2400+ tests, 263 TA indicators. PDM for package management, Trunk for linting.
+The ultimate quant finance Python package. 27 modules, 3630+ tests, 265 TA indicators, 55-method FMP client, 44 fundamental functions, 218 MCP tools, 12-page Streamlit dashboard. PDM for package management, Trunk for linting.
 
 ## Commands
 
 ```bash
 pdm install                    # Install core deps
 pdm install -G dev             # Install dev deps
+pdm install -G dashboard       # Install dashboard (streamlit, plotly, option-menu)
 pdm install -G market-data     # Install a specific extra group
 pdm run test                   # Run tests
 pdm run test-cov               # Run tests with coverage
+pdm run test-mcp               # Run MCP tests
 pdm run lint                   # Lint with trunk
 pdm run fmt                    # Format with trunk
 pdm run changelog              # Generate changelog with git-cliff
+pdm run dashboard              # Launch Streamlit dashboard
+pdm run mcp-server             # Launch MCP server
 ```
 
 ## Project Structure

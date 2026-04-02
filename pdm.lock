@@ -5,7 +5,7 @@
 groups = ["default", "accelerate", "all", "backtesting", "bayes", "causal", "cleaning", "conic-extra", "dashboard", "dev", "etl", "ingestion", "logging", "lp-extra", "market-data", "ml", "nlp-extra", "optimization", "pde", "pricing", "profiling", "quant-math", "regimes", "risk", "scale", "stochastic", "symbolic", "timeseries", "validation", "viz", "warehouse", "workflow"]
 strategy = []
 lock_version = "4.5.0"
-content_hash = "sha256:4adc866371f297731c735d1eb9357aed9231216cdce502a9c6fc3a622be67115"
+content_hash = "sha256:b6c7fe438bd6fe9b00f39d7929a6197f258c054219c108dd2757b0ff6e39fb72"
 
 [[metadata.targets]]
 requires_python = ">=3.13"
@@ -9627,6 +9627,31 @@ dependencies = [
 files = [
     {file = "streamlit-1.56.0-py3-none-any.whl", hash = "sha256:8677a335734a30a51bc57ad0ec910e365d95f7c456fc02c60032927cd0729dc5"},
     {file = "streamlit-1.56.0.tar.gz", hash = "sha256:1176acfa89ae1318b79078e8efe689a9d02e8d58e325c00fc0e55fa2f3fe8d6a"},
+]
+
+[[package]]
+name = "streamlit-extras"
+version = "1.3.0"
+summary = ""
+dependencies = [
+    "plotly",
+    "streamlit",
+]
+files = [
+    {file = "streamlit_extras-1.3.0-py3-none-any.whl", hash = "sha256:3cdf9deede3f5560ee179158fcb9c8232fa1da54fca8439ed8bab9d3185d35f9"},
+    {file = "streamlit_extras-1.3.0.tar.gz", hash = "sha256:437be7422230a13b9606f9f6ec22e5f2595bde4b8352ce01ab43c6552bf0aeab"},
+]
+
+[[package]]
+name = "streamlit-option-menu"
+version = "0.4.0"
+summary = ""
+dependencies = [
+    "streamlit",
+]
+files = [
+    {file = "streamlit-option-menu-0.4.0.tar.gz", hash = "sha256:48ec69d59e547fa2fa4bfae001620df8af56a80de2f765ddbb9fcbfb84017129"},
+    {file = "streamlit_option_menu-0.4.0-py3-none-any.whl", hash = "sha256:a55fc7554047b6db371595af2182e435b8a2c715ee6124e8543685bd4670b07e"},
 ]
 
 [[package]]
