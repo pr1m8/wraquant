@@ -14,57 +14,60 @@ import pytest
 # Common mock data
 # ---------------------------------------------------------------------------
 
-_SCREENER_DF = pd.DataFrame(
-    [
-        {
-            "symbol": "AAPL",
-            "companyName": "Apple",
-            "marketCap": 3e12,
-            "sector": "Technology",
-            "beta": 1.2,
-        },
-        {
-            "symbol": "JNJ",
-            "companyName": "Johnson & Johnson",
-            "marketCap": 4e11,
-            "sector": "Healthcare",
-            "beta": 0.6,
-        },
-        {
-            "symbol": "KO",
-            "companyName": "Coca-Cola",
-            "marketCap": 2.5e11,
-            "sector": "Consumer Staples",
-            "beta": 0.5,
-        },
-        {
-            "symbol": "XOM",
-            "companyName": "Exxon Mobil",
-            "marketCap": 5e11,
-            "sector": "Energy",
-            "beta": 0.9,
-        },
-        {
-            "symbol": "MSFT",
-            "companyName": "Microsoft",
-            "marketCap": 3.2e12,
-            "sector": "Technology",
-            "beta": 0.9,
-        },
-    ]
-)
+_SCREENER_ROWS = [
+    {
+        "symbol": "AAPL",
+        "companyName": "Apple",
+        "marketCap": 3e12,
+        "sector": "Technology",
+        "beta": 1.2,
+    },
+    {
+        "symbol": "JNJ",
+        "companyName": "Johnson & Johnson",
+        "marketCap": 4e11,
+        "sector": "Healthcare",
+        "beta": 0.6,
+    },
+    {
+        "symbol": "KO",
+        "companyName": "Coca-Cola",
+        "marketCap": 2.5e11,
+        "sector": "Consumer Staples",
+        "beta": 0.5,
+    },
+    {
+        "symbol": "XOM",
+        "companyName": "Exxon Mobil",
+        "marketCap": 5e11,
+        "sector": "Energy",
+        "beta": 0.9,
+    },
+    {
+        "symbol": "MSFT",
+        "companyName": "Microsoft",
+        "marketCap": 3.2e12,
+        "sector": "Technology",
+        "beta": 0.9,
+    },
+]
 
 
 @pytest.fixture()
 def mock_fmp():
+    """Mock FMPClient with _get returning screener rows by default."""
     client = MagicMock()
-    client.stock_screener.return_value = _SCREENER_DF.copy()
+    # _screener_request calls client._get("/stable/stock-screener", params)
+    client._get.return_value = list(_SCREENER_ROWS)
     client.score.return_value = {"piotroskiScore": 8, "altmanZScore": 3.5}
     client.ratios_ttm.return_value = {
         "peRatioTTM": 20.0,
         "returnOnCapitalEmployedTTM": 0.25,
         "roicTTM": 0.22,
+        "returnOnEquityTTM": 0.25,
+        "debtEquityRatioTTM": 0.5,
     }
+    client.financial_growth.return_value = [{"revenueGrowth": 0.20}]
     return client
 
 
@@ -97,17 +100,18 @@ class TestValueScreen:
             limit=30,
             fmp_client=mock_fmp,
         )
-        mock_fmp.stock_screener.assert_called_once()
-        call_kwargs = mock_fmp.stock_screener.call_args
-        assert call_kwargs.kwargs.get("market_cap_gt") == 2_000_000_000
-        assert call_kwargs.kwargs.get("dividend_gt") == 0.03
-        assert call_kwargs.kwargs.get("limit") == 30
+        mock_fmp._get.assert_called_once()
+        call_args = mock_fmp._get.call_args
+        params = call_args[0][1]  # second positional arg is the params dict
+        assert params["marketCapMoreThan"] == 2_000_000_000
+        assert params["dividendMoreThan"] == 0.03
 
     @_PATCH_CHECK
     def test_non_empty_result(self, _ce, mock_fmp):
         from wraquant.fundamental.screening import value_screen
 
         result = value_screen(fmp_client=mock_fmp)
+        # No PE column in mock data, so no filtering happens — all pass through
         assert len(result) > 0
 
     @_PATCH_CHECK
@@ -115,7 +119,7 @@ class TestValueScreen:
         from wraquant.fundamental.screening import value_screen
 
         client = MagicMock()
-        client.stock_screener.return_value = pd.DataFrame()
+        client._get.return_value = []
         result = value_screen(fmp_client=client)
         assert isinstance(result, pd.DataFrame)
         assert len(result) == 0
@@ -139,14 +143,16 @@ class TestGrowthScreen:
         from wraquant.fundamental.screening import growth_screen
 
         growth_screen(min_market_cap=1_000_000_000, fmp_client=mock_fmp)
-        call_kwargs = mock_fmp.stock_screener.call_args
-        assert call_kwargs.kwargs.get("market_cap_gt") == 1_000_000_000
+        call_args = mock_fmp._get.call_args
+        params = call_args[0][1]
+        assert params["marketCapMoreThan"] == 1_000_000_000
 
     @_PATCH_CHECK
     def test_default_params(self, _ce, mock_fmp):
         from wraquant.fundamental.screening import growth_screen
 
         result = growth_screen(fmp_client=mock_fmp)
+        # growth_screen enriches with financial_growth; mock returns 0.20 >= 0.15
         assert len(result) == 5
 
 
@@ -168,8 +174,9 @@ class TestQualityScreenScreening:
         from wraquant.fundamental.screening import quality_screen
 
         quality_screen(fmp_client=mock_fmp)
-        call_kwargs = mock_fmp.stock_screener.call_args
-        assert call_kwargs.kwargs.get("beta_lt") == 1.5
+        call_args = mock_fmp._get.call_args
+        params = call_args[0][1]
+        assert params["betaLowerThan"] == 1.5
 
 
 # ---------------------------------------------------------------------------
@@ -200,7 +207,7 @@ class TestPiotroskiScreen:
         from wraquant.fundamental.screening import piotroski_screen
 
         client = MagicMock()
-        client.stock_screener.return_value = _SCREENER_DF.copy()
+        client._get.return_value = list(_SCREENER_ROWS)
         # Return low F-score for all
         client.score.return_value = {"piotroskiScore": 3, "altmanZScore": 1.5}
         result = piotroski_screen(min_score=7, fmp_client=client)
@@ -220,7 +227,7 @@ class TestPiotroskiScreen:
         from wraquant.fundamental.screening import piotroski_screen
 
         client = MagicMock()
-        client.stock_screener.return_value = _SCREENER_DF.head(2).copy()
+        client._get.return_value = _SCREENER_ROWS[:2]
         client.score.side_effect = [
             {"piotroskiScore": 8, "altmanZScore": 3.0},
             Exception("API error"),
@@ -261,26 +268,28 @@ class TestCustomScreen:
             "limit": 25,
         }
         custom_screen(criteria, fmp_client=mock_fmp)
-        call_kwargs = mock_fmp.stock_screener.call_args.kwargs
-        assert call_kwargs["market_cap_gt"] == 1e9
-        assert call_kwargs["market_cap_lt"] == 1e13
-        assert call_kwargs["sector"] == "Technology"
-        assert call_kwargs["country"] == "US"
-        assert call_kwargs["dividend_gt"] == 0.01
-        assert call_kwargs["beta_gt"] == 0.5
-        assert call_kwargs["beta_lt"] == 1.5
-        assert call_kwargs["price_gt"] == 10
-        assert call_kwargs["price_lt"] == 500
-        assert call_kwargs["volume_gt"] == 1_000_000
-        assert call_kwargs["limit"] == 25
+        call_args = mock_fmp._get.call_args
+        params = call_args[0][1]
+        assert params["marketCapMoreThan"] == 1e9
+        assert params["marketCapLowerThan"] == 1e13
+        assert params["sector"] == "Technology"
+        assert params["country"] == "US"
+        assert params["dividendMoreThan"] == 0.01
+        assert params["betaMoreThan"] == 0.5
+        assert params["betaLowerThan"] == 1.5
+        assert params["priceMoreThan"] == 10
+        assert params["priceLowerThan"] == 500
+        assert params["volumeMoreThan"] == 1_000_000
+        assert params["limit"] == 25
 
     @_PATCH_CHECK
     def test_default_country(self, _ce, mock_fmp):
         from wraquant.fundamental.screening import custom_screen
 
         custom_screen({}, fmp_client=mock_fmp)
-        call_kwargs = mock_fmp.stock_screener.call_args.kwargs
-        assert call_kwargs["country"] == "US"
+        call_args = mock_fmp._get.call_args
+        params = call_args[0][1]
+        assert params["country"] == "US"
 
     @_PATCH_CHECK
     def test_empty_criteria(self, _ce, mock_fmp):
@@ -325,7 +334,7 @@ class TestMagicFormulaScreen:
         from wraquant.fundamental.screening import magic_formula_screen
 
         client = MagicMock()
-        client.stock_screener.return_value = pd.DataFrame()
+        client._get.return_value = []
         result = magic_formula_screen(fmp_client=client)
         assert isinstance(result, pd.DataFrame)
         assert len(result) == 0

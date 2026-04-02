@@ -247,7 +247,7 @@ class TestNewsSignal:
 
 class TestNewsSentiment:
     @_PATCH_CHECK
-    @patch("wraquant.news.sentiment.FMPClient")
+    @patch("wraquant.data.providers.fmp.FMPClient")
     def test_keys(self, mock_cls, _ce):
         from wraquant.news.sentiment import news_sentiment
 
@@ -267,7 +267,7 @@ class TestNewsSentiment:
         assert expected_keys == set(result.keys())
 
     @_PATCH_CHECK
-    @patch("wraquant.news.sentiment.FMPClient")
+    @patch("wraquant.data.providers.fmp.FMPClient")
     def test_article_count(self, mock_cls, _ce):
         from wraquant.news.sentiment import news_sentiment
 
@@ -277,7 +277,7 @@ class TestNewsSentiment:
         assert result["article_count"] == len(_NEWS_DF)
 
     @_PATCH_CHECK
-    @patch("wraquant.news.sentiment.FMPClient")
+    @patch("wraquant.data.providers.fmp.FMPClient")
     def test_aggregate_keys(self, mock_cls, _ce):
         from wraquant.news.sentiment import news_sentiment
 
@@ -297,7 +297,7 @@ class TestNewsSentiment:
         assert expected_agg_keys == set(agg.keys())
 
     @_PATCH_CHECK
-    @patch("wraquant.news.sentiment.FMPClient")
+    @patch("wraquant.data.providers.fmp.FMPClient")
     def test_trend_values(self, mock_cls, _ce):
         from wraquant.news.sentiment import news_sentiment
 
@@ -307,7 +307,7 @@ class TestNewsSentiment:
         assert result["trend"] in {"improving", "deteriorating", "stable"}
 
     @_PATCH_CHECK
-    @patch("wraquant.news.sentiment.FMPClient")
+    @patch("wraquant.data.providers.fmp.FMPClient")
     def test_empty_news(self, mock_cls, _ce):
         from wraquant.news.sentiment import news_sentiment
 
@@ -319,7 +319,7 @@ class TestNewsSentiment:
         assert result["aggregate"]["mean"] == 0.0
 
     @_PATCH_CHECK
-    @patch("wraquant.news.sentiment.FMPClient")
+    @patch("wraquant.data.providers.fmp.FMPClient")
     def test_pct_sum_to_one(self, mock_cls, _ce):
         from wraquant.news.sentiment import news_sentiment
 
@@ -338,7 +338,7 @@ class TestNewsSentiment:
 
 class TestSentimentTimeseries:
     @_PATCH_CHECK
-    @patch("wraquant.news.sentiment.FMPClient")
+    @patch("wraquant.data.providers.fmp.FMPClient")
     def test_returns_series(self, mock_cls, _ce):
         from wraquant.news.sentiment import sentiment_timeseries
 
@@ -348,7 +348,7 @@ class TestSentimentTimeseries:
         assert result.name == "sentiment"
 
     @_PATCH_CHECK
-    @patch("wraquant.news.sentiment.FMPClient")
+    @patch("wraquant.data.providers.fmp.FMPClient")
     def test_empty_news_returns_zeros(self, mock_cls, _ce):
         from wraquant.news.sentiment import sentiment_timeseries
 
@@ -365,7 +365,7 @@ class TestSentimentTimeseries:
 
 class TestSentimentSignalFMP:
     @_PATCH_CHECK
-    @patch("wraquant.news.sentiment.FMPClient")
+    @patch("wraquant.data.providers.fmp.FMPClient")
     def test_returns_string(self, mock_cls, _ce):
         from wraquant.news.sentiment import sentiment_signal
 
@@ -375,7 +375,7 @@ class TestSentimentSignalFMP:
         assert result in {"bullish", "bearish", "neutral"}
 
     @_PATCH_CHECK
-    @patch("wraquant.news.sentiment.FMPClient")
+    @patch("wraquant.data.providers.fmp.FMPClient")
     def test_neutral_when_empty(self, mock_cls, _ce):
         from wraquant.news.sentiment import sentiment_signal
 

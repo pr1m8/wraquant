@@ -495,7 +495,7 @@ class TestPiotroskiFScore:
         financials = {
             "net_income": -1e6,
             "prev_net_income": 1e6,
-            "operating_cash_flow": -5e5,
+            "operating_cash_flow": -2e6,  # OCF < 0 (fail #2) and OCF < NI (fail #4)
             "total_assets": 5e6,
             "prev_total_assets": 4e6,
             "long_term_debt": 2e6,

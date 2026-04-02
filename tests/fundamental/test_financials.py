@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
+import pandas as pd
 import pytest
 
 # ---------------------------------------------------------------------------
@@ -469,6 +470,7 @@ class TestFinancialHealthScore:
         expected_keys = {
             "total_score",
             "category",
+            "grade",
             "profitability_score",
             "liquidity_score",
             "leverage_score",
@@ -477,7 +479,7 @@ class TestFinancialHealthScore:
             "strengths",
             "weaknesses",
             "piotroski_f_score",
-            "fmp_score",
+            "symbol",
         }
         assert expected_keys == set(result.keys())
 
@@ -542,6 +544,7 @@ class TestEarningsQuality:
             "accruals_trend",
             "red_flags",
             "periods_analysed",
+            "symbol",
         }
         assert expected_keys == set(result.keys())
 
@@ -595,24 +598,25 @@ class TestEarningsQuality:
 
 class TestCommonSizeAnalysis:
     @_PATCH_CHECK
-    def test_keys(self, _ce, mock_fmp):
+    def test_columns(self, _ce, mock_fmp):
         from wraquant.fundamental.financials import common_size_analysis
 
         result = common_size_analysis("AAPL", fmp_client=mock_fmp)
-        expected_keys = {
-            "income_statement",
-            "balance_sheet",
-            "dates",
-            "periods_analysed",
-        }
-        assert expected_keys == set(result.keys())
+        assert isinstance(result, pd.DataFrame)
+        for col in [
+            "date",
+            "cost_of_revenue_pct",
+            "gross_profit_pct",
+            "equity_pct",
+        ]:
+            assert col in result.columns
 
     @_PATCH_CHECK
     def test_income_pcts_sum(self, _ce, mock_fmp):
         from wraquant.fundamental.financials import common_size_analysis
 
         result = common_size_analysis("AAPL", fmp_client=mock_fmp)
-        latest = result["income_statement"][0]
+        latest = result.iloc[0]
         # COGS% + Gross% should equal ~1.0
         assert (
             abs(latest["cost_of_revenue_pct"] + latest["gross_profit_pct"] - 1.0) < 1e-9
@@ -623,7 +627,7 @@ class TestCommonSizeAnalysis:
         from wraquant.fundamental.financials import common_size_analysis
 
         result = common_size_analysis("AAPL", fmp_client=mock_fmp)
-        latest = result["income_statement"][0]
+        latest = result.iloc[0]
         assert abs(latest["gross_profit_pct"] - 160_000 / 400_000) < 1e-9
 
     @_PATCH_CHECK
@@ -631,7 +635,7 @@ class TestCommonSizeAnalysis:
         from wraquant.fundamental.financials import common_size_analysis
 
         result = common_size_analysis("AAPL", fmp_client=mock_fmp)
-        latest = result["balance_sheet"][0]
+        latest = result.iloc[0]
         assert abs(latest["equity_pct"] - 250_000 / 500_000) < 1e-9
 
     @_PATCH_CHECK
@@ -639,4 +643,4 @@ class TestCommonSizeAnalysis:
         from wraquant.fundamental.financials import common_size_analysis
 
         result = common_size_analysis("AAPL", fmp_client=mock_fmp)
-        assert result["periods_analysed"] == 5
+        assert len(result) == 5

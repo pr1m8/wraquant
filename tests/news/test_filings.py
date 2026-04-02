@@ -70,7 +70,7 @@ _SEC_FILINGS_DF = pd.DataFrame(
 
 class TestRecentFilings:
     @_PATCH_CHECK
-    @patch("wraquant.news.filings.FMPClient")
+    @patch("wraquant.data.providers.fmp.FMPClient")
     def test_returns_dataframe(self, mock_cls, _ce):
         from wraquant.news.filings import recent_filings
 
@@ -79,7 +79,7 @@ class TestRecentFilings:
         assert isinstance(result, pd.DataFrame)
 
     @_PATCH_CHECK
-    @patch("wraquant.news.filings.FMPClient")
+    @patch("wraquant.data.providers.fmp.FMPClient")
     def test_standardized_columns(self, mock_cls, _ce):
         from wraquant.news.filings import recent_filings
 
@@ -89,7 +89,7 @@ class TestRecentFilings:
             assert col in result.columns
 
     @_PATCH_CHECK
-    @patch("wraquant.news.filings.FMPClient")
+    @patch("wraquant.data.providers.fmp.FMPClient")
     def test_limit(self, mock_cls, _ce):
         from wraquant.news.filings import recent_filings
 
@@ -98,7 +98,7 @@ class TestRecentFilings:
         assert len(result) <= 3
 
     @_PATCH_CHECK
-    @patch("wraquant.news.filings.FMPClient")
+    @patch("wraquant.data.providers.fmp.FMPClient")
     def test_form_type_filter(self, mock_cls, _ce):
         from wraquant.news.filings import recent_filings
 
@@ -108,7 +108,7 @@ class TestRecentFilings:
         assert call_kwargs.kwargs.get("type") == "10-K"
 
     @_PATCH_CHECK
-    @patch("wraquant.news.filings.FMPClient")
+    @patch("wraquant.data.providers.fmp.FMPClient")
     def test_empty_data(self, mock_cls, _ce):
         from wraquant.news.filings import recent_filings
 
@@ -126,7 +126,7 @@ class TestRecentFilings:
 
 class TestAnnualReports:
     @_PATCH_CHECK
-    @patch("wraquant.news.filings.FMPClient")
+    @patch("wraquant.data.providers.fmp.FMPClient")
     def test_returns_dataframe(self, mock_cls, _ce):
         from wraquant.news.filings import annual_reports
 
@@ -135,7 +135,7 @@ class TestAnnualReports:
         assert isinstance(result, pd.DataFrame)
 
     @_PATCH_CHECK
-    @patch("wraquant.news.filings.FMPClient")
+    @patch("wraquant.data.providers.fmp.FMPClient")
     def test_calls_with_10k_type(self, mock_cls, _ce):
         from wraquant.news.filings import annual_reports
 
@@ -145,7 +145,7 @@ class TestAnnualReports:
         assert call_kwargs.kwargs.get("type") == "10-K"
 
     @_PATCH_CHECK
-    @patch("wraquant.news.filings.FMPClient")
+    @patch("wraquant.data.providers.fmp.FMPClient")
     def test_limit(self, mock_cls, _ce):
         from wraquant.news.filings import annual_reports
 
@@ -154,7 +154,7 @@ class TestAnnualReports:
         assert len(result) <= 1
 
     @_PATCH_CHECK
-    @patch("wraquant.news.filings.FMPClient")
+    @patch("wraquant.data.providers.fmp.FMPClient")
     def test_empty_data(self, mock_cls, _ce):
         from wraquant.news.filings import annual_reports
 
@@ -170,7 +170,7 @@ class TestAnnualReports:
 
 class TestQuarterlyReports:
     @_PATCH_CHECK
-    @patch("wraquant.news.filings.FMPClient")
+    @patch("wraquant.data.providers.fmp.FMPClient")
     def test_returns_dataframe(self, mock_cls, _ce):
         from wraquant.news.filings import quarterly_reports
 
@@ -179,7 +179,7 @@ class TestQuarterlyReports:
         assert isinstance(result, pd.DataFrame)
 
     @_PATCH_CHECK
-    @patch("wraquant.news.filings.FMPClient")
+    @patch("wraquant.data.providers.fmp.FMPClient")
     def test_calls_with_10q_type(self, mock_cls, _ce):
         from wraquant.news.filings import quarterly_reports
 
@@ -189,7 +189,7 @@ class TestQuarterlyReports:
         assert call_kwargs.kwargs.get("type") == "10-Q"
 
     @_PATCH_CHECK
-    @patch("wraquant.news.filings.FMPClient")
+    @patch("wraquant.data.providers.fmp.FMPClient")
     def test_limit(self, mock_cls, _ce):
         from wraquant.news.filings import quarterly_reports
 
@@ -205,7 +205,7 @@ class TestQuarterlyReports:
 
 class TestMaterialEvents:
     @_PATCH_CHECK
-    @patch("wraquant.news.filings.FMPClient")
+    @patch("wraquant.data.providers.fmp.FMPClient")
     def test_returns_dataframe(self, mock_cls, _ce):
         from wraquant.news.filings import material_events
 
@@ -214,7 +214,7 @@ class TestMaterialEvents:
         assert isinstance(result, pd.DataFrame)
 
     @_PATCH_CHECK
-    @patch("wraquant.news.filings.FMPClient")
+    @patch("wraquant.data.providers.fmp.FMPClient")
     def test_calls_with_8k_type(self, mock_cls, _ce):
         from wraquant.news.filings import material_events
 
@@ -224,7 +224,7 @@ class TestMaterialEvents:
         assert call_kwargs.kwargs.get("type") == "8-K"
 
     @_PATCH_CHECK
-    @patch("wraquant.news.filings.FMPClient")
+    @patch("wraquant.data.providers.fmp.FMPClient")
     def test_limit(self, mock_cls, _ce):
         from wraquant.news.filings import material_events
 
@@ -233,7 +233,7 @@ class TestMaterialEvents:
         assert len(result) <= 1
 
     @_PATCH_CHECK
-    @patch("wraquant.news.filings.FMPClient")
+    @patch("wraquant.data.providers.fmp.FMPClient")
     def test_empty_data(self, mock_cls, _ce):
         from wraquant.news.filings import material_events
 
@@ -249,7 +249,7 @@ class TestMaterialEvents:
 
 class TestFilingSearch:
     @_PATCH_CHECK
-    @patch("wraquant.news.filings.FMPClient")
+    @patch("wraquant.data.providers.fmp.FMPClient")
     def test_returns_dataframe(self, mock_cls, _ce):
         from wraquant.news.filings import filing_search
 
@@ -258,7 +258,7 @@ class TestFilingSearch:
         assert isinstance(result, pd.DataFrame)
 
     @_PATCH_CHECK
-    @patch("wraquant.news.filings.FMPClient")
+    @patch("wraquant.data.providers.fmp.FMPClient")
     def test_filters_by_keyword(self, mock_cls, _ce):
         from wraquant.news.filings import filing_search
 
@@ -269,7 +269,7 @@ class TestFilingSearch:
             assert any("executive" in t.lower() for t in result["title"])
 
     @_PATCH_CHECK
-    @patch("wraquant.news.filings.FMPClient")
+    @patch("wraquant.data.providers.fmp.FMPClient")
     def test_symbol_prefix_parsing(self, mock_cls, _ce):
         from wraquant.news.filings import filing_search
 
@@ -279,7 +279,7 @@ class TestFilingSearch:
         assert call_args.args[0] == "AAPL" or call_args.kwargs.get("symbol") == "AAPL"
 
     @_PATCH_CHECK
-    @patch("wraquant.news.filings.FMPClient")
+    @patch("wraquant.data.providers.fmp.FMPClient")
     def test_empty_data(self, mock_cls, _ce):
         from wraquant.news.filings import filing_search
 
@@ -289,7 +289,7 @@ class TestFilingSearch:
         assert len(result) == 0
 
     @_PATCH_CHECK
-    @patch("wraquant.news.filings.FMPClient")
+    @patch("wraquant.data.providers.fmp.FMPClient")
     def test_no_match_returns_empty(self, mock_cls, _ce):
         from wraquant.news.filings import filing_search
 
