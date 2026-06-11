@@ -132,6 +132,9 @@ def register_workspace_tools(mcp: Any, ctx_holder: list) -> None:
         if name is None:
             name = datetime.now().strftime("snap_%Y%m%d_%H%M%S")
 
+        ctx._save_manifest()
+        ctx.db.execute("CHECKPOINT")
+
         snap_dir = ctx.workspace_dir / "snapshots" / name
         snap_dir.mkdir(parents=True, exist_ok=True)
 
@@ -154,6 +157,7 @@ def register_workspace_tools(mcp: Any, ctx_holder: list) -> None:
             "created": datetime.now().isoformat(),
             "datasets": ctx.list_datasets(),
             "models": ctx.list_models(),
+            "registry": ctx.registry.to_dict(),
         }
         with open(snap_dir / "manifest.json", "w") as f:
             json.dump(manifest, f, indent=2)
@@ -199,6 +203,14 @@ def register_workspace_tools(mcp: Any, ctx_holder: list) -> None:
         import duckdb
 
         ctx.db = duckdb.connect(str(ctx.workspace_dir / "data.duckdb"))
+        manifest_path = snap_dir / "manifest.json"
+        if manifest_path.exists():
+            with open(manifest_path) as f:
+                snap_manifest = json.load(f)
+            ctx._manifest["registry"] = snap_manifest.get("registry", {})
+            ctx.registry = ctx.registry.from_dict(ctx._manifest["registry"])
+            ctx._models = {}
+            ctx._save_manifest()
         ctx._log("restore_snapshot", name)
 
         return {"snapshot": name, "status": "restored", **ctx.workspace_status()}

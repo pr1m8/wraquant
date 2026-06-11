@@ -78,7 +78,7 @@ def render() -> None:
     import numpy as np
     import pandas as pd
 
-    from wraquant.dashboard.components.charts import COLORS, SERIES_COLORS, dark_layout
+    from wraquant.dashboard.components.charts import COLORS, dark_layout
 
     ticker = st.session_state.get("ticker", "AAPL")
     st.markdown(f"# Machine Learning Lab: **{ticker}**")
@@ -295,7 +295,7 @@ def render() -> None:
                 key="ml_model_type",
             )
 
-            train_method = st.selectbox(
+            st.selectbox(
                 "Training method",
                 ["Walk-Forward", "Expanding Window"],
                 key="ml_train_method",
@@ -304,7 +304,7 @@ def render() -> None:
             test_pct = st.slider(
                 "Test set %", 10, 40, 20, 5, key="ml_test_pct"
             )
-            n_splits = st.slider(
+            st.slider(
                 "Walk-forward splits", 3, 10, 5, key="ml_n_splits"
             )
 

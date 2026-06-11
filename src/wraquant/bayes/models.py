@@ -7,10 +7,16 @@ intervals, Bayes factors, and posterior predictive sampling.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 import numpy as np
 from scipy import stats
+
+if TYPE_CHECKING:
+    import pandas as pd
+
+    from wraquant.regimes.base import RegimeResult
 
 __all__ = [
     "bayesian_regression",
@@ -1497,7 +1503,7 @@ def bayesian_portfolio_bl(
         P = np.asarray(P, dtype=float)
         if P.ndim == 1:
             P = P.reshape(1, -1)
-        n_views = len(views)
+        len(views)
 
         if view_confidences is None:
             Omega = np.diag(np.diag(tau * P @ Sigma @ P.T))
@@ -1924,7 +1930,7 @@ def model_comparison(
         X = np.asarray(X, dtype=float)
         if X.ndim == 1:
             X = X.reshape(-1, 1)
-        n = len(y)
+        len(y)
 
         res = bayesian_linear_regression(y, X)
 

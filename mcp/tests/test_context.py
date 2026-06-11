@@ -78,6 +78,23 @@ class TestDatasetOperations:
         assert "ds1" in datasets
         assert "ds2" in datasets
 
+    def test_dataset_persists_after_reopen(self, tmp_path, sample_df):
+        """Stored datasets survive closing and reopening a workspace."""
+        workspace = tmp_path / "persistent_workspace"
+        ctx = AnalysisContext(workspace)
+        ctx.store_dataset("prices", sample_df, source_op="fetch")
+        ctx.close()
+
+        reopened = AnalysisContext(workspace)
+        try:
+            assert "prices" in reopened.list_datasets()
+            assert "prices" in reopened.registry.list_datasets()
+            retrieved = reopened.get_dataset("prices")
+            assert len(retrieved) == len(sample_df)
+            assert "close" in retrieved.columns
+        finally:
+            reopened.close()
+
     def test_get_missing_dataset_raises(self, ctx):
         """Getting a missing dataset raises KeyError."""
         with pytest.raises(KeyError, match="not found"):

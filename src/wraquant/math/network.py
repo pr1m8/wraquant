@@ -10,9 +10,8 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 from numpy.typing import ArrayLike
-from scipy import linalg as sp_linalg
 
-from wraquant.core._coerce import coerce_array, coerce_dataframe
+from wraquant.core._coerce import coerce_dataframe
 
 __all__ = [
     "correlation_network",
@@ -71,7 +70,7 @@ def correlation_network(
     """
     returns_df = coerce_dataframe(returns_df, name="returns_df")
     corr = returns_df.corr().values
-    n = corr.shape[0]
+    corr.shape[0]
     adj = (np.abs(corr) >= threshold).astype(float)
     # Remove self-loops
     np.fill_diagonal(adj, 0.0)
@@ -624,7 +623,6 @@ def granger_network(
     correlation_network : Undirected network from correlations.
     wraquant.math.information.transfer_entropy : Information-theoretic causality.
     """
-    from scipy.stats import f as f_dist
 
     returns_df = coerce_dataframe(returns_df, name="returns_df")
     cols = list(returns_df.columns)

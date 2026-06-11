@@ -19,6 +19,8 @@ import numpy as np
 import pandas as pd
 from scipy import stats as sp_stats
 
+from wraquant.core.exceptions import MissingDependencyError
+
 
 def value_at_risk(
     returns: pd.Series,
@@ -249,7 +251,12 @@ def garch_var(
         >>> result = garch_var(returns, alpha=0.05, vol_model="GJR", dist="t")
         >>> print(f"Breach rate: {result['breach_rate']:.3f} (target: 0.050)")
     """
-    from wraquant.vol.models import egarch_fit, garch_fit, gjr_garch_fit
+    from wraquant.vol.models import (
+        _fallback_garch_fit,
+        egarch_fit,
+        garch_fit,
+        gjr_garch_fit,
+    )
 
     # Fit the appropriate GARCH variant
     _fit_funcs = {
@@ -262,7 +269,12 @@ def garch_var(
         msg = f"Unknown vol_model: {vol_model!r}. Choose from {list(_fit_funcs)}"
         raise ValueError(msg)
 
-    fit_result = fit_fn(returns, p=p, q=q, dist=dist)
+    try:
+        fit_result = fit_fn(returns, p=p, q=q, dist=dist)
+    except (MissingDependencyError, ModuleNotFoundError):
+        if vol_model.upper() != "GARCH":
+            raise
+        fit_result = _fallback_garch_fit(returns, p=p, q=q)
 
     cond_vol = fit_result["conditional_volatility"]
     std_resid = fit_result["standardized_residuals"]

@@ -287,7 +287,7 @@ def copula_selection(
 
         # t-copula log-likelihood approximation
         from scipy.special import gammaln
-        half_df = df_est / 2
+        df_est / 2
         t_u = sp_stats.t.ppf(np.clip(u, 1e-6, 1 - 1e-6), df=df_est)
         t_v = sp_stats.t.ppf(np.clip(v, 1e-6, 1 - 1e-6), df=df_est)
 

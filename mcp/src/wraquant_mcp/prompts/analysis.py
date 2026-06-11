@@ -387,7 +387,7 @@ Liquidity screen on {universe_dataset}:
 3. **Turnover ratio**: If shares outstanding available, compute turnover = volume / shares_out.
    Higher turnover = more liquid. Rank assets. Flag any with turnover < 0.1% (illiquid).
 4. **Bid-ask spread proxy**: If tick data unavailable, estimate effective spread using
-   Roll's measure: spread ≈ 2 × sqrt(-cov(Δp_t, Δp_{t-1})). Negative autocovariance
+   Roll's measure: spread ≈ 2 × sqrt(-cov(delta_price_t, delta_price_t_minus_1)). Negative autocovariance
    implies spread cost. Rank assets by estimated spread.
 5. **Volume stability**: Compute coefficient of variation of daily volume (std/mean).
    Erratic volume = unreliable liquidity. Flag assets with CV > 1.5.

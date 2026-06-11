@@ -151,7 +151,6 @@ def portfolio_dashboard(
     # ---- Key metrics (canonical imports from risk.metrics) ----
     from wraquant.risk.metrics import max_drawdown as _max_drawdown
     from wraquant.risk.metrics import sharpe_ratio as _sharpe_ratio
-    from wraquant.risk.metrics import sortino_ratio as _sortino_ratio
 
     total_ret = float(cum.iloc[-1])
     ann_ret = float((1 + total_ret) ** (252 / len(returns)) - 1)
@@ -405,7 +404,7 @@ def regime_dashboard(
     has_probs = probabilities is not None
     has_tm = transition_matrix is not None
 
-    n_rows = 2 + (1 if has_probs else 0) + (1 if has_tm else 0)
+    2 + (1 if has_probs else 0) + (1 if has_tm else 0)
     row_heights = [0.40, 0.30]
     subplot_titles_list = [
         "Price / Cumulative Returns with Regime Overlay",
@@ -883,7 +882,6 @@ def technical_dashboard(
         >>> fig = technical_dashboard(df, indicators=["sma20", "bb", "rsi", "macd"])
         >>> fig.show()
     """
-    import numpy as np
     import plotly.graph_objects as go
     from plotly.subplots import make_subplots
 

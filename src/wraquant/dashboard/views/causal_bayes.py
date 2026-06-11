@@ -37,7 +37,6 @@ def _get_fmp_client():
 @st.cache_data(ttl=300, show_spinner=False)
 def _fetch_returns(ticker: str, days: int = 504) -> "tuple[np.ndarray, list[str]]":
     """Fetch daily returns and dates for a ticker."""
-    import pandas as pd
 
     try:
         client = _get_fmp_client()
@@ -70,7 +69,6 @@ def _fetch_returns(ticker: str, days: int = 504) -> "tuple[np.ndarray, list[str]
 @st.cache_data(ttl=300, show_spinner=False)
 def _fetch_prices(ticker: str, days: int = 504) -> "tuple[np.ndarray, list[str]]":
     """Fetch daily close prices and dates."""
-    import pandas as pd
 
     try:
         client = _get_fmp_client()
@@ -106,7 +104,7 @@ def _fetch_prices(ticker: str, days: int = 504) -> "tuple[np.ndarray, list[str]]
 
 def _tab_granger() -> None:
     """Granger causality test between two assets."""
-    from wraquant.dashboard.components.charts import COLORS, dark_layout
+    from wraquant.dashboard.components.charts import COLORS
 
     st.markdown("### Granger Causality Test")
     st.caption(

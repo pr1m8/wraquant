@@ -38,7 +38,7 @@ from __future__ import annotations
 
 import logging
 import math
-from typing import Any, Sequence
+from typing import Any
 
 from wraquant.core.decorators import requires_extra
 

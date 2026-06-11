@@ -94,6 +94,9 @@ def dark_layout(**overrides: Any) -> dict[str, Any]:
     return defaults
 
 
+_dark_layout = dark_layout
+
+
 def line_chart(
     series: pd.Series,
     title: str = "",

@@ -79,7 +79,6 @@ def plotly_candlestick(
     Returns:
         A ``plotly.graph_objects.Figure``.
     """
-    import numpy as np
     import plotly.graph_objects as go
     from plotly.subplots import make_subplots
 
@@ -354,10 +353,10 @@ def plotly_renko(
         bricks_color.append(COLORS["neutral"])
 
     n = len(bricks_open)
-    x_indices = list(range(n))
+    list(range(n))
 
     # Use OHLC-like representation
-    highs = [max(o, c) for o, c in zip(bricks_open, bricks_close, strict=False)]
+    [max(o, c) for o, c in zip(bricks_open, bricks_close, strict=False)]
     lows = [min(o, c) for o, c in zip(bricks_open, bricks_close, strict=False)]
 
     fig = go.Figure()

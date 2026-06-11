@@ -1541,7 +1541,7 @@ def granger_causality(
         lag_result = results[lag]
         # lag_result is a tuple: (test_dict, [ols_restricted, ols_unrestricted])
         test_dict = lag_result[0]
-        ols_restricted = lag_result[1][0]
+        lag_result[1][0]
         ols_unrestricted = lag_result[1][1]
 
         f_stat = test_dict["ssr_ftest"][0]
@@ -2326,9 +2326,9 @@ def causal_forest(
         y_struct = outcome[struct_idx]
         t_struct = treatment[struct_idx]
 
-        X_est = covariates[est_idx]
-        y_est = outcome[est_idx]
-        t_est = treatment[est_idx]
+        covariates[est_idx]
+        outcome[est_idx]
+        treatment[est_idx]
 
         # Train forests on structure data
         t_mask_s = t_struct == 1
@@ -2676,8 +2676,8 @@ def _mccrary_test(
         (test_statistic, p_value).
     """
     r = running_var - cutoff
-    left = r[r < 0]
-    right = r[r >= 0]
+    r[r < 0]
+    r[r >= 0]
 
     # Bin widths
     r_range = np.ptp(r)
@@ -2829,7 +2829,7 @@ def regression_discontinuity_robust(
     """
     outcome = np.asarray(outcome, dtype=float).ravel()
     running_var = np.asarray(running_var, dtype=float).ravel()
-    n = len(outcome)
+    len(outcome)
 
     rd_type = "fuzzy" if fuzzy_treatment is not None else "sharp"
 
@@ -3056,7 +3056,7 @@ def _manski_bounds(
     outcome_bounds: tuple[float, float] | None,
 ) -> BoundsResult:
     """Compute Manski worst-case bounds."""
-    n = len(outcome)
+    len(outcome)
 
     if outcome_bounds is None:
         y_min = float(np.min(outcome))

@@ -22,6 +22,10 @@ jobs:
       - name: Install PDM
         run: pip install pdm
       - name: Install dependencies
-        run: pdm install -G dev
+        run: pdm install -G dev -G accelerate -G ml -G viz
       - name: Run tests
         run: pdm run pytest tests/ -q --tb=short
+      - name: Run MCP tests
+        env:
+          PYTHONPATH: mcp/src:src
+        run: pdm run pytest mcp/tests/ -q --tb=short

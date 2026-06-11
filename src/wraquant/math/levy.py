@@ -15,7 +15,6 @@ import numpy as np
 from numpy.typing import ArrayLike
 from scipy.optimize import minimize
 from scipy.special import kv as bessel_kv  # modified Bessel K_v
-from scipy.stats import norm
 
 from wraquant.core._coerce import coerce_array
 

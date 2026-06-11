@@ -6,7 +6,6 @@ optimal exit thresholds, sequential testing, and change-point detection.
 
 from __future__ import annotations
 
-from typing import Callable
 
 import numpy as np
 from numpy.typing import ArrayLike
@@ -93,9 +92,11 @@ def longstaff_schwartz(
 
     # Payoff at each node
     if option_type == "put":
-        payoff_fn: Callable[[np.ndarray], np.ndarray] = lambda s: np.maximum(strike - s, 0.0)
+        def payoff_fn(s: np.ndarray) -> np.ndarray:
+            return np.maximum(strike - s, 0.0)
     else:
-        payoff_fn = lambda s: np.maximum(s - strike, 0.0)
+        def payoff_fn(s):
+            return np.maximum(s - strike, 0.0)
 
     # Cash flow matrix: stores the time at which the option is exercised
     # and the corresponding payoff

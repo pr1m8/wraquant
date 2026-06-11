@@ -34,12 +34,147 @@ import pandas as pd
 from wraquant.core._coerce import coerce_array
 from wraquant.core.decorators import requires_extra
 
+
+class _FallbackHMMModel:
+    """Small hmmlearn-like model for volatility-quantile fallback paths."""
+
+    def __init__(
+        self,
+        n_states: int,
+        thresholds: np.ndarray,
+        transition_matrix: np.ndarray,
+    ) -> None:
+        self.n_components = n_states
+        self.thresholds = thresholds
+        self.transmat_ = transition_matrix
+
+    def predict(self, X: np.ndarray) -> np.ndarray:
+        values = np.asarray(X, dtype=float).reshape(-1)
+        return _assign_volatility_states(values, self.n_components, self.thresholds)
+
+    def predict_proba(self, X: np.ndarray) -> np.ndarray:
+        states = self.predict(X)
+        probs = np.zeros((len(states), self.n_components))
+        probs[np.arange(len(states)), states] = 1.0
+        return probs
+
+
+def _assign_volatility_states(
+    values: np.ndarray,
+    n_states: int,
+    thresholds: np.ndarray | None = None,
+) -> np.ndarray:
+    """Assign states by rolling-volatility quantiles."""
+    clean = np.asarray(values, dtype=float).reshape(-1)
+    window = max(5, min(21, max(len(clean) // 4, 1)))
+    rolling_vol = (
+        pd.Series(clean)
+        .rolling(window=window, min_periods=1)
+        .std()
+        .fillna(0.0)
+        .to_numpy()
+    )
+    if n_states <= 1:
+        return np.zeros(len(clean), dtype=int)
+    if thresholds is None:
+        thresholds = np.percentile(
+            rolling_vol,
+            np.linspace(0, 100, n_states + 1)[1:-1],
+        )
+    return np.digitize(rolling_vol, thresholds).astype(int)
+
+
+def _empirical_transition_matrix(states: np.ndarray, n_states: int) -> np.ndarray:
+    """Compute a row-stochastic empirical transition matrix."""
+    transmat = np.zeros((n_states, n_states), dtype=float)
+    for idx in range(len(states) - 1):
+        transmat[states[idx], states[idx + 1]] += 1.0
+    row_sums = transmat.sum(axis=1, keepdims=True)
+    transmat = np.divide(transmat, np.where(row_sums == 0, 1.0, row_sums))
+    for idx in range(n_states):
+        if row_sums[idx, 0] == 0:
+            transmat[idx, idx] = 1.0
+    return transmat
+
+
+def _fallback_gaussian_hmm(
+    returns: pd.Series | np.ndarray,
+    n_states: int = 2,
+) -> dict[str, Any]:
+    """Approximate HMM output with deterministic volatility regimes."""
+    index = returns.dropna().index if isinstance(returns, pd.Series) else None
+    arr = coerce_array(returns, "returns")
+    arr = arr[~np.isnan(arr)]
+    if len(arr) == 0:
+        msg = "Need at least one finite return for regime detection."
+        raise ValueError(msg)
+
+    window = max(5, min(21, max(len(arr) // 4, 1)))
+    rolling_vol = (
+        pd.Series(arr)
+        .rolling(window=window, min_periods=1)
+        .std()
+        .fillna(0.0)
+        .to_numpy()
+    )
+    thresholds = (
+        np.percentile(rolling_vol, np.linspace(0, 100, n_states + 1)[1:-1])
+        if n_states > 1
+        else np.array([])
+    )
+    states = _assign_volatility_states(arr, n_states, thresholds)
+
+    state_probs = np.zeros((len(arr), n_states))
+    state_probs[np.arange(len(arr)), states] = 1.0
+    transmat = _empirical_transition_matrix(states, n_states)
+    means = np.array(
+        [
+            float(np.mean(arr[states == state])) if np.any(states == state) else 0.0
+            for state in range(n_states)
+        ]
+    )
+    covariances = np.array(
+        [
+            float(np.var(arr[states == state], ddof=1))
+            if np.sum(states == state) > 1
+            else 0.0
+            for state in range(n_states)
+        ]
+    )
+    startprob = np.bincount(states, minlength=n_states).astype(float)
+    startprob = startprob / max(startprob.sum(), 1.0)
+    variance = max(float(np.var(arr, ddof=1)), 1e-12)
+    log_likelihood = float(-0.5 * len(arr) * (np.log(2 * np.pi * variance) + 1))
+    n_params = _count_hmm_params(n_states, "diag")
+    aic = float(2 * n_params - 2 * log_likelihood)
+    bic = float(n_params * np.log(len(arr)) - 2 * log_likelihood)
+    steady_state = _compute_steady_state(transmat)
+    avg_duration = 1.0 / np.maximum(1.0 - np.diag(transmat), 1e-10)
+    model = _FallbackHMMModel(n_states, thresholds, transmat)
+
+    return {
+        "states": states,
+        "state_probs": state_probs,
+        "transition_matrix": transmat,
+        "means": means,
+        "covariances": covariances,
+        "startprob": startprob,
+        "log_likelihood": log_likelihood,
+        "aic": aic,
+        "bic": bic,
+        "n_states": n_states,
+        "steady_state": steady_state,
+        "avg_duration": avg_duration,
+        "model": model,
+        "index": index,
+    }
+
+
 # ---------------------------------------------------------------------------
 # Gaussian HMM
 # ---------------------------------------------------------------------------
 
 
-@requires_extra("regimes")
 def fit_gaussian_hmm(
     returns: pd.Series | np.ndarray,
     n_states: int = 2,
@@ -142,7 +277,10 @@ def fit_gaussian_hmm(
         wraquant.backtest.position.regime_signal_filter: Gate signals by regime.
         wraquant.viz.dashboard.regime_dashboard: Visualize regime analysis.
     """
-    from hmmlearn.hmm import GaussianHMM
+    try:
+        from hmmlearn.hmm import GaussianHMM
+    except ModuleNotFoundError:
+        return _fallback_gaussian_hmm(returns, n_states=n_states)
 
     # Prepare data -- preserve index if input is a Series
     index = returns.index if isinstance(returns, pd.Series) else None
@@ -245,7 +383,6 @@ def fit_gaussian_hmm(
 # ---------------------------------------------------------------------------
 
 
-@requires_extra("regimes")
 def fit_hmm(returns: pd.Series, n_states: int = 2) -> Any:
     """Fit a Gaussian HMM to return data (legacy interface).
 
@@ -1185,7 +1322,6 @@ def fit_ms_autoregression(
 # ---------------------------------------------------------------------------
 
 
-@requires_extra("regimes")
 def select_n_states(
     returns: pd.Series | np.ndarray,
     max_states: int = 5,

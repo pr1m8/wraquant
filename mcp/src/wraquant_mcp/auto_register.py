@@ -14,12 +14,11 @@ Both tiers coexist: Tier 2 tools override Tier 3 for the same function.
 from __future__ import annotations
 
 import importlib
-import inspect
 import logging
-from typing import Any, Callable
+from typing import Any
 
-from wraquant_mcp.adaptor import ToolAdaptor, _detect_data_params
-from wraquant_mcp.context import AnalysisContext, _sanitize_for_json
+from wraquant_mcp.adaptor import ToolAdaptor
+from wraquant_mcp.context import AnalysisContext
 
 logger = logging.getLogger("wraquant_mcp.auto_register")
 

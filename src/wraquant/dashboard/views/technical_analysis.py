@@ -9,7 +9,12 @@ multiselect controls.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import streamlit as st
+
+if TYPE_CHECKING:
+    import pandas as pd
 
 
 # ---------------------------------------------------------------------------
@@ -768,7 +773,6 @@ def _call_indicator(spec: dict, close, high, low, volume, open_):
 
 def _compute_signal_consensus(close, high, low, volume, open_):
     """Build a signal consensus table across many indicators."""
-    import importlib
 
     import pandas as pd
 
@@ -1073,7 +1077,6 @@ def _scatter_trace(series, name, color, width=1.5, dash=None):
 
 def render() -> None:
     """Render the Technical Analysis page."""
-    import numpy as np
     import pandas as pd
 
     from wraquant.dashboard.components.charts import COLORS, SERIES_COLORS, dark_layout
@@ -1265,7 +1268,7 @@ def render() -> None:
                             ), row=1, col=1)
                     elif ov_name == "Supertrend":
                         st_line = result.get("supertrend")
-                        direction = result.get("direction")
+                        result.get("direction")
                         if st_line is not None:
                             fig.add_trace(go.Scatter(
                                 x=st_line.index, y=st_line, mode="lines",
@@ -1471,7 +1474,6 @@ def _render_subplot_tab(
         return
 
     try:
-        import plotly.graph_objects as go
         from plotly.subplots import make_subplots
 
         n_plots = len(selected)
@@ -1658,7 +1660,6 @@ def _render_support_resistance_tab(close, high, low, open_, volume, COLORS, SERI
     """Render support/resistance, pivots, Fibonacci levels."""
     import importlib
 
-    import numpy as np
     import pandas as pd
 
     st.markdown("##### Support & Resistance Analysis")
@@ -1824,7 +1825,6 @@ def _render_support_resistance_tab(close, high, low, open_, volume, COLORS, SERI
 
 def _render_signals_tab(close, high, low, volume, open_, COLORS):
     """Render the aggregated signal consensus table."""
-    import pandas as pd
 
     st.markdown("##### Signal Consensus Dashboard")
     st.caption("Aggregated buy/sell signals from momentum, trend, overlap, and volume indicators")
@@ -1844,7 +1844,7 @@ def _render_signals_tab(close, high, low, volume, open_, COLORS):
     no_trend_count = len(df[df["Signal"] == "No Trend"])
 
     c1, c2, c3, c4, c5 = st.columns(5)
-    total = buy_count + sell_count + neutral_count
+    buy_count + sell_count + neutral_count
     if buy_count > sell_count:
         overall = "BULLISH"
         overall_color = COLORS["success"]
@@ -1986,7 +1986,6 @@ def _render_statistics_tab(close, high, low, volume, open_, COLORS, SERIES_COLOR
 def _render_performance_tab(close, COLORS):
     """Render return-based performance metrics."""
     import numpy as np
-    import pandas as pd
 
     st.markdown("##### Performance Metrics")
     st.caption("Return and drawdown analytics")

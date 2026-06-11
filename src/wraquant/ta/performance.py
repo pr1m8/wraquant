@@ -191,7 +191,7 @@ def alpha(
         beta = np.sum((x - x_mean) * (y - y_mean)) / ss_xx
         return y_mean - beta * x_mean
 
-    combined = pd.concat([asset_ret, bench_ret], axis=0, ignore_index=True)
+    pd.concat([asset_ret, bench_ret], axis=0, ignore_index=True)
     n = len(asset_ret)
     result_values = np.full(n, np.nan)
 

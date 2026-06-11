@@ -161,7 +161,7 @@ def register_ml_tools(mcp, ctx: AnalysisContext) -> None:
 
             split_idx = int(len(X) * (1 - test_size))
             X_train, X_test = X.iloc[:split_idx], X.iloc[split_idx:]
-            y_train, y_test = y.iloc[:split_idx], y.iloc[split_idx:]
+            y_train, _y_test = y.iloc[:split_idx], y.iloc[split_idx:]
 
             trainers = {
                 "random_forest": lambda: random_forest_importance(X_train, y_train),

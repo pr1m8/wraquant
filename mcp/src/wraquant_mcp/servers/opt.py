@@ -138,7 +138,7 @@ def register_opt_tools(mcp, ctx: AnalysisContext) -> None:
             returns = df.select_dtypes(include=[np.number]).dropna()
 
             # Get min-vol and max-return bounds
-            min_vol_result = min_volatility(returns)
+            min_volatility(returns)
             max_sharpe_result = max_sharpe(returns, risk_free_rate=risk_free_rate)
 
             # Compute frontier points
@@ -224,9 +224,8 @@ def register_opt_tools(mcp, ctx: AnalysisContext) -> None:
             portfolio_value: Total portfolio value for trade sizing.
         """
         try:
-            import numpy as np
 
-            df = ctx.get_dataset(dataset)
+            ctx.get_dataset(dataset)
 
             trades = {}
             total_turnover = 0.0

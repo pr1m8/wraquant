@@ -12,7 +12,6 @@ DuckDB file for seamless composition.
 from __future__ import annotations
 
 import json
-import os
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -50,15 +49,15 @@ class AnalysisContext:
         db_path = str(self.workspace_dir / "data.duckdb")
         self.db = duckdb.connect(db_path)
 
-        # ID registry
-        self.registry = IDRegistry()
-
         # Journal
         self._journal_path = self.workspace_dir / "journal.jsonl"
 
         # Manifest
         self._manifest_path = self.workspace_dir / "manifest.json"
         self._load_or_create_manifest()
+
+        # ID registry
+        self.registry = self._load_registry()
 
         # In-memory model store
         self._models: dict[str, Any] = {}
@@ -78,7 +77,8 @@ class AnalysisContext:
 
         Returns metadata dict (never raw data).
         """
-        # Register in DuckDB (zero-copy for pandas)
+        # Persist as a durable DuckDB table. DuckDB ``register`` alone creates
+        # a connection-scoped relation, so materialise through a temporary view.
         actual_name = self.registry.register(
             name,
             "dataset",
@@ -89,7 +89,16 @@ class AnalysisContext:
             dtypes={c: str(df[c].dtype) for c in df.columns},
         )
 
-        self.db.register(actual_name, df)
+        temp_name = f"__wraquant_tmp_{actual_name}"
+        self.db.register(temp_name, df)
+        try:
+            self.db.sql(
+                f"CREATE OR REPLACE TABLE {_quote_identifier(actual_name)} AS "
+                f"SELECT * FROM {_quote_identifier(temp_name)}"
+            )
+        finally:
+            self.db.unregister(temp_name)
+        self._save_manifest()
 
         # Log
         self._log("store_dataset", actual_name, source_op=source_op, parent=parent)
@@ -104,14 +113,14 @@ class AnalysisContext:
     def get_dataset(self, name: str) -> pd.DataFrame:
         """Retrieve a DataFrame by name from DuckDB."""
         try:
-            return self.db.sql(f'SELECT * FROM "{name}"').df()
+            return self.db.sql(f"SELECT * FROM {_quote_identifier(name)}").df()
         except Exception as e:
             raise KeyError(f"Dataset '{name}' not found: {e}") from e
 
     def dataset_exists(self, name: str) -> bool:
         """Check if a dataset exists in DuckDB."""
         try:
-            self.db.sql(f'SELECT 1 FROM "{name}" LIMIT 1')
+            self.db.sql(f"SELECT 1 FROM {_quote_identifier(name)} LIMIT 1")
             return True
         except Exception:
             return False
@@ -178,6 +187,7 @@ class AnalysisContext:
             model_type=model_type,
             source_dataset=source_dataset,
         )
+        self._save_manifest()
 
         summary = {}
         if hasattr(model, "summary"):
@@ -264,9 +274,34 @@ class AnalysisContext:
             }
             self._save_manifest()
 
+    def _load_registry(self) -> IDRegistry:
+        """Load resource registry from the manifest, with table fallback."""
+        registry_data = self._manifest.get("registry")
+        if isinstance(registry_data, dict):
+            return IDRegistry.from_dict(registry_data)
+
+        registry = IDRegistry()
+        for dataset in self.list_datasets():
+            try:
+                df = self.get_dataset(dataset)
+            except KeyError:
+                continue
+            registry.register(
+                dataset,
+                "dataset",
+                rows=len(df),
+                columns=list(df.columns),
+                dtypes={c: str(df[c].dtype) for c in df.columns},
+            )
+        return registry
+
     def _save_manifest(self) -> None:
         """Save workspace manifest."""
         self._manifest["last_session"] = datetime.now().isoformat()
+        if hasattr(self, "registry"):
+            self._manifest["registry"] = self.registry.to_dict()
+            self._manifest["datasets"] = self.registry.list_datasets()
+            self._manifest["models"] = self.registry.list_models()
         with open(self._manifest_path, "w") as f:
             json.dump(self._manifest, f, indent=2)
 
@@ -321,3 +356,8 @@ def _sanitize_for_json(obj: Any) -> Any:
     except (ValueError, TypeError):
         pass
     return obj
+
+
+def _quote_identifier(name: str) -> str:
+    """Return a safely quoted DuckDB identifier."""
+    return f'"{name.replace(chr(34), chr(34) * 2)}"'

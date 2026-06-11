@@ -300,7 +300,6 @@ def register_bayes_tools(mcp, ctx: AnalysisContext) -> None:
                            {"name": "m2", "x_columns": ["x1"]}]'
         """
         try:
-            import numpy as np
 
             from wraquant.bayes.models import model_comparison as _compare
 

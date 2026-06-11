@@ -11,7 +11,7 @@ underlying model object for further analysis.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pandas as pd
@@ -20,6 +20,9 @@ from scipy import stats as sp_stats
 
 from wraquant.core._coerce import coerce_array, coerce_series
 from wraquant.core.decorators import requires_extra
+
+if TYPE_CHECKING:
+    from wraquant.core.results import GARCHResult
 
 __all__ = [
     "ewma_volatility",
@@ -165,6 +168,141 @@ def _build_garch_result(
     )
 
 
+def _fallback_garch_fit(
+    returns: pd.Series | np.ndarray,
+    *,
+    p: int = 1,
+    q: int = 1,
+    model_name: str | None = None,
+) -> "GARCHResult":
+    """Fit a small pure-Python GARCH(1,1) fallback when ``arch`` is unavailable."""
+    from wraquant.core.results import GARCHResult
+
+    if p != 1 or q != 1:
+        msg = "Pure-Python fallback supports only GARCH(1,1)."
+        raise ValueError(msg)
+
+    ret_series = coerce_series(returns, "returns").dropna()
+    arr = ret_series.to_numpy(dtype=float)
+    if len(arr) < 10:
+        msg = "Need at least 10 observations for volatility modeling."
+        raise ValueError(msg)
+
+    centered = arr - np.mean(arr)
+    var0 = max(float(np.var(centered)), 1e-12)
+
+    def loglik(params: np.ndarray) -> float:
+        omega, alpha, beta = params
+        if omega <= 0 or alpha < 0 or beta < 0 or alpha + beta >= 1:
+            return 1e12
+        sigma2 = np.empty_like(centered)
+        sigma2[0] = var0
+        for idx in range(1, len(centered)):
+            sigma2[idx] = omega + alpha * centered[idx - 1] ** 2 + beta * sigma2[idx - 1]
+            if sigma2[idx] <= 0:
+                return 1e12
+        return float(0.5 * np.sum(np.log(sigma2) + centered**2 / sigma2))
+
+    x0 = np.array([var0 * 0.05, 0.05, 0.90])
+    result = sp_optimize.minimize(
+        loglik,
+        x0,
+        method="Nelder-Mead",
+        options={"maxiter": 5000, "xatol": 1e-8, "fatol": 1e-8},
+    )
+    omega, alpha, beta = result.x if result.success else x0
+    omega = max(float(omega), 1e-12)
+    alpha = max(float(alpha), 1e-8)
+    beta = max(float(beta), 1e-8)
+    if alpha + beta >= 0.999:
+        total = alpha + beta
+        alpha = alpha / total * 0.999
+        beta = beta / total * 0.999
+
+    sigma2 = np.empty_like(centered)
+    sigma2[0] = var0
+    for idx in range(1, len(centered)):
+        sigma2[idx] = omega + alpha * centered[idx - 1] ** 2 + beta * sigma2[idx - 1]
+
+    cond_vol = pd.Series(
+        np.sqrt(sigma2),
+        index=ret_series.index,
+        name="conditional_volatility",
+    )
+    std_resid = centered / np.maximum(cond_vol.to_numpy(), 1e-12)
+    persistence = alpha + beta
+    uncond_var = omega / (1 - persistence) if persistence < 1 else float("inf")
+    ll = -loglik(np.array([omega, alpha, beta]))
+    k_params = 3
+
+    return GARCHResult(
+        params={"omega": omega, "alpha[1]": alpha, "beta[1]": beta},
+        conditional_volatility=cond_vol,
+        standardized_residuals=std_resid,
+        aic=float(2 * k_params - 2 * ll),
+        bic=float(k_params * np.log(len(centered)) - 2 * ll),
+        log_likelihood=float(ll),
+        persistence=float(persistence),
+        half_life=_compute_half_life(float(persistence)),
+        unconditional_variance=float(uncond_var),
+        model=None,
+        ljung_box=_ljung_box_squared(std_resid) if len(std_resid) > 20 else None,
+        model_name=model_name or "GARCH(1,1) fallback",
+    )
+
+
+def _fallback_garch_forecast(
+    returns: pd.Series | np.ndarray,
+    *,
+    horizon: int = 1,
+    p: int = 1,
+    q: int = 1,
+) -> dict[str, Any]:
+    """Forecast volatility from the pure-Python GARCH fallback."""
+    fit_result = _fallback_garch_fit(returns, p=p, q=q)
+    params = fit_result.params
+    omega = params["omega"]
+    persistence = params["alpha[1]"] + params["beta[1]"]
+    sigma2 = float(fit_result.conditional_volatility.iloc[-1] ** 2)
+    forecast_var = np.empty(horizon)
+    for idx in range(horizon):
+        sigma2 = omega + persistence * sigma2
+        forecast_var[idx] = sigma2
+    return {
+        "model_name": "GARCH(1,1) fallback forecast",
+        "forecast_variance": forecast_var,
+        "forecast_volatility": np.sqrt(forecast_var),
+        "confidence_intervals": None,
+        "fit_result": fit_result,
+    }
+
+
+def _fallback_news_impact_curve(
+    returns: pd.Series | np.ndarray,
+    *,
+    model_type: str = "GARCH",
+    n_points: int = 100,
+    shock_range: float = 3.0,
+) -> dict[str, Any]:
+    """Compute a basic news impact curve from the pure-Python fallback."""
+    fit_result = _fallback_garch_fit(returns)
+    params = fit_result.params
+    uncond_std = float(np.nanstd(coerce_array(returns, "returns")))
+    shocks = np.linspace(-shock_range * uncond_std, shock_range * uncond_std, n_points)
+    uncond_var = fit_result.unconditional_variance
+    cond_var = (
+        params["omega"]
+        + params["alpha[1]"] * shocks**2
+        + params["beta[1]"] * uncond_var
+    )
+    return {
+        "shocks": shocks,
+        "conditional_variance": cond_var,
+        "model_type": model_type.upper(),
+        "params": params,
+    }
+
+
 # ---------------------------------------------------------------------------
 # EWMA
 # ---------------------------------------------------------------------------
@@ -230,7 +368,6 @@ def ewma_volatility(
 # ---------------------------------------------------------------------------
 
 
-@requires_extra("timeseries")
 def garch_fit(
     returns: pd.Series | np.ndarray,
     p: int = 1,
@@ -323,7 +460,10 @@ def garch_fit(
         garch_forecast: Multi-step ahead volatility forecasting.
         news_impact_curve: Visualize asymmetric shock response.
     """
-    from arch import arch_model
+    try:
+        from arch import arch_model
+    except ModuleNotFoundError:
+        return _fallback_garch_fit(returns, p=p, q=q)
 
     ret = _to_returns_array(returns)
     scale = 100.0
@@ -736,7 +876,6 @@ def harch_fit(
 # ---------------------------------------------------------------------------
 
 
-@requires_extra("timeseries")
 def garch_forecast(
     returns: pd.Series | np.ndarray,
     p: int = 1,
@@ -813,7 +952,10 @@ def garch_forecast(
         garch_fit: Fit the underlying GARCH model.
         volatility_persistence: Analyze shock decay properties.
     """
-    from arch import arch_model
+    try:
+        from arch import arch_model
+    except ModuleNotFoundError:
+        return _fallback_garch_forecast(returns, horizon=horizon, p=p, q=q)
 
     ret = _to_returns_array(returns)
     scale = 100.0
@@ -1184,7 +1326,6 @@ def realized_garch(
 # ---------------------------------------------------------------------------
 
 
-@requires_extra("timeseries")
 def news_impact_curve(
     returns: pd.Series | np.ndarray,
     model_type: str = "GARCH",
@@ -1255,7 +1396,15 @@ def news_impact_curve(
         egarch_fit: Asymmetric EGARCH estimation.
         gjr_garch_fit: GJR-GARCH estimation.
     """
-    from arch import arch_model
+    try:
+        from arch import arch_model
+    except ModuleNotFoundError:
+        return _fallback_news_impact_curve(
+            returns,
+            model_type=model_type,
+            n_points=n_points,
+            shock_range=shock_range,
+        )
 
     ret = _to_returns_array(returns)
     scale = 100.0
@@ -2433,7 +2582,6 @@ def garch_rolling_forecast(
 # ---------------------------------------------------------------------------
 
 
-@requires_extra("timeseries")
 def garch_model_selection(
     returns: pd.Series | np.ndarray,
     p: int = 1,
@@ -2499,7 +2647,25 @@ def garch_model_selection(
         egarch_fit: Fit EGARCH.
         gjr_garch_fit: Fit GJR-GARCH.
     """
-    from arch import arch_model
+    models = kwargs.pop("models", None)
+    try:
+        from arch import arch_model
+    except ModuleNotFoundError:
+        result = _fallback_garch_fit(returns, p=p, q=q)
+        return pd.DataFrame(
+            [
+                {
+                    "model": "GARCH-fallback",
+                    "vol_model": "GARCH",
+                    "distribution": "normal",
+                    "aic": result["aic"],
+                    "bic": result["bic"],
+                    "log_likelihood": result["log_likelihood"],
+                    "persistence": result["persistence"],
+                    "num_params": len(result["params"]),
+                }
+            ]
+        )
 
     if distributions is None:
         distributions = ["normal", "t", "skewt"]
@@ -2512,6 +2678,14 @@ def garch_model_selection(
         ("EGARCH", "EGARCH", {"p": p, "q": q}),
         ("GJR-GARCH", "GARCH", {"p": p, "o": 1, "q": q}),
     ]
+    if models:
+        wanted = {str(model).upper().replace("_", "-") for model in models}
+        vol_specs = [
+            spec
+            for spec in vol_specs
+            if spec[0].upper() in wanted
+            or (spec[0] == "GJR-GARCH" and "GJR" in wanted)
+        ]
 
     rows: list[dict[str, Any]] = []
     for vol_label, vol_type, vol_kwargs in vol_specs:

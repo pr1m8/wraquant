@@ -190,7 +190,7 @@ def random_walk_index(
     atr_val = tr.rolling(window=period, min_periods=period).mean()
 
     h = high.values.astype(float)
-    l = low.values.astype(float)
+    lows = low.values.astype(float)
     atr_arr = atr_val.values.astype(float)
     n = len(h)
 
@@ -203,8 +203,8 @@ def random_walk_index(
         for j in range(1, period + 1):
             denom = atr_arr[i] * np.sqrt(j)
             if denom > 0 and not np.isnan(denom):
-                rwi_h = (h[i] - l[i - j]) / denom
-                rwi_l = (h[i - j] - l[i]) / denom
+                rwi_h = (h[i] - lows[i - j]) / denom
+                rwi_l = (h[i - j] - lows[i]) / denom
                 max_rwi_h = max(max_rwi_h, rwi_h)
                 max_rwi_l = max(max_rwi_l, rwi_l)
         rwi_high[i] = max_rwi_h

@@ -30,7 +30,6 @@ import numpy as np
 import pandas as pd
 from scipy import stats as sp_stats
 
-from wraquant.risk.var import value_at_risk as _value_at_risk
 
 
 def cornish_fisher_var(

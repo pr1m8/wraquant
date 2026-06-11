@@ -5,14 +5,29 @@ Auto-detects input type or uses the configured default backend.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pandas as pd
-import polars as pl
 
 from wraquant._compat import Backend
+from wraquant._lazy import is_available
 from wraquant.core.config import get_config
+
+if TYPE_CHECKING:
+    import polars as pl
+
+
+def _import_polars() -> Any:
+    """Import Polars only when the Polars backend is requested."""
+    try:
+        import polars as pl
+    except ModuleNotFoundError as exc:
+        raise ModuleNotFoundError(
+            "Optional dependency 'polars' is not installed. "
+            "Install it with: pdm install -G accelerate"
+        ) from exc
+    return pl
 
 
 def series(
@@ -21,7 +36,7 @@ def series(
     name: str | None = None,
     index: Any = None,
     backend: Backend | str | None = None,
-) -> pd.Series | pl.Series:
+) -> pd.Series | "pl.Series":
     """Create a Series using the specified or default backend.
 
     Parameters:
@@ -41,6 +56,7 @@ def series(
     be = Backend(backend) if backend else get_config().backend
 
     if be == Backend.POLARS:
+        pl = _import_polars()
         if isinstance(data, pl.Series):
             return data.alias(name) if name else data
         if isinstance(data, pd.Series):
@@ -53,8 +69,10 @@ def series(
         if name:
             s.name = name
         return s
-    if isinstance(data, pl.Series):
-        return data.to_pandas()
+    if is_available("polars"):
+        pl = _import_polars()
+        if isinstance(data, pl.Series):
+            return data.to_pandas()
     return pd.Series(data, index=index, name=name)
 
 
@@ -64,7 +82,7 @@ def frame(
     columns: list[str] | None = None,
     index: Any = None,
     backend: Backend | str | None = None,
-) -> pd.DataFrame | pl.DataFrame:
+) -> pd.DataFrame | "pl.DataFrame":
     """Create a DataFrame using the specified or default backend.
 
     Parameters:
@@ -84,6 +102,7 @@ def frame(
     be = Backend(backend) if backend else get_config().backend
 
     if be == Backend.POLARS:
+        pl = _import_polars()
         if isinstance(data, pl.DataFrame):
             return data
         if isinstance(data, pd.DataFrame):
@@ -98,8 +117,10 @@ def frame(
     # Default: pandas
     if isinstance(data, pd.DataFrame):
         return data.copy()
-    if isinstance(data, pl.DataFrame):
-        return data.to_pandas()
+    if is_available("polars"):
+        pl = _import_polars()
+        if isinstance(data, pl.DataFrame):
+            return data.to_pandas()
     if isinstance(data, np.ndarray):
         return pd.DataFrame(data, columns=columns, index=index)
     if isinstance(data, dict):

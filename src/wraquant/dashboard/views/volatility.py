@@ -8,7 +8,12 @@ Uses ``wraquant.vol`` for computations.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import streamlit as st
+
+if TYPE_CHECKING:
+    import pandas as pd
 
 # ---------------------------------------------------------------------------
 # Data helpers

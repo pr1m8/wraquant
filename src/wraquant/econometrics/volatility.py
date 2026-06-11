@@ -16,7 +16,6 @@ from typing import Any
 import numpy as np
 import pandas as pd
 from scipy import optimize as sp_optimize
-from scipy import stats as sp_stats
 
 from wraquant.core.decorators import requires_extra
 

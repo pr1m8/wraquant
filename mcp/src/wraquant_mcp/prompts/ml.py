@@ -44,7 +44,7 @@ on data the model has never seen.
      Model can output position size proportional to predicted return.
 
    **Critical**: The target must be computed BEFORE features to avoid look-ahead bias.
-   target_t = sign(return_{t+1}). Feature_t uses only data up to time t.
+   target_t = sign(return at t+1). Feature_t uses only data up to time t.
    There must be NO overlap between features and target — this is the #1 source of
    bugs in financial ML. A 1-day gap between feature computation and target is standard.
 

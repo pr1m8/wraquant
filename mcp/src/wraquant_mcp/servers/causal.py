@@ -91,7 +91,6 @@ def register_causal_tools(mcp, ctx: AnalysisContext) -> None:
                 (symmetric pre/post window).
         """
         try:
-            import numpy as np
             import pandas as pd
 
             from wraquant.causal.treatment import event_study as _es

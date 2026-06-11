@@ -51,7 +51,7 @@ def render():
     """Render the FX Analysis page."""
     import numpy as np
     import pandas as pd
-    from wraquant.dashboard.components.charts import COLORS, SERIES_COLORS, dark_layout
+    from wraquant.dashboard.components.charts import COLORS, dark_layout
     from wraquant.dashboard.components.metrics import fmt_pct
 
     st.markdown("# FX Analysis")

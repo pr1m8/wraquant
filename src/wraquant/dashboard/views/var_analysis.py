@@ -7,7 +7,12 @@ Expected Shortfall, and applies historical and custom stress tests.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import streamlit as st
+
+if TYPE_CHECKING:
+    import pandas as pd
 
 # ---------------------------------------------------------------------------
 # Data helpers
@@ -459,11 +464,11 @@ def render() -> None:
                 var_val = abs(res.get("stressed_var_95", 0))
                 cvar_val = abs(res.get("stressed_cvar_95", 0))
                 if cvar_val > 0.10:
-                    color = "background-color: rgba(239, 68, 68, 0.3)"
+                    pass
                 elif cvar_val > 0.04:
-                    color = "background-color: rgba(245, 158, 11, 0.3)"
+                    pass
                 else:
-                    color = "background-color: rgba(34, 197, 94, 0.3)"
+                    pass
                 stress_rows.append(
                     {
                         "Scenario": name,

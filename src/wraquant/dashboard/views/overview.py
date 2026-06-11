@@ -6,7 +6,12 @@ charts for price and volume, sentiment indicator, and analyst ratings.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import streamlit as st
+
+if TYPE_CHECKING:
+    import pandas as pd
 
 
 def _get_fmp_client():
@@ -174,7 +179,6 @@ def render() -> None:
     if hist_df is not None and not hist_df.empty:
         try:
             import plotly.graph_objects as go
-            from plotly.subplots import make_subplots
 
             hist_df.columns = [c.lower() for c in hist_df.columns]
             close = hist_df.get("close")

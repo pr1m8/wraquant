@@ -12,7 +12,7 @@ from wraquant._lazy import is_available
 
 # Always available (core deps)
 HAS_PANDAS = True
-HAS_POLARS = True
+HAS_POLARS = is_available("polars")
 HAS_NUMPY = True
 
 # Optional backends
@@ -37,7 +37,9 @@ def get_available_backends() -> list[Backend]:
     Returns:
         List of Backend enum values for installed backends.
     """
-    backends = [Backend.PANDAS, Backend.POLARS, Backend.NUMPY]
+    backends = [Backend.PANDAS, Backend.NUMPY]
+    if HAS_POLARS:
+        backends.append(Backend.POLARS)
     if HAS_TORCH:
         backends.append(Backend.TORCH)
     if HAS_JAX:

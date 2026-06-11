@@ -462,7 +462,6 @@ def darts_forecast(
     output_chunk = kwargs.pop("output_chunk_length", horizon)
     n_epochs = kwargs.pop("n_epochs", 50)
 
-    model_map = {}
 
     def _get_model(name: str):
         if name == "nbeats":

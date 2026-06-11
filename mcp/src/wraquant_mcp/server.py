@@ -14,7 +14,6 @@ Jupyter notebooks in the workspace can also connect to the same file.
 from __future__ import annotations
 
 import argparse
-import sys
 from typing import Any
 
 from wraquant_mcp.context import AnalysisContext
@@ -354,7 +353,6 @@ def build_server(name: str = "wraquant") -> Any:
 
         # Store regime states and probabilities as datasets
         import pandas as pd
-        import numpy as np
 
         states_df = pd.DataFrame({"regime": result.states})
         ctx.store_dataset(f"{model_name}_states", states_df, source_op="detect_regimes")

@@ -147,7 +147,7 @@ def _make_gauge(value: float, title: str, grade: str = ""):
         go.Indicator(
             mode="gauge+number+delta",
             value=value,
-            number={"suffix": f"/100", "font": {"size": 40}},
+            number={"suffix": "/100", "font": {"size": 40}},
             title={"text": f"{title} ({grade})", "font": {"size": 16}},
             gauge={
                 "axis": {"range": [0, 100], "tickwidth": 1, "tickcolor": "#64748b"},

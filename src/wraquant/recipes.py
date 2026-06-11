@@ -22,6 +22,81 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+
+def _fallback_regime_result(
+    returns: pd.Series,
+    n_regimes: int,
+) -> Any:
+    """Build a simple volatility-quantile RegimeResult without optional HMM deps."""
+    from wraquant.regimes.base import RegimeResult
+
+    arr = returns.to_numpy(dtype=float)
+    n_obs = len(arr)
+    window = max(5, min(21, n_obs // 4))
+    rolling_vol = (
+        pd.Series(arr)
+        .rolling(window=window, min_periods=1)
+        .std()
+        .fillna(0.0)
+        .to_numpy()
+    )
+    if n_regimes > 1:
+        thresholds = np.percentile(
+            rolling_vol,
+            np.linspace(0, 100, n_regimes + 1)[1:-1],
+        )
+        states = np.digitize(rolling_vol, thresholds).astype(int)
+    else:
+        states = np.zeros(n_obs, dtype=int)
+
+    probabilities = np.zeros((n_obs, n_regimes))
+    probabilities[np.arange(n_obs), states] = 1.0
+
+    transition_matrix = np.zeros((n_regimes, n_regimes), dtype=float)
+    for idx in range(n_obs - 1):
+        transition_matrix[states[idx], states[idx + 1]] += 1.0
+    row_sums = transition_matrix.sum(axis=1, keepdims=True)
+    transition_matrix = np.divide(
+        transition_matrix,
+        np.where(row_sums == 0, 1.0, row_sums),
+    )
+    for idx in range(n_regimes):
+        if row_sums[idx, 0] == 0:
+            transition_matrix[idx, idx] = 1.0
+
+    rows = []
+    means = []
+    variances = []
+    for regime in range(n_regimes):
+        regime_returns = arr[states == regime]
+        mean = float(np.mean(regime_returns)) if len(regime_returns) else 0.0
+        std = float(np.std(regime_returns, ddof=1)) if len(regime_returns) > 1 else 0.0
+        means.append(mean)
+        variances.append(std**2)
+        rows.append(
+            {
+                "regime": regime,
+                "mean": mean,
+                "std": std,
+                "count": int(len(regime_returns)),
+                "pct_time": float(len(regime_returns) / max(n_obs, 1)),
+            }
+        )
+
+    return RegimeResult(
+        states=states,
+        probabilities=probabilities,
+        transition_matrix=transition_matrix,
+        n_regimes=n_regimes,
+        means=np.asarray(means),
+        covariances=np.asarray(variances),
+        statistics=pd.DataFrame(rows).set_index("regime"),
+        method="volatility_quantile_fallback",
+        model=None,
+        metadata={"window": window},
+    )
+
+
 # ---------------------------------------------------------------------------
 # analyze -- "just give me everything"
 # ---------------------------------------------------------------------------
@@ -203,13 +278,17 @@ def regime_aware_backtest(
     """
     from wraquant.backtest.position import regime_conditional_sizing
     from wraquant.backtest.tearsheet import comprehensive_tearsheet
+    from wraquant.core.exceptions import MissingDependencyError
     from wraquant.regimes.base import detect_regimes
     from wraquant.risk.metrics import max_drawdown, sharpe_ratio, sortino_ratio
 
     returns = prices.pct_change().dropna()
 
     # 1. Detect regimes
-    regime_result = detect_regimes(returns.values, method="hmm", n_regimes=n_regimes)
+    try:
+        regime_result = detect_regimes(returns.values, method="hmm", n_regimes=n_regimes)
+    except (MissingDependencyError, ModuleNotFoundError):
+        regime_result = _fallback_regime_result(returns, n_regimes=n_regimes)
 
     # 2. Size positions by regime
     # regime_conditional_sizing expects {str: float} dicts for both
@@ -303,8 +382,11 @@ def garch_risk_pipeline(
         >>> "garch" in result and "var" in result
         True
     """
+    from wraquant.core.exceptions import MissingDependencyError
     from wraquant.risk.var import garch_var
     from wraquant.vol.models import (
+        _fallback_garch_fit,
+        _fallback_news_impact_curve,
         egarch_fit,
         garch_fit,
         gjr_garch_fit,
@@ -314,13 +396,21 @@ def garch_risk_pipeline(
     # 1. Fit GARCH
     fit_fns = {"GARCH": garch_fit, "GJR": gjr_garch_fit, "EGARCH": egarch_fit}
     fit_fn = fit_fns.get(vol_model.upper(), garch_fit)
-    garch_result = fit_fn(returns, dist=dist)
+    try:
+        garch_result = fit_fn(returns, dist=dist)
+    except (MissingDependencyError, ModuleNotFoundError):
+        if vol_model.upper() != "GARCH":
+            raise
+        garch_result = _fallback_garch_fit(returns)
 
     # 2. Time-varying VaR
     var_result = garch_var(returns, vol_model=vol_model, dist=dist, alpha=var_alpha)
 
     # 3. News impact curve
-    nic = news_impact_curve(returns.values, model_type=vol_model.lower())
+    try:
+        nic = news_impact_curve(returns.values, model_type=vol_model.lower())
+    except (MissingDependencyError, ModuleNotFoundError):
+        nic = _fallback_news_impact_curve(returns.values, model_type=vol_model)
 
     return {
         "garch": garch_result,

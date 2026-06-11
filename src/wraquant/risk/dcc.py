@@ -164,7 +164,6 @@ def dcc_garch(
           volatilities ``(T, k)``.
         * ``"std_residuals"`` -- standardized residuals ``(T, k)``.
     """
-    from wraquant.core._coerce import coerce_array
 
     if p != 1 or q != 1:
         msg = "Only DCC(1,1) is currently supported"
@@ -242,7 +241,6 @@ def rolling_correlation_dcc(
           time-varying correlation matrices.
         * ``"dcc_model"`` -- the fitted DCC model dict.
     """
-    from wraquant.core._coerce import coerce_array
 
     returns = np.asarray(returns, dtype=np.float64)
     model = dcc_garch(returns)
@@ -397,7 +395,6 @@ def conditional_covariance(
         * ``"volatilities"`` -- array of shape ``(T, k)`` with
           conditional volatilities.
     """
-    from wraquant.core._coerce import coerce_array
 
     returns = np.asarray(returns, dtype=np.float64)
     if dcc_params is None:

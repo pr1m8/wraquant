@@ -119,7 +119,6 @@ def antithetic_variates(
         Array of shape ``(2 * n_sims, n_assets)`` containing the
         original and antithetic draws interleaved.
     """
-    from wraquant.core._coerce import coerce_array
 
     rng = np.random.default_rng(seed)
     mu = np.broadcast_to(np.asarray(mu, dtype=float), (n_assets,))

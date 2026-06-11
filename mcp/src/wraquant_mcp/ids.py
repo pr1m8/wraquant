@@ -169,3 +169,49 @@ class IDRegistry:
             "models": self.list_models(),
             "total": len(self._resources),
         }
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize registry state for workspace manifests."""
+        return {
+            "version_counts": dict(self._version_counts),
+            "resources": {
+                name: _meta_to_dict(meta)
+                for name, meta in self._resources.items()
+            },
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "IDRegistry":
+        """Recreate a registry from serialized manifest state."""
+        registry = cls()
+        registry._version_counts = {
+            str(k): int(v) for k, v in data.get("version_counts", {}).items()
+        }
+        for name, payload in data.get("resources", {}).items():
+            registry._resources[name] = _meta_from_dict(payload)
+        return registry
+
+
+def _meta_to_dict(meta: ResourceMeta) -> dict[str, Any]:
+    """Serialize a resource metadata dataclass."""
+    payload = dict(meta.__dict__)
+    payload["created"] = meta.created.isoformat()
+    payload["kind"] = type(meta).__name__
+    return payload
+
+
+def _meta_from_dict(payload: dict[str, Any]) -> ResourceMeta:
+    """Deserialize resource metadata from a workspace manifest."""
+    data = dict(payload)
+    kind = data.pop("kind", "ResourceMeta")
+    created = data.get("created")
+    if isinstance(created, str):
+        data["created"] = datetime.fromisoformat(created)
+
+    if kind == "DatasetMeta":
+        data.pop("resource_type", None)
+        return DatasetMeta(**data)
+    if kind == "ModelMeta":
+        data.pop("resource_type", None)
+        return ModelMeta(**data)
+    return ResourceMeta(**data)

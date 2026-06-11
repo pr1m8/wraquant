@@ -6,10 +6,15 @@ execution, balancing expected market-impact cost against execution risk.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import numpy as np
 from numpy.typing import NDArray
 
 from wraquant.core._coerce import coerce_array
+
+if TYPE_CHECKING:
+    import pandas as pd
 
 
 def almgren_chriss(
@@ -153,7 +158,7 @@ def optimal_execution_cost(
         execution_frontier: Trace the cost-risk frontier.
     """
     trajectory = coerce_array(trajectory, "trajectory")
-    n = len(trajectory) - 1
+    len(trajectory) - 1
     trades = -np.diff(trajectory)  # quantities sold each period (positive)
 
     # Temporary impact cost: eta * sum(n_j^2)
@@ -369,7 +374,6 @@ def estimate_impact_params(
         almgren_chriss: Uses the estimated parameters.
         wraquant.microstructure.liquidity.price_impact: Source of impact data.
     """
-    import pandas as pd
 
     from wraquant.microstructure.liquidity import price_impact
 

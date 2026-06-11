@@ -10,7 +10,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from wraquant.core._coerce import coerce_array, coerce_series
+from wraquant.core._coerce import coerce_series
 
 
 def sharpe_ratio(

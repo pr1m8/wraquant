@@ -129,7 +129,6 @@ def _compute_vol_surface(
 
 def _tab_options_calculator() -> None:
     """Black-Scholes options calculator with Greeks table and put-call parity."""
-    from wraquant.dashboard.components.charts import COLORS, dark_layout
 
     st.markdown("### Black-Scholes Options Calculator")
 
@@ -202,7 +201,7 @@ def _tab_options_calculator() -> None:
 
 def _tab_greeks_visualizer() -> None:
     """Plot Greeks as a function of spot price with interactive controls."""
-    from wraquant.dashboard.components.charts import COLORS, SERIES_COLORS, dark_layout
+    from wraquant.dashboard.components.charts import COLORS, dark_layout
 
     st.markdown("### Greeks vs Spot Price")
 

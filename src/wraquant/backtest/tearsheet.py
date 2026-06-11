@@ -637,7 +637,6 @@ def strategy_comparison(
         kappa_ratio,
         omega_ratio,
         payoff_ratio as _payoff_ratio,
-        profit_factor as _profit_factor,
         rachev_ratio,
         recovery_factor,
         system_quality_number,

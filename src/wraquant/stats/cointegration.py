@@ -8,9 +8,6 @@ import numpy as np
 import pandas as pd
 from statsmodels.tsa.stattools import adfuller
 
-from wraquant.core.decorators import requires_extra
-
-
 def engle_granger(
     y1: pd.Series,
     y2: pd.Series,
@@ -63,7 +60,6 @@ def engle_granger(
     }
 
 
-@requires_extra("timeseries")
 def johansen(
     data: pd.DataFrame,
     det_order: int = 0,

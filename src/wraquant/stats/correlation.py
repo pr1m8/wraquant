@@ -28,9 +28,20 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
-from sklearn.covariance import OAS, LedoitWolf, ShrunkCovariance
 
 from wraquant.core._coerce import coerce_array, coerce_dataframe, coerce_series
+
+
+def _sklearn_covariance_estimators() -> tuple[type, type, type]:
+    """Return sklearn covariance estimators only when shrinkage is requested."""
+    try:
+        from sklearn.covariance import OAS, LedoitWolf, ShrunkCovariance
+    except ModuleNotFoundError as exc:
+        raise ModuleNotFoundError(
+            "Optional dependency 'scikit-learn' is not installed. "
+            "Install it with: pdm install -G ml"
+        ) from exc
+    return OAS, LedoitWolf, ShrunkCovariance
 
 
 def correlation_matrix(
@@ -156,6 +167,7 @@ def shrunk_covariance(
     """
     clean = returns.dropna()
     assets = clean.columns
+    OAS, LedoitWolf, ShrunkCovariance = _sklearn_covariance_estimators()
 
     if method == "ledoit_wolf":
         estimator = LedoitWolf().fit(clean.values)
@@ -307,7 +319,6 @@ def partial_correlation(
     """
     clean = data.dropna()
     cols = clean.columns
-    p = len(cols)
 
     corr = clean.corr().values
     try:

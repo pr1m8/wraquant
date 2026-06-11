@@ -1366,10 +1366,19 @@ def garch_residual_forecast(
         ses_forecast: SES for residual forecasting.
         theta_forecast: Theta method for residual forecasting.
     """
-    from wraquant.vol.models import garch_fit, garch_forecast
+    from wraquant.core.exceptions import MissingDependencyError
+    from wraquant.vol.models import (
+        _fallback_garch_fit,
+        _fallback_garch_forecast,
+        garch_fit,
+        garch_forecast,
+    )
 
     # Step 1: Fit GARCH to get conditional vol and standardised residuals
-    fit_result = garch_fit(returns, p=garch_p, q=garch_q)
+    try:
+        fit_result = garch_fit(returns, p=garch_p, q=garch_q)
+    except (MissingDependencyError, ModuleNotFoundError):
+        fit_result = _fallback_garch_fit(returns, p=garch_p, q=garch_q)
 
     std_resid = fit_result["standardized_residuals"]
     garch_params = fit_result["params"]
@@ -1398,7 +1407,20 @@ def garch_residual_forecast(
         residual_fcast = fn(resid_series, horizon)
 
     # Step 3: Forecast conditional volatility using GARCH
-    vol_fcast_result = garch_forecast(returns, horizon=horizon, p=garch_p, q=garch_q)
+    try:
+        vol_fcast_result = garch_forecast(
+            returns,
+            horizon=horizon,
+            p=garch_p,
+            q=garch_q,
+        )
+    except (MissingDependencyError, ModuleNotFoundError):
+        vol_fcast_result = _fallback_garch_forecast(
+            returns,
+            horizon=horizon,
+            p=garch_p,
+            q=garch_q,
+        )
     vol_fcast = np.asarray(vol_fcast_result["forecast_volatility"])[:horizon]
 
     # Step 4: Recombine — return = residual * conditional_vol

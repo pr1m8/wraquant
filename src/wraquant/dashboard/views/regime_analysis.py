@@ -8,7 +8,12 @@ analysis. Delegates to ``wraquant.regimes`` for computations.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import streamlit as st
+
+if TYPE_CHECKING:
+    import pandas as pd
 
 # ---------------------------------------------------------------------------
 # Data helpers
@@ -427,8 +432,8 @@ def render() -> None:
                 fig = go.Figure(
                     data=go.Heatmap(
                         z=trans,
-                        x=[f"To: {l}" for l in labels],
-                        y=[f"From: {l}" for l in labels],
+                        x=[f"To: {label}" for label in labels],
+                        y=[f"From: {label}" for label in labels],
                         colorscale="Blues",
                         text=trans.round(4),
                         texttemplate="%{text:.4f}",
@@ -447,8 +452,8 @@ def render() -> None:
             except ImportError:
                 trans_df = pd.DataFrame(
                     trans,
-                    index=[f"From: {l}" for l in labels],
-                    columns=[f"To: {l}" for l in labels],
+                    index=[f"From: {label}" for label in labels],
+                    columns=[f"To: {label}" for label in labels],
                 )
                 st.dataframe(trans_df.style.format("{:.4f}"), use_container_width=True)
 
@@ -480,8 +485,8 @@ def render() -> None:
             ]
             trans_df = pd.DataFrame(
                 trans,
-                index=[f"From: {l}" for l in labels],
-                columns=[f"To: {l}" for l in labels],
+                index=[f"From: {label}" for label in labels],
+                columns=[f"To: {label}" for label in labels],
             )
             st.dataframe(trans_df.style.format("{:.4f}"), use_container_width=True)
 

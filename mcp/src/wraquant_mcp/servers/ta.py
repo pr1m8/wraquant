@@ -11,7 +11,6 @@ ta_screening, ta_dashboard.
 
 from __future__ import annotations
 
-import json
 from typing import Any
 
 from wraquant_mcp.context import AnalysisContext, _sanitize_for_json

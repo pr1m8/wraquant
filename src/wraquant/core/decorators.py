@@ -7,7 +7,7 @@ import hashlib
 import time
 from typing import Any, Callable, TypeVar
 
-from wraquant._lazy import check_extra
+from wraquant import _lazy
 from wraquant.core.exceptions import MissingDependencyError
 
 F = TypeVar("F", bound=Callable[..., Any])
@@ -32,7 +32,7 @@ def requires_extra(group: str) -> Callable[[F], F]:
     def decorator(func: F) -> F:
         @functools.wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
-            if not check_extra(group):
+            if not _lazy.check_extra(group):
                 raise MissingDependencyError(
                     package=group,
                     extra_group=group,

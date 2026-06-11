@@ -221,7 +221,7 @@ def render() -> None:
                     source = art.get("source", "")
                     date_str = str(art.get("date", ""))[:10]
                     score = art.get("sentiment", 0)
-                    url = art.get("url", "")
+                    art.get("url", "")
 
                     if score > 0.05:
                         badge_color = COLORS["success"]
@@ -233,7 +233,6 @@ def render() -> None:
                         badge_color = COLORS["neutral"]
                         badge_text = "~"
 
-                    title_link = f"[{title}]({url})" if url else title
                     st.markdown(
                         f'<div style="padding:0.5rem 0; border-bottom:1px solid rgba(255,255,255,0.06);">'
                         f'<span style="display:inline-block; width:24px; height:24px; '

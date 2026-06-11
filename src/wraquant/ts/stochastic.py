@@ -16,13 +16,11 @@ stochastic processes commonly used in quantitative finance:
 from __future__ import annotations
 
 import warnings
-from typing import Any, Callable, Sequence
 
 import numpy as np
 import pandas as pd
 from scipy import optimize, stats as sp_stats
 
-from wraquant.core.decorators import requires_extra
 
 
 # ---------------------------------------------------------------------------
@@ -102,7 +100,7 @@ def ornstein_uhlenbeck_forecast(
         Brownian motion. *Physical Review*, 36(5), 823.
     """
     y = data.values.astype(float)
-    n = len(y)
+    len(y)
 
     # Infer dt
     if dt is None:
@@ -289,7 +287,7 @@ def jump_diffusion_forecast(
     rng = np.random.default_rng(seed)
     prices = data.values.astype(float)
     log_returns = np.diff(np.log(prices))
-    n = len(log_returns)
+    len(log_returns)
 
     if dt is None:
         dt = 1.0 / 252.0

@@ -285,7 +285,7 @@ def pelt_changepoint(
     n_cp = len(bkps) - 1  # exclude trailing T
     confidence = np.zeros(max(n_cp, 0))
     if n_cp > 0 and total_cost_one_seg > 0:
-        cost_reduction = total_cost_one_seg - total_seg_cost
+        total_cost_one_seg - total_seg_cost
         for i in range(n_cp):
             # Merge segments i and i+1 and measure cost increase
             merged_cost = cost_model.error(boundaries[i], boundaries[i + 2])

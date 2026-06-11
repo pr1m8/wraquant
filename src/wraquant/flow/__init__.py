@@ -57,9 +57,6 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any, Callable, TypeVar
 
-import numpy as np
-import pandas as pd
-
 from wraquant.core.decorators import requires_extra
 
 _F = TypeVar("_F", bound=Callable)
@@ -209,7 +206,7 @@ def dagster_pipeline(
     prefect_backtest_flow : Prefect-based workflow orchestration.
     pipeline : Simple sequential pipeline (no external deps).
     """
-    from dagster import In, Nothing, Out, job, op
+    from dagster import In, Out, job, op
 
     dagster_ops: dict[str, Callable] = {}
     op_names = list(ops_dict.keys())

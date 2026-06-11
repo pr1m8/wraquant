@@ -56,7 +56,6 @@ def var_model(
 
     # Build coefficient matrix [A1 | A2 | ... | Ap | c]
     p = result.k_ar
-    k = result.neqs
     coef_matrices = []
     for lag in range(1, p + 1):
         coef_matrices.append(result.coefs[lag - 1])  # (k, k)

@@ -343,7 +343,6 @@ def register_econometrics_tools(mcp, ctx: AnalysisContext) -> None:
         """
         try:
             import numpy as np
-            import pandas as pd
 
             from wraquant.stats.cointegration import johansen
 

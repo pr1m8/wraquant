@@ -398,7 +398,6 @@ def register_viz_tools(mcp, ctx: AnalysisContext) -> None:
             volume_col: Volume column name (ignored if absent).
         """
         try:
-            import pandas as pd
 
             from wraquant.viz.candlestick import plotly_candlestick
 
@@ -670,7 +669,6 @@ def register_viz_tools(mcp, ctx: AnalysisContext) -> None:
             factors_dataset: Dataset containing factor return columns.
         """
         try:
-            import numpy as np
             import plotly.graph_objects as go
 
             from wraquant.stats.factor_analysis import factor_exposure

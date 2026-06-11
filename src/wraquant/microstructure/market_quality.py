@@ -198,7 +198,7 @@ def variance_ratio(
     from scipy.stats import norm
 
     log_prices = np.log(prices).values
-    n = len(log_prices)
+    len(log_prices)
 
     # Returns at two horizons (lagged differences, not n-th order diff)
     ret_short = log_prices[short_period:] - log_prices[:-short_period]
@@ -296,7 +296,7 @@ def hasbrouck_information_share(
 
     # Error correction term: spread between each venue and venue 0
     # Simple VECM: regress returns on lagged spread
-    errors = df.subtract(df.iloc[:, 0], axis=0)
+    df.subtract(df.iloc[:, 0], axis=0)
 
     # Residual covariance from a simplified VECM
     # Use raw return covariance as proxy for innovation covariance

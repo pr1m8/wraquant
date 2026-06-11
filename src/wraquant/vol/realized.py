@@ -359,7 +359,7 @@ def jump_test_bns(
     bpv = float((np.pi / 2.0) * np.sum(abs_r[1:] * abs_r[:-1]))
 
     # Quad-power quarticity for variance of (RV - BPV)
-    mu1 = np.sqrt(2.0 / np.pi)  # E[|z|] for standard normal
+    np.sqrt(2.0 / np.pi)  # E[|z|] for standard normal
     # Tri-power quarticity-based approach: use realised quad-power
     if n >= 5:
         qpq = float(

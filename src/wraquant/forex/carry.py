@@ -220,7 +220,6 @@ def carry_portfolio(
         carry_attractiveness: Rank all pairs by carry differential.
         carry_return: Full P&L including spot moves.
     """
-    import numpy as np
 
     sorted_currencies = sorted(rates_dict.keys(), key=lambda c: rates_dict[c], reverse=True)
 

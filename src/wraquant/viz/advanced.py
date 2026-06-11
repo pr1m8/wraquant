@@ -221,7 +221,6 @@ def plotly_term_structure(
     Returns:
         A ``plotly.graph_objects.Figure`` with animation frames.
     """
-    import numpy as np
     import plotly.graph_objects as go
 
     n_dates = yields.shape[0]

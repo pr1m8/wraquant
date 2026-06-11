@@ -1048,13 +1048,13 @@ def register_data_tools(mcp, ctx: AnalysisContext) -> None:
             train_name = f"{dataset}_train"
             test_name = f"{dataset}_test"
 
-            train_stored = ctx.store_dataset(
+            ctx.store_dataset(
                 train_name,
                 train,
                 source_op="split_dataset",
                 parent=dataset,
             )
-            test_stored = ctx.store_dataset(
+            ctx.store_dataset(
                 test_name,
                 test,
                 source_op="split_dataset",

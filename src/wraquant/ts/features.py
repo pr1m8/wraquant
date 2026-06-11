@@ -318,7 +318,7 @@ def complexity_features(
 
     data = coerce_series(data, name="data")
     clean = data.dropna().values.astype(np.float64)
-    n = len(clean)
+    len(clean)
 
     if r is None:
         r = 0.2 * np.std(clean)

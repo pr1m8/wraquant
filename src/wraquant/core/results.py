@@ -100,7 +100,7 @@ class GARCHResult:
         """
         param_str = ", ".join(f"{k}={v:.6f}" for k, v in self.params.items())
         lines = [
-            f"GARCH Result",
+            "GARCH Result",
             f"  Parameters: {param_str}",
             f"  Persistence: {self.persistence:.4f}",
             f"  Half-life: {self.half_life:.1f} periods",

@@ -726,7 +726,7 @@ def adaptive_rsi(
 
     n = len(data)
     values = data.values.astype(float)
-    returns = np.diff(values, prepend=values[0])
+    np.diff(values, prepend=values[0])
 
     # Rolling volatility
     vol = data.pct_change().rolling(window=vol_period, min_periods=vol_period).std()

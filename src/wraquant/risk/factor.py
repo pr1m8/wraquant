@@ -34,7 +34,6 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
-from scipy import stats as sp_stats
 
 
 def factor_risk_model(

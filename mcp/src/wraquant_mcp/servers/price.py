@@ -306,7 +306,6 @@ def register_price_tools(mcp, ctx: AnalysisContext) -> None:
             import numpy as np
 
             from wraquant.price.curves import (
-                bootstrap_zero_curve,
                 forward_rate,
                 interpolate_curve,
             )

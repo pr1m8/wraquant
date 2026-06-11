@@ -102,7 +102,6 @@ def plot_multi_asset(
         >>> fig = plot_multi_asset(df)
         >>> fig.show()
     """
-    import numpy as np
     import plotly.graph_objects as go
     from plotly.subplots import make_subplots
 

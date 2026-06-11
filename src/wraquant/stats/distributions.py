@@ -479,7 +479,7 @@ def best_fit_distribution(
 
     clean = np.asarray(data, dtype=float)
     clean = clean[~np.isnan(clean)]
-    n = len(clean)
+    len(clean)
 
     rows: list[dict] = []
     for name in candidates:

@@ -305,7 +305,7 @@ Correlation analysis for {dataset}:
     @mcp.prompt()
     def vol_surface_analysis(dataset: str = "options_data") -> list[dict]:
         """Implied volatility surface and skew analysis."""
-        return [{"role": "user", "content": {"type": "text", "text": f"""
+        return [{"role": "user", "content": {"type": "text", "text": """
 First load the wraquant_system_context prompt for full module context.
 
 Volatility surface analysis:

@@ -153,7 +153,7 @@ def render() -> None:
     import numpy as np
     import pandas as pd
 
-    from wraquant.dashboard.components.charts import COLORS, SERIES_COLORS, dark_layout
+    from wraquant.dashboard.components.charts import COLORS, dark_layout
     from wraquant.dashboard.components.metrics import fmt_pct
 
     ticker = st.session_state.get("ticker", "AAPL")
@@ -618,7 +618,6 @@ def render() -> None:
                     from wraquant.risk.beta import (
                         blume_adjusted_beta,
                         conditional_beta,
-                        rolling_beta as wrq_rolling_beta,
                     )
 
                     blume_beta = float(blume_adjusted_beta(asset_r, bench_r))

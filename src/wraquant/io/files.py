@@ -11,8 +11,6 @@ from typing import Any
 
 import pandas as pd
 
-from wraquant.core._coerce import coerce_dataframe, coerce_series
-
 __all__ = [
     "read_csv",
     "write_csv",
@@ -91,9 +89,7 @@ def write_csv(
         read_csv: Read a CSV file with financial defaults.
     """
     if isinstance(data, pd.Series):
-        data = coerce_series(data, name="data")
-    else:
-        data = coerce_dataframe(data, name="data")
+        data = data.to_frame(name=data.name or "data")
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     data.to_csv(path, **kwargs)

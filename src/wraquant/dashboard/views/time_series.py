@@ -74,7 +74,7 @@ def render() -> None:
     import numpy as np
     import pandas as pd
 
-    from wraquant.dashboard.components.charts import COLORS, SERIES_COLORS, dark_layout
+    from wraquant.dashboard.components.charts import COLORS, dark_layout
 
     ticker = st.session_state.get("ticker", "AAPL")
     st.markdown(f"# Time Series Lab: **{ticker}**")

@@ -309,7 +309,7 @@ def gelman_rubin(chains: np.ndarray | list[np.ndarray]) -> np.ndarray:
         chain_means = np.mean(chains[:, :, j], axis=1)  # (m,)
         chain_vars = np.var(chains[:, :, j], axis=1, ddof=1)  # (m,)
 
-        grand_mean = np.mean(chain_means)
+        np.mean(chain_means)
         B = n * np.var(chain_means, ddof=1)  # between-chain variance
         W = np.mean(chain_vars)  # within-chain variance
 

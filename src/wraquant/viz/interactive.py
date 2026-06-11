@@ -151,7 +151,6 @@ def plotly_drawdown(
     Returns:
         A ``plotly.graph_objects.Figure``.
     """
-    import numpy as np
     import plotly.graph_objects as go
 
     cum = (1 + returns).cumprod()

@@ -7,7 +7,6 @@ pivot point, and auto-detection indicators. All functions accept
 
 from __future__ import annotations
 
-import numpy as np
 import pandas as pd
 
 __all__ = [

@@ -50,7 +50,7 @@ def vpin(
     """
     volume = coerce_array(volume, "volume")
     buy_volume = coerce_array(buy_volume, "buy_volume")
-    sell_volume = volume - buy_volume
+    volume - buy_volume
 
     total_volume = np.sum(volume)
     bucket_size = total_volume / n_buckets
@@ -123,7 +123,7 @@ def pin_model(
     n = len(b)
 
     # Initial parameter guesses
-    total = b + s
+    b + s
     alpha0 = 0.5
     delta0 = 0.5
     mu0 = float(np.mean(np.abs(b - s)))

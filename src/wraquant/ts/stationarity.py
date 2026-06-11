@@ -397,8 +397,8 @@ def phillips_perron(
         adf_result = adfuller(clean, maxlag=0, regression=regression, autolag=None)
 
     stat_adf = adf_result[0]
-    pval_adf = adf_result[1]
-    crit_adf = adf_result[4]
+    adf_result[1]
+    adf_result[4]
 
     # Compute the PP correction
     # Residuals from the AR(1) regression y_t = a + rho * y_{t-1} + e_t
@@ -416,7 +416,7 @@ def phillips_perron(
     from wraquant.stats.regression import ols as _ols
 
     _pp_result = _ols(y, x_design, add_constant=False)
-    beta = _pp_result["coefficients"]
+    _pp_result["coefficients"]
     residuals = _pp_result["residuals"]
 
     # Newey-West long-run variance estimate
@@ -431,9 +431,9 @@ def phillips_perron(
     if gamma_0 > 0:
         correction = (s_sq - gamma_0) / gamma_0
         # Approximate PP statistic
-        pp_stat = stat_adf - 0.5 * correction * n_reg / stat_adf if abs(stat_adf) > 1e-10 else stat_adf
+        stat_adf - 0.5 * correction * n_reg / stat_adf if abs(stat_adf) > 1e-10 else stat_adf
     else:
-        pp_stat = stat_adf
+        pass
 
     # The PP statistic has the same asymptotic distribution as ADF.
     # We approximate PP by running ADF with the Newey-West lag count,

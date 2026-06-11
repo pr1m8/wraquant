@@ -731,7 +731,7 @@ def unobserved_components(
     # Extract trend component
     trend_vals = fit.level["smoothed"]
     if hasattr(fit, "trend") and fit.trend is not None:
-        trend_slope = fit.trend["smoothed"]
+        fit.trend["smoothed"]
         trend_vals = trend_vals  # level already includes the trend effect
 
     trend_series = pd.Series(trend_vals, index=idx, name="trend")

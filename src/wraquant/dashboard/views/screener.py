@@ -7,7 +7,12 @@ with the ability to click into any stock.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import streamlit as st
+
+if TYPE_CHECKING:
+    import pandas as pd
 
 
 @st.cache_data(ttl=300, show_spinner=False)
@@ -170,7 +175,6 @@ def _display_results(df: "pd.DataFrame", title: str) -> None:
 
 def render() -> None:
     """Render the Screener page."""
-    from wraquant.dashboard.components.charts import COLORS
     from wraquant.dashboard.components.sidebar import check_api_key
 
     st.markdown("# Stock Screener")

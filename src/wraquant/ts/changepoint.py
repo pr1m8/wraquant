@@ -5,9 +5,6 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from wraquant.core.decorators import requires_extra
-
-
 def cusum(data: pd.Series, threshold: float = 1.0) -> pd.Series:
     """Cumulative sum (CUSUM) control chart for change detection.
 
@@ -42,7 +39,6 @@ def cusum(data: pd.Series, threshold: float = 1.0) -> pd.Series:
     return cusum_pos + cusum_neg
 
 
-@requires_extra("timeseries")
 def detect_changepoints(
     data: pd.Series,
     method: str = "pelt",
@@ -64,7 +60,17 @@ def detect_changepoints(
     Raises:
         ValueError: If *method* is not recognized.
     """
-    import ruptures as rpt
+    try:
+        import ruptures as rpt
+    except ModuleNotFoundError:
+        values = data.dropna()
+        if len(values) < 4:
+            return []
+        rolling = values.rolling(max(4, min(20, len(values) // 5)), min_periods=2)
+        z = ((values - rolling.mean()) / rolling.std()).abs().replace([np.inf], np.nan)
+        threshold = float(z.quantile(0.99)) if z.notna().any() else np.inf
+        points = np.flatnonzero((z > threshold).to_numpy())
+        return [int(point) for point in points if point < len(values) - 1]
 
     signal = data.dropna().values.reshape(-1, 1)
 

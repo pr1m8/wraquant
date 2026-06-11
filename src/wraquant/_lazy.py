@@ -65,28 +65,68 @@ class _MissingModule:
 
 # Mapping from optional dependency group names to their key module
 _EXTRA_TO_MODULES: dict[str, list[str]] = {
-    "accelerate": ["polars", "numba"],
+    "accelerate": [
+        "polars",
+        "pyarrow",
+        "duckdb",
+        "numba",
+        "bottleneck",
+        "numexpr",
+        "joblib",
+        "orjson",
+        "msgpack",
+    ],
     "symbolic": ["sympy"],
-    "logging": ["loguru", "rich"],
+    "logging": ["loguru", "rich", "tenacity"],
     "ml": ["sklearn"],
-    "market-data": ["yfinance", "fredapi", "nasdaqdatalink"],
-    "timeseries": ["pmdarima", "arch", "ruptures", "darts"],
+    "market-data": [
+        "yfinance",
+        "pandas_datareader",
+        "fredapi",
+        "nasdaqdatalink",
+        "exchange_calendars",
+        "pandas_market_calendars",
+    ],
+    "timeseries": [
+        "pmdarima",
+        "arch",
+        "linearmodels",
+        "statsforecast",
+        "neuralforecast",
+        "hierarchicalforecast",
+        "tslearn",
+        "tsfresh",
+        "ruptures",
+        "stumpy",
+        "pywt",
+    ],
     "cleaning": ["janitor", "rapidfuzz"],
     "validation": ["pandera"],
     "etl": ["sqlalchemy", "connectorx"],
     "ingestion": ["httpx", "aiohttp"],
     "workflow": ["prefect", "dagster", "apscheduler"],
     "optimization": ["cvxpy", "pymoo"],
-    "regimes": ["hmmlearn", "pykalman", "dynamax", "river"],
+    "regimes": [
+        "hmmlearn",
+        "pomegranate",
+        "pykalman",
+        "filterpy",
+        "dynamax",
+        "tensorflow_probability",
+        "pymc",
+        "pyro",
+        "ruptures",
+    ],
     "backtesting": ["vectorbt", "quantstats"],
-    "risk": ["pypfopt", "riskfolio", "copulas", "copulae", "pyextremes"],
+    "risk": ["pypfopt", "riskfolio", "skfolio", "pyvinecopulib"],
     "pricing": ["QuantLib", "financepy"],
     "stochastic": ["sdepy", "sdeint"],
     "viz": ["matplotlib", "plotly"],
     "bayes": ["pymc", "arviz", "emcee", "blackjax"],
     "quant-math": ["jax"],
     "scale": ["dask", "ray"],
-    "causal": ["dowhy", "econml"],
+    "causal": ["dowhy", "doubleml"],
+    "dashboard": ["streamlit", "plotly", "streamlit_option_menu"],
 }
 
 
@@ -102,4 +142,4 @@ def check_extra(group: str) -> bool:
     modules = _EXTRA_TO_MODULES.get(group)
     if modules is None:
         return False
-    return any(is_available(m) for m in modules)
+    return all(is_available(m) for m in modules)

@@ -366,7 +366,6 @@ def default_probability(
         >>> print(f"5yr PD from AAA: {pd_5yr[0]:.4f}")
         >>> print(f"5yr PD from BBB: {pd_5yr[1]:.4f}")
     """
-    from wraquant.core._coerce import coerce_array
 
     if horizon < 1:
         raise ValueError("horizon must be >= 1")

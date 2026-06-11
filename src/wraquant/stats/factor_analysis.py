@@ -505,7 +505,7 @@ def common_factors(
     for ret in returns_list:
         X = np.asarray(ret, dtype=float)
         X_c = X - X.mean(axis=0)
-        T = X_c.shape[0]
+        X_c.shape[0]
         n_comp = min(n_components, X_c.shape[1])
         U, S, Vt = np.linalg.svd(X_c, full_matrices=False)
         scores = X_c @ Vt[:n_comp].T  # (T, n_comp)

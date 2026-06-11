@@ -157,7 +157,7 @@ class TestOpenWorkspace:
         result = tools["open_workspace"](name="populated")
         assert ctx_holder[0].workspace_dir.name == "populated"
         # Datasets from DuckDB should persist
-        assert "datasets" in result
+        assert "prices" in result["datasets"]
 
     def test_open_nonexistent_workspace_errors(self, mcp_tools):
         tools, _ = mcp_tools
@@ -177,6 +177,8 @@ class TestOpenWorkspace:
 
         assert "workspace" in result
         assert "models" in result
+        assert "prices" in result["datasets"]
+        assert "my_model" in result["models"]
 
 
 # ------------------------------------------------------------------
@@ -304,6 +306,8 @@ class TestRestoreSnapshot:
         # Restore snapshot
         result = tools["restore_snapshot"](name="before_change")
         assert result["status"] == "restored"
+        assert "original" in ctx_holder[0].list_datasets()
+        assert "extra" not in ctx_holder[0].list_datasets()
 
     def test_restore_nonexistent_snapshot_errors(self, mcp_tools):
         tools, _ = mcp_tools

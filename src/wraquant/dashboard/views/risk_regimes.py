@@ -6,7 +6,12 @@ detection visualization, and rolling volatility chart.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import streamlit as st
+
+if TYPE_CHECKING:
+    import pandas as pd
 
 
 @st.cache_data(ttl=300, show_spinner=False)
@@ -333,7 +338,7 @@ def render() -> None:
             # Drawdown
             fig.add_trace(
                 go.Scatter(
-                    x=dd_dates,
+                    x=drawdowns.index,
                     y=drawdowns.values,
                     mode="lines",
                     name="Drawdown",

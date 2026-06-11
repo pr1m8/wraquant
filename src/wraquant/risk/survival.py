@@ -504,7 +504,6 @@ def exponential_survival(
     See Also:
         weibull_survival: Generalises exponential with time-varying hazard.
     """
-    from wraquant.core._coerce import coerce_array
 
     if lambda_param < 0:
         raise ValueError("lambda_param must be non-negative")
@@ -555,7 +554,6 @@ def weibull_survival(
         exponential_survival: Simplest case (k=1).
         kaplan_meier: Non-parametric alternative.
     """
-    from wraquant.core._coerce import coerce_array
 
     if lambda_param <= 0:
         raise ValueError("lambda_param must be positive")

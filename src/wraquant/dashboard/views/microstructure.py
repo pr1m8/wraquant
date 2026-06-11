@@ -416,12 +416,10 @@ def render() -> None:
             vr = variance_ratio(returns)
             if isinstance(vr, dict):
                 vr_val = vr.get("variance_ratio", vr.get("ratio", None))
-                vr_stat = vr.get("z_statistic", vr.get("statistic", None))
-                vr_p = vr.get("p_value", None)
+                vr.get("z_statistic", vr.get("statistic", None))
+                vr.get("p_value", None)
             else:
                 vr_val = float(vr) if vr is not None else None
-                vr_stat = None
-                vr_p = None
 
             if vr_val is not None:
                 quality_metrics["Variance Ratio"] = vr_val
@@ -431,8 +429,6 @@ def render() -> None:
                 var_5 = float(returns.rolling(5).sum().var() / 5)
                 vr_val = var_5 / var_1 if var_1 > 0 else 1.0
                 quality_metrics["Variance Ratio"] = vr_val
-                vr_stat = None
-                vr_p = None
             else:
                 vr_val = None
 
